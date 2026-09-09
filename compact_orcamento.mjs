@@ -1,0 +1,13 @@
+import fs from 'node:fs/promises';
+import { FileBlob, SpreadsheetFile } from '@oai/artifact-tool';
+const path='outputs/orcamento_dispositivos/orcamento_dispositivos.xlsx';
+const wb=await SpreadsheetFile.importXlsx(await FileBlob.load(path)); const ws=wb.worksheets.getItem('Orçamento');
+const old=ws.getRange('A5:E50').values; const rows=old.filter(r=>r[0]!==null && r[0]!==undefined && String(r[0]).trim()!=='');
+ws.getRange('A5:E52').clear({applyTo:'all'}); ws.getRange(`A5:E${4+rows.length}`).values=rows;
+const end=4+rows.length, total=end+1;
+ws.getRange(`D5`).formulas=[['=IF(OR(B5="",C5=""),"",B5*C5)']]; ws.getRange(`D5:D${end}`).fillDown();
+ws.getRange(`A${total}`).values=[['TOTAL GERAL']]; ws.getRange(`B${total}`).formulas=[[`=SUM(B5:B${end})`]]; ws.getRange(`D${total}`).formulas=[[`=SUM(D5:D${end})`]];
+ws.getRange(`A5:A${end}`).format={fill:'#FFFFFF',font:{bold:false,color:'#1F1F1F'},wrapText:true}; ws.getRange(`B5:C${end}`).format={fill:'#FFF2CC',horizontalAlignment:'right'}; ws.getRange(`D5:D${end}`).format={fill:'#E2F0D9',horizontalAlignment:'right'}; ws.getRange(`E5:E${end}`).format={font:{italic:true,color:'#666666'},wrapText:true};
+ws.getRange(`B5:B${end}`).format.numberFormat='#,##0'; ws.getRange(`C5:D${end}`).format.numberFormat='R$ #,##0.00'; ws.getRange(`A5:E${end}`).format.borders={insideHorizontal:{style:'thin',color:'#D9E2F3'},bottom:{style:'thin',color:'#D9E2F3'}}; ws.getRange(`A5:E${end}`).format.rowHeight=24;
+ws.getRange(`A${total}:D${total}`).format={fill:'#D9EAD3',font:{bold:true,color:'#1F1F1F'},borders:{preset:'doubleBottom',style:'double',color:'#548235'}}; ws.getRange(`B${total}`).format.numberFormat='#,##0'; ws.getRange(`D${total}`).format.numberFormat='R$ #,##0.00';
+const e=await wb.inspect({kind:'match',searchTerm:'#REF!|#DIV/0!|#VALUE!|#NAME\\?|#N/A',options:{useRegex:true,maxResults:100},summary:'formula error scan'}); console.log(e.ndjson); const p=await wb.render({sheetName:'Orçamento',range:`A1:E${total}`,scale:1.2,format:'png'}); await fs.writeFile('outputs/orcamento_dispositivos/preview.png',new Uint8Array(await p.arrayBuffer())); await (await SpreadsheetFile.exportXlsx(wb)).save(path);

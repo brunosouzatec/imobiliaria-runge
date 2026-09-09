@@ -1,0 +1,56 @@
+:root { --ink:#414345; --muted:#707276; --accent:#e96b1f; --cream:#f5f5f3; --line:#d8d9da; }
+* { box-sizing:border-box; }
+body { margin:0; color:var(--ink); background:var(--cream); font-family:Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+button, input { font:inherit; }
+.react-shell { min-height:100vh; display:grid; grid-template-rows:auto 1fr; }
+.react-header { position:sticky; top:0; z-index:1000; display:flex; align-items:center; gap:28px; padding:18px 32px; background:#fffdf9f5; backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+.react-brand { display:flex; align-items:center; color:var(--ink); text-decoration:none; letter-spacing:.02em; line-height:1.05; margin-right:0; }
+.react-brand img { display:block; width:170px; height:auto; }
+.home-button { color:var(--muted); text-decoration:none; font-size:.88rem; white-space:nowrap; }
+.home-button:hover { color:var(--accent); }
+.home-button.active, .react-action.active, .react-nav > a.active, .react-user-link.active { color:var(--ink)!important; }
+.home-button.active::after, .react-action.active::after, .react-nav > a.active::after, .react-user-link.active::after { content:""; position:absolute; left:0; right:0; bottom:-22px; height:4px; border-radius:4px 4px 0 0; background:var(--accent); }
+.home-button, .react-nav > a, .react-user-link { position:relative; }
+.react-brand strong { display:block; font-family:Georgia,serif; font-size:1.4rem; font-weight:500; }
+.react-brand small { color:var(--accent); text-transform:uppercase; letter-spacing:.17em; font-size:.64rem; }
+.react-nav { display:flex; gap:18px; align-items:center; margin-left:auto; }
+.react-nav a { color:var(--muted); text-decoration:none; font-size:.88rem; }
+.react-nav a:hover { color:var(--accent); }
+.react-action { padding:0; border:0; color:var(--muted)!important; border-radius:0; background:transparent; text-decoration:none; font-size:.88rem; }
+.react-action:hover { color:var(--accent)!important; }
+.react-user-link { display:flex; align-items:center; gap:9px; color:var(--ink); text-decoration:none; font-size:.88rem; font-weight:600; }
+.react-avatar { display:grid; place-items:center; width:32px; height:32px; border-radius:50%; background:var(--accent); color:#fff; font-size:.72rem; letter-spacing:.03em; }
+.react-user-menu { position:relative; }
+.react-user-menu > button { border:0; background:transparent; cursor:pointer; }
+.user-chevron { color:var(--muted); font-size:1rem; }
+.user-dropdown { position:absolute; right:0; top:calc(100% + 12px); min-width:190px; padding:7px; background:#fffdf9; border:1px solid var(--line); box-shadow:0 14px 30px #24302b20; }
+.user-dropdown a, .user-dropdown button { display:block; width:100%; padding:10px 12px; border:0; background:transparent; color:var(--ink); text-align:left; text-decoration:none; cursor:pointer; font-size:.84rem; }
+.user-dropdown a:hover, .user-dropdown button:hover { background:var(--cream); color:var(--accent); }
+.react-main { display:grid; grid-template-columns:minmax(300px, 34%) 1fr; min-height:calc(100vh - 78px); }
+.react-panel { padding:clamp(28px,5vw,72px); background:#fffdf9; display:flex; flex-direction:column; }
+.eyebrow { color:var(--accent); font-size:.7rem; letter-spacing:.18em; text-transform:uppercase; margin:0 0 16px; }
+h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; letter-spacing:-.04em; }
+.react-copy { color:var(--muted); line-height:1.7; max-width:410px; }
+.react-search { margin-top:35px; position:relative; }
+.react-search label { display:block; font-size:.76rem; text-transform:uppercase; letter-spacing:.1em; margin-bottom:9px; }
+.react-search-row { display:flex; gap:8px; }
+.react-search input { width:100%; min-width:0; padding:14px 16px; border:1px solid var(--line); border-radius:4px; background:white; outline:none; }
+.react-search input:focus { border-color:var(--accent); box-shadow:0 0 0 3px #b36d4322; }
+.react-search button { border:0; border-radius:4px; padding:0 18px; color:#fff; background:var(--ink); cursor:pointer; }
+.react-suggestions { position:absolute; z-index:20; left:0; right:65px; top:74px; background:white; border:1px solid var(--line); box-shadow:0 12px 30px #24302b1c; }
+.react-suggestions button { display:block; width:100%; padding:12px 14px; border:0; border-bottom:1px solid var(--line); background:white; color:var(--ink); text-align:left; cursor:pointer; }
+.react-suggestions button:hover { background:#f7f3ed; }
+.react-stats { display:flex; gap:28px; margin-top:auto; padding-top:45px; }
+.react-stats strong { display:block; font:500 1.7rem Georgia,serif; }
+.react-stats span { color:var(--muted); font-size:.75rem; }
+.react-map { position:relative; min-height:520px; }
+#react-map { position:absolute; inset:0; }
+.react-map-label { position:absolute; z-index:10; top:20px; right:20px; padding:10px 14px; border-radius:999px; background:#fffdf9e8; color:var(--ink); box-shadow:0 8px 24px #24302b1c; font-size:.78rem; }
+.react-error { color:#a14e38; font-size:.8rem; margin-top:10px; }
+.react-empty { color:var(--muted); font-size:.8rem; margin-top:20px; }
+.react-popup { min-width:190px; }
+.react-popup small { color:var(--accent); text-transform:uppercase; letter-spacing:.08em; }
+.react-popup h3 { margin:7px 0; font:500 1.1rem Georgia,serif; }
+.react-popup p { margin:0 0 12px; color:var(--muted); }
+.react-popup a { color:var(--accent); font-weight:600; text-decoration:none; }
+@media (max-width:800px) { .react-header { padding:16px 20px; } .react-nav a:not(.react-action) { display:none; } .react-main { display:block; } .react-panel { min-height:430px; padding:34px 24px; } .react-map { height:58vh; min-height:420px; } .react-stats { margin-top:25px; padding-top:0; } }

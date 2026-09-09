@@ -1,0 +1,12 @@
+import fs from 'node:fs/promises';
+import { FileBlob, SpreadsheetFile } from '@oai/artifact-tool';
+const path='outputs/orcamento_dispositivos/orcamento_dispositivos.xlsx';
+const wb=await SpreadsheetFile.importXlsx(await FileBlob.load(path)); const ws=wb.worksheets.getItem('Orçamento');
+const data=ws.getRange('A40:E52').values;
+ws.getRange('A38:E54').clear({applyTo:'all'});
+ws.getRange('A38:E50').values=data;
+ws.getRange('D38').formulas=[['=IF(OR(B38="",C38=""),"",B38*C38)']]; ws.getRange('D38:D50').fillDown();
+ws.getRange('A52:C52').merge(); ws.getRange('A52').values=[['TOTAL GERAL']]; ws.getRange('D52').formulas=[['=SUM(D5:D50)']];
+ws.getRange('A38:A50').format={fill:'#FFFFFF',font:{bold:false,color:'#1F1F1F'},wrapText:true}; ws.getRange('B38:C50').format={fill:'#FFF2CC',horizontalAlignment:'right'}; ws.getRange('D38:D50').format={fill:'#E2F0D9',horizontalAlignment:'right'}; ws.getRange('E38:E50').format={font:{italic:true,color:'#666666'},wrapText:true};
+ws.getRange('B38:B50').format.numberFormat='#,##0'; ws.getRange('C38:D50').format.numberFormat='R$ #,##0.00'; ws.getRange('A38:E50').format.borders={insideHorizontal:{style:'thin',color:'#D9E2F3'},bottom:{style:'thin',color:'#D9E2F3'}}; ws.getRange('A38:E50').format.rowHeight=24; ws.getRange('A52:D52').format={fill:'#D9EAD3',font:{bold:true,color:'#1F1F1F'},borders:{preset:'doubleBottom',style:'double',color:'#548235'}};
+const e=await wb.inspect({kind:'match',searchTerm:'#REF!|#DIV/0!|#VALUE!|#NAME\\?|#N/A',options:{useRegex:true,maxResults:100},summary:'formula error scan'}); console.log(e.ndjson); const p=await wb.render({sheetName:'Orçamento',range:'A1:E52',scale:1.2,format:'png'}); await fs.writeFile('outputs/orcamento_dispositivos/preview.png',new Uint8Array(await p.arrayBuffer())); await (await SpreadsheetFile.exportXlsx(wb)).save(path);
