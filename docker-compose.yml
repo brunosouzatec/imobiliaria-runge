@@ -36,8 +36,15 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MAPBOX_TOKEN: ${MAPBOX_TOKEN}
+      DATA_DIR: /data
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
     volumes:
       - runge-data:/data
+      - ./Fotos_imoveis:/data/Fotos_imoveis
 
 volumes:
   runge-data:

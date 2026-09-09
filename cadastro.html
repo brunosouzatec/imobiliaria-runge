@@ -103,10 +103,12 @@
       <div class="form-section">
         <div class="section-heading"><span>03</span><h2>Imagem e contato</h2></div>
         <div class="fields-grid">
-          <label class="field field-wide upload-field">Foto principal
-            <input type="file" name="foto" accept="image/png,image/jpeg,image/webp">
+          <label class="field field-wide upload-field">Fotos do imóvel
+            <input type="file" id="photo-input" name="foto" accept="image/png,image/jpeg,image/webp" multiple hidden>
             <small>JPG, PNG ou WEBP · até 5 MB</small>
           </label>
+          <div class="photo-dropzone" id="photo-dropzone" tabindex="0" role="button" aria-label="Selecionar ou arrastar fotos"><strong>Arraste as fotos para cá</strong><span>ou clique para escolher no computador</span><small>JPG, PNG ou WEBP · até 10 fotos, 5 MB cada</small></div>
+          <div class="photo-preview" id="existing-photo-preview"></div><div class="photo-preview" id="photo-preview"></div><p class="photo-message" id="photo-message" role="status"></p>
           <input type="hidden" name="corretora" id="corretora-hidden">
         </div>
       </div>
@@ -124,6 +126,22 @@
     const enderecoInput = document.querySelector('input[name="endereco"]');
     const addressSuggestions = document.querySelector('#address-suggestions');
     const propertyForm = document.querySelector('#property-form');
+    const photoInput = document.querySelector('#photo-input');
+    const photoDropzone = document.querySelector('#photo-dropzone');
+    const photoPreview = document.querySelector('#photo-preview');
+    const existingPhotoPreview = document.querySelector('#existing-photo-preview');
+    const photoMessage = document.querySelector('#photo-message');
+    let selectedPhotos = [];
+    let existingPhotos = [];
+    function renderExistingPhotos() { existingPhotoPreview.innerHTML = ''; existingPhotos.forEach((foto) => { const item = document.createElement('div'); item.className = 'photo-preview-item'; item.innerHTML = `<img src="${foto.url}" alt="${foto.nome || 'Foto do imóvel'}"><button type="button" aria-label="Excluir foto">×</button>`; item.querySelector('button').addEventListener('click', async () => { const response = await fetch(`/api/imoveis/${foto.imovel_id || new URLSearchParams(location.search).get('id')}/fotos/${foto.id}`, { method: 'DELETE' }); if (response.ok) { existingPhotos = existingPhotos.filter((item) => item.id !== foto.id); renderExistingPhotos(); } }); existingPhotoPreview.appendChild(item); }); }
+    function renderPhotoPreview() { photoPreview.innerHTML = ''; selectedPhotos.forEach((file, index) => { const item = document.createElement('div'); item.className = 'photo-preview-item'; item.innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Prévia da foto ${index + 1}"><button type="button" aria-label="Remover foto">×</button><small>${index + 1}</small>`; item.querySelector('button').addEventListener('click', () => { selectedPhotos.splice(index, 1); renderPhotoPreview(); }); photoPreview.appendChild(item); }); }
+    function addPhotos(files) { const valid = [...files].filter((file) => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size <= 5 * 1024 * 1024); const rejected = [...files].length - valid.length; selectedPhotos = [...selectedPhotos, ...valid].slice(0, 10); photoMessage.textContent = rejected ? 'Alguns arquivos foram ignorados. Use JPG, PNG ou WEBP de até 5 MB.' : selectedPhotos.length >= 10 ? 'Limite de 10 fotos atingido.' : ''; renderPhotoPreview(); }
+    photoDropzone.addEventListener('click', () => photoInput.click());
+    photoDropzone.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); photoInput.click(); } });
+    photoInput.addEventListener('change', () => { addPhotos(photoInput.files); photoInput.value = ''; });
+    photoDropzone.addEventListener('dragover', (event) => { event.preventDefault(); photoDropzone.classList.add('is-dragging'); });
+    photoDropzone.addEventListener('dragleave', () => photoDropzone.classList.remove('is-dragging'));
+    photoDropzone.addEventListener('drop', (event) => { event.preventDefault(); photoDropzone.classList.remove('is-dragging'); addPhotos(event.dataTransfer.files); });
     const userTypeSelection = document.querySelector('#user-type-selection');
     const tipoUsuarioInput = document.querySelector('#tipo-usuario');
     const userForm = document.querySelector('#user-form');
@@ -151,6 +169,13 @@
       tipoUsuarioInput.value = data.usuario.tipo_usuario; userTypeSelection.classList.add('is-hidden'); userForm.classList.add('is-hidden'); propertyForm.classList.remove('is-hidden'); locationMap.invalidateSize();
     }
     prepararCadastroLogado();
+    async function prepararEdicao() {
+      const params = new URLSearchParams(location.search); if (params.get('modo') !== 'editar' || !params.get('id')) return;
+      const response = await fetch('/api/minha-conta'); if (!response.ok) return (window.location.href = 'login.html'); const data = await response.json(); const imovel = data.imoveis.find((item) => item.id === Number(params.get('id'))); if (!imovel) return (window.location.href = 'login.html');
+      const mapFields = { titulo: imovel.titulo, tipo: imovel.tipo, categoria: imovel.categoria, preco: imovel.preco, descricao: imovel.descricao, endereco: imovel.endereco, latitude: imovel.coordenadas.latitude, longitude: imovel.coordenadas.longitude };
+      Object.entries(mapFields).forEach(([name, value]) => { const input = propertyForm.querySelector(`[name="${name}"]`); if (input) input.value = value ?? ''; }); document.querySelector('#preco-display').value = Number(imovel.preco).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); tipoUsuarioInput.value = data.usuario.tipo_usuario; existingPhotos = imovel.fotos || []; renderExistingPhotos(); userTypeSelection.classList.add('is-hidden'); userForm.classList.add('is-hidden'); propertyForm.classList.remove('is-hidden'); locationMap.invalidateSize(); selecionarLocal(Number(imovel.coordenadas.latitude), Number(imovel.coordenadas.longitude), false); document.querySelector('.form-intro h1').textContent = 'Edite seu imóvel.'; document.querySelector('.form-intro .eyebrow').textContent = 'Editar anúncio'; propertyForm.querySelector('.form-actions button').textContent = 'Salvar alterações';
+    }
+    prepararEdicao();
     const formatarTelefone = (value) => { const digits = value.replace(/\D/g, '').slice(0, 11); if (digits.length <= 2) return `(${digits}`; if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`; return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`; };
     document.querySelector('#telefone-usuario').addEventListener('input', (event) => { event.target.value = formatarTelefone(event.target.value); });
     const senhaInput = document.querySelector('#senha-usuario');
@@ -294,8 +319,10 @@
         document.querySelector('#coordinates-message').textContent = 'Marque a localização do imóvel no mapa antes de publicar.';
         return;
       }
-      const dados = Object.fromEntries(new FormData(event.currentTarget));
-      fetch('/api/imoveis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) })
+      const dados = new FormData(event.currentTarget); dados.delete('foto'); selectedPhotos.forEach((file) => dados.append('fotos', file, file.name));
+      const params = new URLSearchParams(location.search);
+      if (params.get('modo') === 'editar' && params.get('id')) { const values = Object.fromEntries(dados); ['foto', 'fotos', 'corretora'].forEach((key) => delete values[key]); fetch(`/api/imoveis/${params.get('id')}`, { method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) }).then((response) => { if (!response.ok) throw new Error('update-failed'); return response.json(); }).then(() => { if (!selectedPhotos.length) return null; const photos = new FormData(); selectedPhotos.forEach((file) => photos.append('fotos', file, file.name)); return fetch(`/api/imoveis/${params.get('id')}/fotos`, { method: 'POST', credentials: 'same-origin', body: photos }); }).then((response) => { if (response && !response.ok) throw new Error('photos-failed'); window.location.href = `imovel.html?id=${params.get('id')}`; }).catch(() => { document.querySelector('#form-message').textContent = 'Não foi possível atualizar o imóvel. Verifique as fotos e tente novamente.'; }); return; }
+      fetch('/api/imoveis', { method: 'POST', body: dados })
         .then((response) => { if (!response.ok) throw new Error('save-failed'); return response.json(); })
         .then((imovel) => { window.location.href = `sucesso.html?nome=${encodeURIComponent(propertyForm.querySelector('[name="nome_usuario"]').value)}&id=${imovel.id}`; })
         .catch(() => { document.querySelector('#form-message').textContent = 'Não foi possível salvar o imóvel.'; });
