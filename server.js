@@ -1,10 +1,17 @@
 const http = require('http');
+const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const mysql = require('mysql2/promise');
 
 const root = __dirname;
+const dataDir = process.env.DATA_DIR || path.join(root, 'data');
+const photosDir = path.join(dataDir, 'Fotos_imoveis');
+fs.mkdirSync(photosDir, { recursive: true });
+const r2Enabled = Boolean(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME && process.env.R2_PUBLIC_URL);
+const r2Client = r2Enabled ? new S3Client({ region: 'auto', endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`, credentials: { accessKeyId: process.env.R2_ACCESS_KEY_ID, secretAccessKey: process.env.R2_SECRET_ACCESS_KEY } }) : null;
+const r2PublicUrl = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
 const port = Number(process.env.PORT || 3000);
 const SESSION_TIMEOUT = 10 * 60 * 1000;
 const sessions = new Map();
@@ -23,19 +30,91 @@ async function initDatabase() {
   await pool.query(`CREATE TABLE IF NOT EXISTS usuarios (id INT AUTO_INCREMENT PRIMARY KEY, tipo_usuario VARCHAR(80) NOT NULL, nome VARCHAR(180) NOT NULL, telefone VARCHAR(40) NOT NULL, email VARCHAR(180) NOT NULL UNIQUE, senha_hash TEXT, cep VARCHAR(12), rua VARCHAR(180), numero VARCHAR(30), bairro VARCHAR(120), cidade VARCHAR(120), estado VARCHAR(2), creci VARCHAR(40), cnpj VARCHAR(24), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS imoveis (id INT AUTO_INCREMENT PRIMARY KEY, titulo VARCHAR(180) NOT NULL, tipo ENUM('Venda','Aluguel') NOT NULL, preco DECIMAL(14,2) NOT NULL, categoria VARCHAR(100) NOT NULL, endereco VARCHAR(255) NOT NULL, descricao TEXT, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, tipo_usuario VARCHAR(80) DEFAULT 'Proprietário Direto', usuario_id INT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS contatos (id INT AUTO_INCREMENT PRIMARY KEY, imovel_id INT NOT NULL, nome VARCHAR(180) NOT NULL, telefone VARCHAR(40) NOT NULL, email VARCHAR(180) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (imovel_id) REFERENCES imoveis(id) ON DELETE CASCADE)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS imovel_fotos (id INT AUTO_INCREMENT PRIMARY KEY, imovel_id INT NOT NULL, caminho VARCHAR(255) NOT NULL, nome_original VARCHAR(255) NOT NULL, ordem INT NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (imovel_id) REFERENCES imoveis(id) ON DELETE CASCADE)`);
 }
 function imovelJson(row) { return { ...row, preco: Number(row.preco), coordenadas: { latitude: Number(row.latitude), longitude: Number(row.longitude) } }; }
+async function comFotos(rows) {
+  if (!rows.length) return [];
+  const ids = rows.map((row) => row.id);
+  const [fotos] = await pool.query(`SELECT id, imovel_id, caminho, nome_original FROM imovel_fotos WHERE imovel_id IN (${ids.map(() => '?').join(',')}) ORDER BY ordem, id`, ids);
+  const porImovel = new Map(ids.map((id) => [id, []]));
+  fotos.forEach((foto) => porImovel.get(foto.imovel_id)?.push({ id: foto.id, url: foto.caminho, nome: foto.nome_original }));
+  return rows.map((row) => ({ ...imovelJson(row), fotos: porImovel.get(row.id) || [] }));
+}
 function sendJson(res, status, data, headers = {}) { res.writeHead(status, { 'Content-Type':'application/json; charset=utf-8', ...headers }); res.end(JSON.stringify(data)); }
 function bodyJson(req) { return new Promise((resolve, reject) => { let body=''; req.on('data', chunk => body += chunk); req.on('end', () => { try { resolve(JSON.parse(body || '{}')); } catch (e) { reject(e); } }); }); }
+function parseMultipart(req) {
+  return new Promise((resolve, reject) => {
+    const match = (req.headers['content-type'] || '').match(/boundary=(?:"([^"]+)"|([^;]+))/i); if (!match) return reject(new Error('boundary-missing'));
+    const boundary = Buffer.from(`--${match[1] || match[2]}`); const chunks = []; let total = 0; const maxSize = 40 * 1024 * 1024;
+    req.on('data', (chunk) => { total += chunk.length; if (total > maxSize) { req.destroy(); reject(new Error('upload-too-large')); } else chunks.push(chunk); }); req.on('error', reject);
+    req.on('end', () => { try { const body = Buffer.concat(chunks); const fields = {}; const files = []; let cursor = 0; while ((cursor = body.indexOf(boundary, cursor)) !== -1) { cursor += boundary.length; if (body.slice(cursor, cursor + 2).toString() === '--') break; if (body.slice(cursor, cursor + 2).toString() === '\r\n') cursor += 2; const next = body.indexOf(boundary, cursor); if (next === -1) break; const part = body.slice(cursor, next - 2); const separator = part.indexOf(Buffer.from('\r\n\r\n')); if (separator === -1) continue; const headers = part.slice(0, separator).toString(); const value = part.slice(separator + 4); const disposition = headers.match(/content-disposition:\s*[^\r\n]*?\bname="([^"]+)"(?:;\s*filename="([^"]*)")?/i); if (!disposition) continue; if (disposition[2]) files.push({ name: disposition[1], filename: path.basename(disposition[2]), mimetype: (headers.match(/content-type:\s*([^\r\n]+)/i) || [])[1] || '', buffer: value }); else fields[disposition[1]] = value.toString(); cursor = next; } resolve({ fields, files }); } catch (error) { reject(error); } });
+  });
+}
+function imageExtension(file) {
+  const allowed = { 'image/jpeg': '.jpg', 'image/jpg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
+  return allowed[String(file.mimetype || '').trim().toLowerCase()] || ({ '.jpg': '.jpg', '.jpeg': '.jpg', '.png': '.png', '.webp': '.webp' }[path.extname(file.filename || '').toLowerCase()] || null);
+}
+function photoObjectKey(propertyId, title, filename) { return `imoveis/${propertyId}-${folderSlug(title)}/${filename}`; }
+async function savePhoto(file, key) {
+  if (r2Enabled) { await r2Client.send(new PutObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: key, Body: file.buffer, ContentType: file.mimetype || 'application/octet-stream' })); return `${r2PublicUrl}/${key}`; }
+  const localPath = path.join(photosDir, key.replace(/^imoveis\//, '').replaceAll('/', path.sep)); fs.mkdirSync(path.dirname(localPath), { recursive: true }); fs.writeFileSync(localPath, file.buffer); return `/Fotos_imoveis/${key.replace(/^imoveis\//, '')}`;
+}
+async function removePhoto(caminho) {
+  if (r2Enabled && caminho.startsWith(r2PublicUrl + '/')) return r2Client.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: caminho.slice(r2PublicUrl.length + 1) }));
+  const file = path.resolve(dataDir, `.${caminho}`); if (file.startsWith(path.resolve(photosDir)) && fs.existsSync(file)) fs.unlinkSync(file);
+}
+function folderSlug(value) { return String(value || 'imovel').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'imovel'; }
 function cookies(req) { return Object.fromEntries((req.headers.cookie || '').split(';').filter(Boolean).map(x => x.trim().split('=').map(decodeURIComponent))); }
-async function userPayload(id) { const [[usuario]] = await pool.query('SELECT id,nome,email,telefone,cep,rua,numero,bairro,cidade,estado,tipo_usuario,creci,cnpj FROM usuarios WHERE id=?', [id]); const [rows] = await pool.query('SELECT * FROM imoveis WHERE usuario_id=? ORDER BY id DESC', [id]); return { usuario, imoveis: rows.map(imovelJson) }; }
+async function userPayload(id) { const [[usuario]] = await pool.query('SELECT id,nome,email,telefone,cep,rua,numero,bairro,cidade,estado,tipo_usuario,creci,cnpj FROM usuarios WHERE id=?', [id]); const [rows] = await pool.query('SELECT * FROM imoveis WHERE usuario_id=? ORDER BY id DESC', [id]); return { usuario, imoveis: await comFotos(rows) }; }
 async function authenticatedUser(req, res) { const token = cookies(req).runge_session; const session = sessions.get(token); if (!session || session.expiresAt < Date.now()) { if (token) sessions.delete(token); sendJson(res, 401, { error:'Sessão expirada.' }); return null; } session.expiresAt = Date.now() + SESSION_TIMEOUT; return session.userId; }
+
+async function ownedProperty(req, res, propertyId) { const userId = await authenticatedUser(req, res); if (!userId) return null; const [[property]] = await pool.query('SELECT * FROM imoveis WHERE id=? AND usuario_id=?', [propertyId, userId]); if (!property) { sendJson(res, 404, { error: 'ImÃ³vel nÃ£o encontrado.' }); return null; } return { userId, property }; }
+async function updateProperty(req, res, propertyId) { const owned = await ownedProperty(req, res, propertyId); if (!owned) return; const d = await bodyJson(req); if (!d.titulo || !d.tipo || !d.categoria || !d.preco || !d.endereco || !d.latitude || !d.longitude) return sendJson(res, 400, { error: 'Preencha os campos obrigatÃ³rios.' }); await pool.query('UPDATE imoveis SET titulo=?,tipo=?,preco=?,categoria=?,endereco=?,descricao=?,latitude=?,longitude=? WHERE id=?', [d.titulo, d.tipo, Number(d.preco), d.categoria, d.endereco, d.descricao || '', Number(d.latitude), Number(d.longitude), propertyId]); const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]); return sendJson(res, 200, (await comFotos([row]))[0]); }
+async function addPropertyPhotos(req, res, propertyId) {
+  const owned = await ownedProperty(req, res, propertyId); if (!owned) return;
+  const parsed = await parseMultipart(req);
+  const folderName = `imovel-${propertyId}-${folderSlug(owned.property.titulo)}`;
+  const folder = path.join(photosDir, folderName); fs.mkdirSync(folder, { recursive: true });
+  const [[last]] = await pool.query('SELECT COALESCE(MAX(ordem), -1) AS ordem FROM imovel_fotos WHERE imovel_id=?', [propertyId]);
+  const fotos = parsed.files.filter((file) => file.name === 'fotos').slice(0, 10);
+  let uploaded = 0;
+  for (const foto of fotos) {
+    const ext = imageExtension(foto); if (!ext || !foto.buffer.length || foto.buffer.length > 5 * 1024 * 1024) continue;
+    const filename = `${crypto.randomBytes(16).toString('hex')}${ext}`;
+    const caminho = await savePhoto(foto, photoObjectKey(propertyId, owned.property.titulo, filename));
+    await pool.query('INSERT INTO imovel_fotos (imovel_id,caminho,nome_original,ordem) VALUES (?,?,?,?)', [propertyId, caminho, foto.filename, Number(last.ordem) + uploaded + 1]);
+    uploaded += 1;
+  }
+  if (!uploaded) return sendJson(res, 400, { error: 'Nenhuma foto válida foi recebida. Use JPG, PNG ou WEBP de até 5 MB.' });
+  const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]);
+  return sendJson(res, 200, { ...(await comFotos([row]))[0], uploaded });
+}
+async function deletePropertyPhoto(req, res, propertyId, photoId) { const owned = await ownedProperty(req, res, propertyId); if (!owned) return; const [[photo]] = await pool.query('SELECT * FROM imovel_fotos WHERE id=? AND imovel_id=?', [photoId, propertyId]); if (!photo) return sendJson(res, 404, { error: 'Foto nÃ£o encontrada.' }); const file = path.resolve(dataDir, `.${photo.caminho}`); if (file.startsWith(path.resolve(photosDir)) && fs.existsSync(file)) fs.unlinkSync(file); await pool.query('DELETE FROM imovel_fotos WHERE id=?', [photoId]); return sendJson(res, 200, { success: true }); }
+async function criarImovelComFotos(req, res) {
+  const parsed = await parseMultipart(req); const d = parsed.fields; const sessionUser = cookies(req).runge_session; let userId = null;
+  if (sessionUser) userId = await authenticatedUser(req, res); if (sessionUser && !userId) return;
+  if (!userId) { if (!d.email_usuario || !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(d.senha_usuario || '')) return sendJson(res, 400, { error: 'E-mail ou senha invÃ¡lidos.' }); const salt = crypto.randomBytes(16).toString('hex'); const hash = `${salt}:${crypto.scryptSync(d.senha_usuario, salt, 64).toString('hex')}`; const [u] = await pool.query('INSERT INTO usuarios (tipo_usuario,nome,telefone,email,senha_hash,cep,rua,numero,bairro,cidade,estado,creci,cnpj) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', [d.tipo_usuario, d.nome_usuario, d.telefone_usuario, d.email_usuario, hash, d.cep_usuario, d.rua_usuario, d.numero_usuario, d.bairro_usuario, d.cidade_usuario, d.estado_usuario, d.creci_usuario || '', d.cnpj_usuario || '']); userId = u.insertId; }
+  const [result] = await pool.query('INSERT INTO imoveis (titulo,tipo,preco,categoria,endereco,descricao,latitude,longitude,tipo_usuario,usuario_id) VALUES (?,?,?,?,?,?,?,?,?,?)', [d.titulo, d.tipo, Number(d.preco), d.categoria, d.endereco, d.descricao || '', Number(d.latitude), Number(d.longitude), d.tipo_usuario || 'ProprietÃ¡rio Direto', userId]);
+  const fotos = parsed.files.filter((file) => file.name === 'fotos').slice(0, 10);
+  for (let ordem = 0; ordem < fotos.length; ordem += 1) { const foto = fotos[ordem]; const ext = imageExtension(foto); if (!ext || !foto.buffer.length || foto.buffer.length > 5 * 1024 * 1024) continue; const filename = `${crypto.randomBytes(16).toString('hex')}${ext}`; const caminho = await savePhoto(foto, photoObjectKey(result.insertId, d.titulo, filename)); await pool.query('INSERT INTO imovel_fotos (imovel_id,caminho,nome_original,ordem) VALUES (?,?,?,?)', [result.insertId, caminho, foto.filename, ordem]); }
+  const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [result.insertId]); return sendJson(res, 201, (await comFotos([row]))[0]);
+}
+
+async function deletePropertyPhotoStored(req, res, propertyId, photoId) { const owned = await ownedProperty(req, res, propertyId); if (!owned) return; const [[photo]] = await pool.query('SELECT * FROM imovel_fotos WHERE id=? AND imovel_id=?', [photoId, propertyId]); if (!photo) return sendJson(res, 404, { error: 'Foto não encontrada.' }); await removePhoto(photo.caminho); await pool.query('DELETE FROM imovel_fotos WHERE id=?', [photoId]); return sendJson(res, 200, { success: true }); }
 
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
+    if (url.pathname.startsWith('/Fotos_imoveis/')) { const file = path.resolve(dataDir, `.${url.pathname}`); if (!file.startsWith(path.resolve(photosDir)) || !fs.existsSync(file)) return sendJson(res,404,{error:'Arquivo nÃ£o encontrado.'}); res.writeHead(200, {'Content-Type': mimeTypes[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable'}); return fs.createReadStream(file).pipe(res); }
     if (url.pathname === '/mapbox-config.js') { res.writeHead(200, {'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}); return res.end(`const MAPBOX_TOKEN = ${JSON.stringify(process.env.MAPBOX_TOKEN || '')};`); }
-    if (url.pathname === '/api/imoveis' && req.method === 'GET') { const [rows] = await pool.query('SELECT * FROM imoveis ORDER BY id DESC'); return sendJson(res, 200, rows.map(imovelJson)); }
+    if (url.pathname.startsWith('/uploads/')) { const file = path.resolve(uploadsDir, path.basename(url.pathname)); if (!file.startsWith(path.resolve(uploadsDir)) || !fs.existsSync(file)) return sendJson(res,404,{error:'Arquivo nÃ£o encontrado.'}); res.writeHead(200, {'Content-Type': mimeTypes[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable'}); return fs.createReadStream(file).pipe(res); }
+    if (url.pathname === '/api/imoveis' && req.method === 'GET') { const [rows] = await pool.query('SELECT * FROM imoveis ORDER BY id DESC'); return sendJson(res, 200, await comFotos(rows)); }
+    const detailFixed = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (detailFixed && req.method === 'GET') { const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [detailFixed[1]]); return row ? sendJson(res, 200, (await comFotos([row]))[0]) : sendJson(res, 404, { error: 'Imóvel não encontrado.' }); }
+    const editRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (editRoute && req.method === 'PATCH') return updateProperty(req, res, editRoute[1]);
+    const photoRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)\/fotos$/); if (photoRoute && req.method === 'POST') return addPropertyPhotos(req, res, photoRoute[1]);
+    const deletePhotoRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)\/fotos\/(\d+)$/); if (deletePhotoRoute && req.method === 'DELETE') return deletePropertyPhotoStored(req, res, deletePhotoRoute[1], deletePhotoRoute[2]);
+    if (url.pathname === '/api/imoveis' && req.method === 'POST' && (req.headers['content-type'] || '').startsWith('multipart/form-data')) return criarImovelComFotos(req, res);
     if (url.pathname === '/api/login' && req.method === 'POST') { const data = await bodyJson(req); const [[user]] = await pool.query('SELECT * FROM usuarios WHERE LOWER(email)=LOWER(?) LIMIT 1', [data.email]); const [salt, hash] = (user?.senha_hash || ':').split(':'); const attempt = user && data.senha ? crypto.scryptSync(data.senha, salt, 64).toString('hex') : ''; if (!user || !hash || !crypto.timingSafeEqual(Buffer.from(hash,'hex'), Buffer.from(attempt,'hex'))) return sendJson(res, 401, {error:'E-mail ou senha inválidos.'}); const token=crypto.randomBytes(32).toString('hex'); sessions.set(token,{userId:user.id,expiresAt:Date.now()+SESSION_TIMEOUT}); return sendJson(res,200,await userPayload(user.id),{'Set-Cookie':`runge_session=${token}; HttpOnly; SameSite=Lax; Max-Age=600; Path=/`}); }
     if (url.pathname === '/api/minha-conta' && req.method === 'GET') { const id=await authenticatedUser(req,res); return id ? sendJson(res,200,await userPayload(id)) : undefined; }
     if (url.pathname === '/api/logout' && req.method === 'POST') { const token=cookies(req).runge_session; sessions.delete(token); return sendJson(res,200,{success:true},{'Set-Cookie':'runge_session=; HttpOnly; SameSite=Lax; Max-Age=0; Path=/'}); }
@@ -47,4 +126,3 @@ const server = http.createServer(async (req, res) => {
   } catch (error) { console.error(error); if(!res.headersSent) sendJson(res,500,{error:'Erro interno do servidor.'}); }
 });
 initDatabase().then(()=>server.listen(port,()=>console.log(`Imobiliária Runge disponível em http://localhost:${port}`))).catch(error=>{console.error('Falha ao iniciar banco MySQL:',error);process.exit(1);});
-

@@ -21,3 +21,6 @@ Thumbs.db
 # Saídas locais e prévias geradas
 outputs/
 .mysql-data/
+Fotos_imoveis/*
+!Fotos_imoveis/.gitkeep
+.env

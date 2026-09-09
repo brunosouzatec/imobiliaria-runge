@@ -6,8 +6,14 @@ function formatPrice(value, tipo) {
   return `${number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}${tipo === 'Aluguel' ? '/mês' : ''}`;
 }
 
-function popupHtml(imovel) {
+function popupHtmlWithPhoto(imovel) {
   return `<article class="react-popup"><small>${imovel.tipo}</small><h3>${imovel.titulo}</h3><p>${formatPrice(imovel.preco, imovel.tipo)}</p><a href="imovel.html?id=${imovel.id}">Ver detalhes →</a></article>`;
+}
+
+function popupHtml(imovel) {
+  const foto = imovel.fotos?.[0];
+  const imagem = foto ? `<img class="react-popup-image" src="${foto.url}" alt="${foto.nome || imovel.titulo}">` : '';
+  return `<article class="react-popup">${imagem}<small>${imovel.tipo}</small><h3>${imovel.titulo}</h3><p>${formatPrice(imovel.preco, imovel.tipo)}</p><a href="imovel.html?id=${imovel.id}">Ver detalhes</a></article>`;
 }
 
 function App() {
@@ -20,6 +26,9 @@ function App() {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [error, setError] = useState('');
+  const geocodeCacheRef = useRef(new Map());
+  const geocodeTimerRef = useRef(null);
+  const geocodeRequestRef = useRef(null);
 
   useEffect(() => {
     const map = L.map(mapRef.current, { zoomControl: true }).setView(TATUI, 14);
@@ -42,7 +51,7 @@ function App() {
     layer.clearLayers();
     imoveis.forEach((imovel) => {
       const coords = imovel.coordenadas || {};
-      if (coords.latitude && coords.longitude) L.marker([coords.latitude, coords.longitude]).addTo(layer).bindPopup(popupHtml(imovel));
+      if (coords.latitude && coords.longitude) { const marker = L.marker([coords.latitude, coords.longitude]).addTo(layer).bindPopup(popupHtml(imovel)); marker.on('click', () => mapInstanceRef.current?.setView([coords.latitude, coords.longitude], mapInstanceRef.current.getZoom(), { animate: true })); }
     });
   }, [imoveis]);
 
@@ -50,6 +59,7 @@ function App() {
     const base = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(value + ', Tatuí, SP')}.json?access_token=${MAPBOX_TOKEN}&language=pt-BR&country=br&limit=${limit}&autocomplete=true`;
     const bairroUrl = `${base}&types=neighborhood,locality,place`;
     const geralUrl = `${base}&types=address,postcode,neighborhood,locality,place`;
+    return buscarMapaOtimizado(value, limit);
     const [bairroResponse, geralResponse] = await Promise.all([fetch(bairroUrl), fetch(geralUrl)]);
     const bairroData = await bairroResponse.json();
     const geralData = await geralResponse.json();
@@ -58,11 +68,10 @@ function App() {
     return [...bairros, ...demais];
   };
 
-  const search = async (value = query) => {
-    if (value.trim().length < 3) return setSuggestions([]);
-    try {
-      setSuggestions(await consultarMapbox(value));
-    } catch { setSuggestions([]); }
+  const search = (value = query) => {
+    clearTimeout(geocodeTimerRef.current); const normalized = value.trim();
+    if (normalized.length < 3) return setSuggestions([]);
+    geocodeTimerRef.current = setTimeout(async () => { try { setSuggestions(await buscarMapaOtimizado(normalized)); } catch (e) { if (e.name !== 'AbortError') setSuggestions([]); } }, 400);
   };
   const searchLocation = async () => {
     const value = query.trim();
@@ -91,6 +100,16 @@ function App() {
     } else map.setView([lat, lng], 16);
     L.popup().setLatLng([lat, lng]).setContent(`<strong>${feature.text}</strong><br>${feature.place_name}`).openOn(map);
   };
+  const buscarMapaOtimizado = async (value, limit = 5) => {
+    const normalized = value.trim().toLowerCase(); if (normalized.length < 3) return [];
+    const cacheKey = `${normalized}|${limit}`; if (geocodeCacheRef.current.has(cacheKey)) return geocodeCacheRef.current.get(cacheKey);
+    geocodeRequestRef.current?.abort(); const controller = new AbortController(); geocodeRequestRef.current = controller;
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(`${value.trim()}, Tatuí, SP`)}.json?access_token=${MAPBOX_TOKEN}&language=pt-BR&country=br&limit=${limit}&autocomplete=true&types=address,postcode,neighborhood,locality,place`;
+    const response = await fetch(url, { signal: controller.signal }); if (!response.ok) throw new Error('mapbox-error');
+    const features = (await response.json()).features || []; geocodeCacheRef.current.set(cacheKey, features); return features;
+  };
+  const buscarSugestoesOtimizado = (value) => { clearTimeout(geocodeTimerRef.current); const normalized = value.trim(); if (normalized.length < 3) return setSuggestions([]); geocodeTimerRef.current = setTimeout(async () => { try { setSuggestions(await buscarMapaOtimizado(normalized)); } catch (e) { if (e.name !== 'AbortError') setSuggestions([]); } }, 400); };
+  const buscarLocalOtimizado = async () => { const value = query.trim(); if (value.length < 3) return; clearTimeout(geocodeTimerRef.current); setSuggestions([]); setError('Buscando localização…'); try { const features = await buscarMapaOtimizado(value); const feature = features.find((item) => ['neighborhood', 'locality', 'place'].includes(item.place_type?.[0])) || features[0]; if (!feature) throw new Error('not-found'); mostrarArea(feature); setError(''); } catch (e) { if (e.name !== 'AbortError') setError('Bairro ou localização não encontrado em Tatuí.'); } };
   const totalLabel = useMemo(() => `${imoveis.length} ${imoveis.length === 1 ? 'imóvel encontrado' : 'imóveis encontrados'}`, [imoveis]);
   const iniciais = usuario ? usuario.nome.trim().split(/\s+/).slice(0, 2).map((nome) => nome[0]).join('').toUpperCase() : '';
   return <div className="react-shell">
