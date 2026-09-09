@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+.env
+.env.*
+!.env.example
+mapbox-config.js
+outputs
+*.log
