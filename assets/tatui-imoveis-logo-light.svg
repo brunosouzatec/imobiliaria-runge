@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 124" role="img" aria-labelledby="title desc">
+  <title id="title">Tatuí Imóveis</title>
+  <desc id="desc">Logo claro Tatuí Imóveis, o portal de imóveis de Tatuí</desc>
+  <g fill="none" stroke="#f7fbf8" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke-width="6" d="M12 58 49 24l37 34v47H12z"/>
+    <path stroke-width="6" d="M49 24 68 7l37 34v64H86"/>
+    <path stroke-width="6" d="M49 72v33M49 105h24"/>
+    <path fill="#df6a25" stroke="none" d="M101 24v43c0 7-6 13-14 13-7 0-12-4-12-9s5-10 12-11c4 0 7 1 9 3V24z"/>
+    <path fill="#df6a25" stroke="none" d="M101 24c15 4 22 13 22 25 0 5-2 10-5 14 1-12-4-20-17-24z"/>
+  </g>
+  <text x="137" y="57" fill="#f7fbf8" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="700" letter-spacing="1.5">TATUÍ IMÓVEIS</text>
+  <text x="139" y="84" fill="#c7d9d3" font-family="Arial, Helvetica, sans-serif" font-size="16" letter-spacing="1.2">O PORTAL DE IMÓVEIS DE TATUÍ</text>
+  <path d="M140 100h210" stroke="#df6a25" stroke-width="3" stroke-linecap="round"/>
+  <text x="362" y="105" fill="#d9ebe5" font-family="Georgia, serif" font-size="17" font-style="italic">Cidade Ternura</text>
+</svg>

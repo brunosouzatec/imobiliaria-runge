@@ -5,7 +5,7 @@ button, input { font:inherit; }
 .react-shell { min-height:100vh; display:grid; grid-template-rows:auto 1fr; }
 .react-header { position:sticky; top:0; z-index:1000; display:flex; align-items:center; gap:28px; padding:18px 32px; background:#fffdf9f5; backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
 .react-brand { display:flex; align-items:center; color:var(--ink); text-decoration:none; letter-spacing:.02em; line-height:1.05; margin-right:0; }
-.react-brand img { display:block; width:170px; height:auto; }
+.react-brand img { content:url('assets/tatui-imoveis-logo.svg'); display:block; width:240px; height:auto; }
 .home-button { color:var(--muted); text-decoration:none; font-size:.88rem; white-space:nowrap; }
 .home-button:hover { color:var(--accent); }
 .home-button.active, .react-action.active, .react-nav > a.active, .react-user-link.active { color:var(--ink)!important; }
@@ -44,7 +44,7 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .react-stats strong { display:block; font:500 1.7rem Georgia,serif; }
 .react-stats span { color:var(--muted); font-size:.75rem; }
 .react-map { position:relative; min-height:520px; }
-#react-map { position:absolute; inset:0; }
+#react-map, #vue-map { position:absolute; inset:0; }
 .react-map-label { position:absolute; z-index:10; top:20px; right:20px; padding:10px 14px; border-radius:999px; background:#fffdf9e8; color:var(--ink); box-shadow:0 8px 24px #24302b1c; font-size:.78rem; }
 .react-error { color:#a14e38; font-size:.8rem; margin-top:10px; }
 .react-empty { color:var(--muted); font-size:.8rem; margin-top:20px; }
@@ -54,4 +54,67 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .react-popup h3 { margin:7px 0; font:500 1.1rem Georgia,serif; }
 .react-popup p { margin:0 0 12px; color:var(--muted); }
 .react-popup a { color:var(--accent); font-weight:600; text-decoration:none; }
-@media (max-width:800px) { .react-header { padding:16px 20px; } .react-nav a:not(.react-action) { display:none; } .react-main { display:block; } .react-panel { min-height:430px; padding:34px 24px; } .react-map { height:58vh; min-height:420px; } .react-stats { margin-top:25px; padding-top:0; } }
+@media (max-width:800px) { .react-header { padding:16px 20px; } .react-brand img { width:190px; } .react-nav a:not(.react-action) { display:none; } .react-main { display:block; } .react-panel { min-height:430px; padding:34px 24px; } .react-map { height:58vh; min-height:420px; } .react-stats { margin-top:25px; padding-top:0; } }
+
+.home-redesign { color:#173c3d; background:#fffdf9; min-height:100vh; }
+.home-header { align-items:center; background:#fffdf9; border-bottom:1px solid #e4e3dc; display:flex; gap:32px; padding:14px clamp(22px,7vw,110px); position:relative; z-index:1000; }
+.home-logo { align-items:center; color:#173c3d; display:flex; gap:10px; text-decoration:none; white-space:nowrap; }
+.home-logo strong { display:block; font-size:1.05rem; letter-spacing:.06em; }
+.home-logo small { color:#6d7775; display:block; font-size:.66rem; margin-top:3px; }
+.home-logo-mark { border:2px solid #173c3d; font-size:1.45rem; line-height:1; padding:5px 7px; }
+.home-header .home-logo { background:url('assets/tatui-imoveis-logo.svg') left center/contain no-repeat; height:58px; width:245px; }
+.home-header .home-logo > * { display:none; }
+.home-header nav { display:flex; gap:25px; margin-left:auto; }
+.home-header nav a { color:#314748; font-size:.82rem; text-decoration:none; }
+.home-header nav a:hover { color:#e5651c; }
+.home-announce,.home-announce-button { background:#e5651c; border-radius:7px; color:#fff; font-weight:700; padding:13px 19px; text-decoration:none; white-space:nowrap; }
+.home-hero { align-items:center; background:linear-gradient(100deg,#102d32e8 0%,#16494db5 52%,#b3613a66 100%),url('assets/tatui-basilica.jpg') center/cover; color:#fff; display:flex; min-height:430px; padding:70px clamp(22px,8vw,120px) 105px; position:relative; }
+.home-hero-content { max-width:590px; }
+.home-kicker { font-size:.72rem; font-weight:800; letter-spacing:.16em; margin:0 0 14px; text-transform:uppercase; }
+.home-hero h1 { font-family:inherit; font-size:clamp(2.8rem,6vw,5.2rem); font-weight:800; letter-spacing:-.06em; line-height:.98; margin:0 0 20px; }
+.home-hero p:not(.home-kicker) { font-size:1.08rem; line-height:1.55; max-width:540px; }
+.home-search { background:#fff; border:1px solid #dce5df; border-radius:12px; bottom:25px; box-shadow:0 15px 35px #102d3244; display:grid; gap:9px; grid-template-columns:2fr 1fr 1fr auto; left:8%; padding:9px; position:absolute; right:8%; }
+.home-search input,.home-search select { border:1px solid #d9dfdb; border-radius:7px; color:#435658; min-width:0; padding:15px; }
+.home-location-field { align-items:center; border:1px solid #d9dfdb; border-radius:7px; display:flex; gap:9px; padding:0 13px; }
+.home-location-field span { color:#08716d; font-size:1.25rem; }.home-location-field input { border:0; outline:0; padding-left:0; width:100%; }
+.home-search > button { background:#08716d; border:0; border-radius:7px; color:#fff; cursor:pointer; font-weight:700; min-height:50px; padding:0 22px; text-transform:capitalize; }
+.home-suggestions { background:#fff; border:1px solid #d9dfdb; box-shadow:0 8px 18px #102d3222; left:13px; position:absolute; right:calc(25% + 13px); top:69px; z-index:20; }.home-suggestions button { background:#fff; border:0; border-bottom:1px solid #edf0ed; color:#314748; cursor:pointer; display:block; padding:12px; text-align:left; width:100%; }.home-search-error { color:#b44927; grid-column:1/-1; }
+.home-map-section,.home-categories,.home-announce-section { display:grid; gap:clamp(26px,4vw,55px); grid-template-columns:minmax(190px,.45fr) 2fr; margin:0 auto; max-width:1400px; padding:70px clamp(22px,4vw,55px); }
+.home-section-copy { align-self:center; }.home-section-copy h2,.home-categories h2,.home-announce-section h2 { font-size:clamp(2rem,3.5vw,3.2rem); letter-spacing:-.05em; margin:0 0 14px; }.home-section-copy p:not(.home-kicker),.home-categories p:not(.home-kicker),.home-announce-section p:not(.home-kicker) { color:#667473; line-height:1.65; }.home-section-copy a { color:#e5651c; font-weight:700; text-decoration:none; }
+.home-map { border-radius:12px; box-shadow:0 12px 30px #173c3d22; min-height:360px; overflow:hidden; position:relative; }.home-map #react-map { height:100%; min-height:360px; position:absolute; inset:0; }.home-map > span { background:#fff; bottom:14px; color:#435658; font-size:.75rem; padding:9px 13px; position:absolute; right:14px; z-index:500; }
+.home-categories { align-items:center; background:#f5f4ef; max-width:none; }.home-category-grid { display:grid; gap:14px; grid-template-columns:repeat(5,1fr); }.home-category-grid a { align-items:center; background:#fff; border:1px solid #e1e4df; border-radius:10px; color:#173c3d; display:flex; flex-direction:column; gap:12px; justify-content:center; min-height:115px; text-decoration:none; }.home-category-grid strong { color:#08716d; font-size:2rem; }.home-category-grid span { font-size:.8rem; font-weight:700; text-align:center; }
+.home-announce-section { align-items:center; background:#fff7ed; max-width:none; }.home-announce-section h2 { color:#d45216; }.home-announce-button { justify-self:center; }
+.home-footer { align-items:center; background:#173c3d; color:#d9e2de; display:flex; justify-content:space-between; padding:28px clamp(22px,7vw,110px); }.home-footer .home-logo { color:#fff; }.home-footer .home-logo small { color:#b4c6c0; }
+.home-footer .home-logo { background:url('assets/tatui-imoveis-logo-light.svg') left center/contain no-repeat; height:58px; width:245px; }
+.home-footer .home-logo > * { display:none; }
+@media (max-width:850px) { .home-header { flex-wrap:wrap; gap:15px; }.home-header .home-logo { height:48px; width:205px; }.home-header nav { display:none; }.home-announce { margin-left:auto; }.home-hero { min-height:560px; padding-top:45px; }.home-search { bottom:22px; grid-template-columns:1fr 1fr; left:22px; right:22px; }.home-location-field { grid-column:1/-1; }.home-search > button { min-height:50px; }.home-suggestions { right:22px; top:68px; }.home-map-section,.home-categories,.home-announce-section { display:block; padding:52px 22px; }.home-map { margin-top:30px; min-height:320px; }.home-map #react-map { min-height:320px; }.home-category-grid { margin-top:28px; grid-template-columns:repeat(2,1fr); }.home-announce-button { display:inline-block; margin-top:18px; }.home-footer { align-items:flex-start; flex-direction:column; gap:18px; } }
+.home-area-button { background:#08716d; border:0; border-radius:7px; bottom:14px; color:#fff; cursor:pointer; font-size:.78rem; font-weight:700; left:14px; padding:11px 15px; position:absolute; z-index:500; }
+.home-category-grid strong { background:center/contain no-repeat; display:block; font-size:0; height:52px; width:52px; }
+.home-category-grid a:nth-child(1) strong { background-image:url('assets/icon-casa.svg'); }
+.home-category-grid a:nth-child(2) strong { background-image:url('assets/icon-apartamento.svg'); }
+.home-category-grid a:nth-child(3) strong { background-image:url('assets/icon-terreno.svg'); }
+.home-category-grid a:nth-child(4) strong { background-image:url('assets/icon-chacara.svg'); }
+.home-category-grid a:nth-child(5) strong { background-image:url('assets/icon-comercial.svg'); }
+.listing-heading { align-items:flex-end; display:flex; gap:24px; justify-content:space-between; margin-bottom:30px; }
+.listing-heading h1 { color:#173c3d; font-family:inherit; font-size:clamp(2rem,4vw,3.5rem); font-weight:800; letter-spacing:-.06em; margin-bottom:12px; }
+.listing-layout { align-items:start; display:grid; gap:30px; grid-template-columns:245px minmax(0,1fr); }
+.listing-top-search { align-items:center; background:#fff; border:1px solid #dce5df; border-radius:12px; box-shadow:0 8px 24px #173c3d10; display:flex; gap:10px; margin-bottom:28px; padding:9px; }
+.listing-search-icon { color:#0b6863; font-size:1.4rem; padding:0 8px; }
+.listing-top-search input { border:0; color:#435658; flex:1; min-width:0; outline:0; padding:12px 4px; }
+.listing-top-search select { background:#fff; border:1px solid #d9dfdb; border-radius:7px; color:#435658; min-width:140px; padding:12px 10px; }
+.listing-top-search button { background:#08716d; border:0; border-radius:7px; color:#fff; cursor:pointer; font-size:.82rem; font-weight:700; padding:13px 20px; }
+.listing-filters { background:#fff; border:1px solid #e3e7e2; border-radius:12px; padding:20px; position:sticky; top:20px; }
+.listing-filters form > label:first-child { display:none; }
+.listing-filter-title { align-items:center; display:flex; justify-content:space-between; margin-bottom:18px; }
+.listing-filter-title button { background:none; border:0; color:#0b6863; cursor:pointer; font-size:.75rem; padding:0; }
+.listing-filters label { color:#435658; display:block; font-size:.75rem; font-weight:700; margin-bottom:15px; }
+.listing-filters input,.listing-filters select { background:#fff; border:1px solid #d9dfdb; border-radius:6px; color:#435658; display:block; margin-top:7px; padding:11px; width:100%; }
+.listing-filter-button { border:0; cursor:pointer; font-size:.8rem; margin-top:4px; width:100%; }
+.listing-results-bar { align-items:center; display:flex; justify-content:space-between; margin-bottom:16px; }
+.listing-results-bar strong { color:#173c3d; font-size:.95rem; }
+.listing-results-bar label { align-items:center; color:#667473; display:flex; font-size:.75rem; gap:8px; }
+.listing-results-bar select { background:#fff; border:1px solid #d9dfdb; border-radius:6px; color:#435658; padding:9px; }
+.listing-empty { background:#fff; border:1px dashed #cbd6d0; border-radius:12px; padding:45px 25px; text-align:center; }
+.listing-empty strong { color:#173c3d; display:block; font-size:1.1rem; margin-bottom:8px; }
+.listing-empty p { color:#667473; margin:0 0 20px; }
+@media (max-width:850px) { .listing-heading { align-items:flex-start; flex-direction:column; }.listing-heading .react-button { align-self:stretch; text-align:center; }.listing-top-search { align-items:stretch; flex-wrap:wrap; }.listing-top-search input { flex-basis:calc(100% - 42px); }.listing-top-search select { flex:1; min-width:0; }.listing-top-search button { flex:1 0 100%; }.listing-layout { display:block; }.listing-filters { margin-bottom:25px; position:static; }.listing-results-bar { align-items:flex-start; flex-direction:column; gap:12px; }.listing-results-bar label { width:100%; }.listing-results-bar select { flex:1; } }
