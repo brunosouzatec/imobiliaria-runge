@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const mysql = require('mysql2/promise');
+const PropertyOffers = require('./property-offers');
+const { runMigrations } = require('./migrate');
 
 const root = __dirname;
 const dataDir = process.env.DATA_DIR || path.join(root, 'data');
@@ -26,16 +28,8 @@ const pool = mysql.createPool({
 });
 const mimeTypes = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.json':'application/json; charset=utf-8', '.png':'image/png', '.jpg':'image/jpeg', '.svg':'image/svg+xml' };
 
-async function initDatabase() {
-  await pool.query(`CREATE TABLE IF NOT EXISTS usuarios (id INT AUTO_INCREMENT PRIMARY KEY, tipo_usuario VARCHAR(80) NOT NULL, nome VARCHAR(180) NOT NULL, telefone VARCHAR(40) NOT NULL, email VARCHAR(180) NOT NULL UNIQUE, senha_hash TEXT, cep VARCHAR(12), rua VARCHAR(180), numero VARCHAR(30), bairro VARCHAR(120), cidade VARCHAR(120), estado VARCHAR(2), creci VARCHAR(40), cnpj VARCHAR(24), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS imoveis (id INT AUTO_INCREMENT PRIMARY KEY, titulo VARCHAR(180) NOT NULL, tipo ENUM('Venda','Aluguel') NOT NULL, preco DECIMAL(14,2) NOT NULL, categoria VARCHAR(100) NOT NULL, endereco VARCHAR(255) NOT NULL, descricao TEXT, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, tipo_usuario VARCHAR(80) DEFAULT 'Proprietário Direto', usuario_id INT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL)`);
-  try { await pool.query('ALTER TABLE imoveis ADD COLUMN caracteristicas JSON NULL'); } catch (error) { if (error.code !== 'ER_DUP_FIELDNAME') throw error; }
-  try { await pool.query('ALTER TABLE imoveis ADD COLUMN cep VARCHAR(12) NULL'); } catch (error) { if (error.code !== 'ER_DUP_FIELDNAME') throw error; }
-  await pool.query(`CREATE TABLE IF NOT EXISTS contatos (id INT AUTO_INCREMENT PRIMARY KEY, imovel_id INT NOT NULL, nome VARCHAR(180) NOT NULL, telefone VARCHAR(40) NOT NULL, email VARCHAR(180) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (imovel_id) REFERENCES imoveis(id) ON DELETE CASCADE)`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS imovel_fotos (id INT AUTO_INCREMENT PRIMARY KEY, imovel_id INT NOT NULL, caminho VARCHAR(255) NOT NULL, nome_original VARCHAR(255) NOT NULL, ordem INT NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (imovel_id) REFERENCES imoveis(id) ON DELETE CASCADE)`);
-}
 function descricaoSegura(value) { return String(value || '').replace(/<\/?(script|style|iframe)[^>]*>/gi, '').replace(/\s(?:on\w+|style|href|src)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '').replace(/<(?!\/?(?:strong|b|em|i|u|ul|ol|li|p|br)(?:\s|>))[^>]*>/gi, ''); }
-function imovelJson(row) { let caracteristicas = row.caracteristicas || {}; if (typeof caracteristicas === 'string') { try { caracteristicas = JSON.parse(caracteristicas) || {}; } catch (_) { caracteristicas = {}; } } return { ...row, caracteristicas, descricao: descricaoSegura(row.descricao), preco: Number(row.preco), coordenadas: { latitude: Number(row.latitude), longitude: Number(row.longitude) } }; }
+function imovelJson(row) { let caracteristicas = row.caracteristicas || {}; if (typeof caracteristicas === 'string') { try { caracteristicas = JSON.parse(caracteristicas) || {}; } catch (_) { caracteristicas = {}; } } const tipos = PropertyOffers.normalizeTypes(row.transacoes, row.tipo); const preco = Number(row.preco); const precoVenda = row.preco_venda == null ? (tipos.includes('Venda') ? preco : null) : Number(row.preco_venda); const precoAluguel = row.preco_aluguel == null ? (tipos.includes('Aluguel') ? preco : null) : Number(row.preco_aluguel); return { ...row, titulo: PropertyOffers.displayTitle({ ...row, tipos_transacao: tipos }), transacoes: tipos, tipos_transacao: tipos, preco_venda: precoVenda, preco_aluguel: precoAluguel, agua_inclusa: Boolean(row.agua_inclusa), luz_inclusa: Boolean(row.luz_inclusa), internet_inclusa: Boolean(row.internet_inclusa), condominio_incluso: Boolean(row.condominio_incluso), caracteristicas, descricao: descricaoSegura(row.descricao), preco, coordenadas: { latitude: Number(row.latitude), longitude: Number(row.longitude) } }; }
 async function comFotos(rows) {
   if (!rows.length) return [];
   const ids = rows.map((row) => row.id);
@@ -73,11 +67,23 @@ async function userPayload(id) { const [[usuario]] = await pool.query('SELECT id
 async function authenticatedUser(req, res) { const token = cookies(req).runge_session; const session = sessions.get(token); if (!session || session.expiresAt < Date.now()) { if (token) sessions.delete(token); sendJson(res, 401, { error:'Sessão expirada.' }); return null; } session.expiresAt = Date.now() + SESSION_TIMEOUT; return session.userId; }
 
 async function ownedProperty(req, res, propertyId) { const userId = await authenticatedUser(req, res); if (!userId) return null; const [[property]] = await pool.query('SELECT * FROM imoveis WHERE id=? AND usuario_id=?', [propertyId, userId]); if (!property) { sendJson(res, 404, { error: 'ImÃ³vel nÃ£o encontrado.' }); return null; } return { userId, property }; }
-async function updateProperty(req, res, propertyId) { const owned = await ownedProperty(req, res, propertyId); if (!owned) return; const d = await bodyJson(req); if (!d.titulo || !d.tipo || !d.categoria || !d.preco || !d.endereco || !d.latitude || !d.longitude) return sendJson(res, 400, { error: 'Preencha os campos obrigatÃ³rios.' }); await pool.query('UPDATE imoveis SET titulo=?,tipo=?,preco=?,categoria=?,endereco=?,cep=?,descricao=?,caracteristicas=?,latitude=?,longitude=? WHERE id=?', [d.titulo, d.tipo, Number(d.preco), d.categoria, d.endereco, d.cep || '', descricaoSegura(d.descricao), JSON.stringify(d.caracteristicas || {}), Number(d.latitude), Number(d.longitude), propertyId]); const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]); return sendJson(res, 200, (await comFotos([row]))[0]); }
+function parsePropertyOffer(data) {
+  return PropertyOffers.parse(data);
+}
+function validPropertyOffer(offer) { return PropertyOffers.isValid(offer); }
+async function updateProperty(req, res, propertyId) {
+  const owned = await ownedProperty(req, res, propertyId); if (!owned) return;
+  const d = await bodyJson(req); const offer = parsePropertyOffer(d);
+  if (!d.categoria || !validPropertyOffer(offer) || !d.endereco || !d.latitude || !d.longitude) return sendJson(res, 400, { error: 'Preencha os campos obrigatórios, informe os valores e indique o valor do condomínio quando ele não estiver incluso.' });
+  await pool.query('UPDATE imoveis SET tipo=?,transacoes=?,preco=?,preco_venda=?,preco_aluguel=?,agua_inclusa=?,luz_inclusa=?,internet_inclusa=?,condominio_incluso=?,condominio_valor=?,categoria=?,endereco=?,cep=?,rua=?,numero=?,bairro=?,cidade=?,estado=?,descricao=?,caracteristicas=?,latitude=?,longitude=? WHERE id=?', [offer.type, JSON.stringify(offer.types), offer.price, offer.sale, offer.rent, offer.water, offer.power, offer.internet, offer.condo, offer.condoAmount, d.categoria, d.endereco, d.cep || '', d.rua || '', d.numero || '', d.bairro || '', d.cidade || '', d.estado || '', descricaoSegura(d.descricao), JSON.stringify(d.caracteristicas || {}), Number(d.latitude), Number(d.longitude), propertyId]);
+  const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]);
+  return sendJson(res, 200, (await comFotos([row]))[0]);
+}
 async function addPropertyPhotos(req, res, propertyId) {
   const owned = await ownedProperty(req, res, propertyId); if (!owned) return;
   const parsed = await parseMultipart(req);
-  const folderName = `imovel-${propertyId}-${folderSlug(owned.property.titulo)}`;
+  const displayTitle = PropertyOffers.displayTitle(owned.property);
+  const folderName = `imovel-${propertyId}-${folderSlug(displayTitle)}`;
   const folder = path.join(photosDir, folderName); fs.mkdirSync(folder, { recursive: true });
   const [[last]] = await pool.query('SELECT COALESCE(MAX(ordem), -1) AS ordem FROM imovel_fotos WHERE imovel_id=?', [propertyId]);
   const fotos = parsed.files.filter((file) => file.name === 'fotos').slice(0, 10);
@@ -85,7 +91,7 @@ async function addPropertyPhotos(req, res, propertyId) {
   for (const foto of fotos) {
     const ext = imageExtension(foto); if (!ext || !foto.buffer.length || foto.buffer.length > 5 * 1024 * 1024) continue;
     const filename = `${crypto.randomBytes(16).toString('hex')}${ext}`;
-    const caminho = await savePhoto(foto, photoObjectKey(propertyId, owned.property.titulo, filename));
+    const caminho = await savePhoto(foto, photoObjectKey(propertyId, displayTitle, filename));
     await pool.query('INSERT INTO imovel_fotos (imovel_id,caminho,nome_original,ordem) VALUES (?,?,?,?)', [propertyId, caminho, foto.filename, Number(last.ordem) + uploaded + 1]);
     uploaded += 1;
   }
@@ -96,12 +102,27 @@ async function addPropertyPhotos(req, res, propertyId) {
 async function deletePropertyPhoto(req, res, propertyId, photoId) { const owned = await ownedProperty(req, res, propertyId); if (!owned) return; const [[photo]] = await pool.query('SELECT * FROM imovel_fotos WHERE id=? AND imovel_id=?', [photoId, propertyId]); if (!photo) return sendJson(res, 404, { error: 'Foto nÃ£o encontrada.' }); const file = path.resolve(dataDir, `.${photo.caminho}`); if (file.startsWith(path.resolve(photosDir)) && fs.existsSync(file)) fs.unlinkSync(file); await pool.query('DELETE FROM imovel_fotos WHERE id=?', [photoId]); return sendJson(res, 200, { success: true }); }
 async function criarImovelComFotos(req, res) {
   const parsed = await parseMultipart(req); const d = parsed.fields; const sessionUser = cookies(req).runge_session; let userId = null;
+  const offer = parsePropertyOffer(d);
+  if (!d.categoria || !validPropertyOffer(offer) || !d.endereco || !d.latitude || !d.longitude) return sendJson(res, 400, { error: 'Preencha os campos obrigatórios e informe um valor para cada modalidade escolhida.' });
+  const titulo = PropertyOffers.displayTitle({ ...d, tipos_transacao: offer.types });
   if (sessionUser) userId = await authenticatedUser(req, res); if (sessionUser && !userId) return;
   if (!userId) { if (!d.email_usuario || !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(d.senha_usuario || '')) return sendJson(res, 400, { error: 'E-mail ou senha invÃ¡lidos.' }); const salt = crypto.randomBytes(16).toString('hex'); const hash = `${salt}:${crypto.scryptSync(d.senha_usuario, salt, 64).toString('hex')}`; const [u] = await pool.query('INSERT INTO usuarios (tipo_usuario,nome,telefone,email,senha_hash,cep,rua,numero,bairro,cidade,estado,creci,cnpj) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', [d.tipo_usuario, d.nome_usuario, d.telefone_usuario, d.email_usuario, hash, d.cep_usuario, d.rua_usuario, d.numero_usuario, d.bairro_usuario, d.cidade_usuario, d.estado_usuario, d.creci_usuario || '', d.cnpj_usuario || '']); userId = u.insertId; }
-  const [result] = await pool.query('INSERT INTO imoveis (titulo,tipo,preco,categoria,endereco,cep,descricao,caracteristicas,latitude,longitude,tipo_usuario,usuario_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [d.titulo, d.tipo, Number(d.preco), d.categoria, d.endereco, d.cep || '', descricaoSegura(d.descricao), d.caracteristicas || '{}', Number(d.latitude), Number(d.longitude), d.tipo_usuario || 'ProprietÃ¡rio Direto', userId]);
+  const [result] = await pool.query('INSERT INTO imoveis (tipo,transacoes,preco,preco_venda,preco_aluguel,agua_inclusa,luz_inclusa,internet_inclusa,condominio_incluso,condominio_valor,categoria,endereco,cep,rua,numero,bairro,cidade,estado,descricao,caracteristicas,latitude,longitude,tipo_usuario,usuario_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', [offer.type, JSON.stringify(offer.types), offer.price, offer.sale, offer.rent, offer.water, offer.power, offer.internet, offer.condo, offer.condoAmount, d.categoria, d.endereco, d.cep || '', d.rua || '', d.numero || '', d.bairro || '', d.cidade || '', d.estado || '', descricaoSegura(d.descricao), d.caracteristicas || '{}', Number(d.latitude), Number(d.longitude), d.tipo_usuario || 'ProprietÃ¡rio Direto', userId]);
   const fotos = parsed.files.filter((file) => file.name === 'fotos').slice(0, 10);
-  for (let ordem = 0; ordem < fotos.length; ordem += 1) { const foto = fotos[ordem]; const ext = imageExtension(foto); if (!ext || !foto.buffer.length || foto.buffer.length > 5 * 1024 * 1024) continue; const filename = `${crypto.randomBytes(16).toString('hex')}${ext}`; const caminho = await savePhoto(foto, photoObjectKey(result.insertId, d.titulo, filename)); await pool.query('INSERT INTO imovel_fotos (imovel_id,caminho,nome_original,ordem) VALUES (?,?,?,?)', [result.insertId, caminho, foto.filename, ordem]); }
+  for (let ordem = 0; ordem < fotos.length; ordem += 1) { const foto = fotos[ordem]; const ext = imageExtension(foto); if (!ext || !foto.buffer.length || foto.buffer.length > 5 * 1024 * 1024) continue; const filename = `${crypto.randomBytes(16).toString('hex')}${ext}`; const caminho = await savePhoto(foto, photoObjectKey(result.insertId, titulo, filename)); await pool.query('INSERT INTO imovel_fotos (imovel_id,caminho,nome_original,ordem) VALUES (?,?,?,?)', [result.insertId, caminho, foto.filename, ordem]); }
   const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [result.insertId]); return sendJson(res, 201, (await comFotos([row]))[0]);
+}
+async function criarImovelJson(req, res) {
+  const d = await bodyJson(req); const offer = parsePropertyOffer(d); const sessionUser = cookies(req).runge_session; let userId = null;
+  if (!d.categoria || !validPropertyOffer(offer) || !d.endereco || !d.latitude || !d.longitude) return sendJson(res, 400, { error: 'Preencha os dados obrigatórios do imóvel.' });
+  if (sessionUser) userId = await authenticatedUser(req, res); if (sessionUser && !userId) return;
+  if (!userId) {
+    if (!d.tipo_usuario || !d.nome_usuario || !d.telefone_usuario || !d.email_usuario || !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(d.senha_usuario || '')) return sendJson(res, 400, { error: 'Preencha os dados do anunciante e use uma senha forte.' });
+    const salt = crypto.randomBytes(16).toString('hex'); const hash = `${salt}:${crypto.scryptSync(d.senha_usuario, salt, 64).toString('hex')}`;
+    const [user] = await pool.query('INSERT INTO usuarios (tipo_usuario,nome,telefone,email,senha_hash,cep,rua,numero,bairro,cidade,estado,creci,cnpj) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', [d.tipo_usuario, d.nome_usuario, d.telefone_usuario, d.email_usuario, hash, d.cep_usuario || '', d.rua_usuario || '', d.numero_usuario || '', d.bairro_usuario || '', d.cidade_usuario || '', d.estado_usuario || '', d.creci_usuario || '', d.cnpj_usuario || '']); userId = user.insertId;
+  }
+  const [result] = await pool.query('INSERT INTO imoveis (tipo,transacoes,preco,preco_venda,preco_aluguel,agua_inclusa,luz_inclusa,internet_inclusa,condominio_incluso,condominio_valor,categoria,endereco,cep,rua,numero,bairro,cidade,estado,descricao,caracteristicas,latitude,longitude,tipo_usuario,usuario_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', [offer.type, JSON.stringify(offer.types), offer.price, offer.sale, offer.rent, offer.water, offer.power, offer.internet, offer.condo, offer.condoAmount, d.categoria, d.endereco, d.cep || '', d.rua || '', d.numero || '', d.bairro || '', d.cidade || '', d.estado || '', descricaoSegura(d.descricao), JSON.stringify(d.caracteristicas || {}), Number(d.latitude), Number(d.longitude), d.tipo_usuario || 'Proprietário Direto', userId]);
+  const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [result.insertId]); return sendJson(res, 201, imovelJson(row));
 }
 
 async function deletePropertyPhotoStored(req, res, propertyId, photoId) { const owned = await ownedProperty(req, res, propertyId); if (!owned) return; const [[photo]] = await pool.query('SELECT * FROM imovel_fotos WHERE id=? AND imovel_id=?', [photoId, propertyId]); if (!photo) return sendJson(res, 404, { error: 'Foto não encontrada.' }); await removePhoto(photo.caminho); await pool.query('DELETE FROM imovel_fotos WHERE id=?', [photoId]); return sendJson(res, 200, { success: true }); }
@@ -134,9 +155,9 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/logout' && req.method === 'POST') { const token=cookies(req).runge_session; sessions.delete(token); return sendJson(res,200,{success:true},{'Set-Cookie':'runge_session=; HttpOnly; SameSite=Lax; Max-Age=0; Path=/'}); }
     if (url.pathname === '/api/perfil' && req.method === 'PATCH') { const id=await authenticatedUser(req,res); if (!id) return; const d=await bodyJson(req); if (!d.nome||!d.telefone||!d.cep||!d.rua||!d.numero||!d.bairro||!d.cidade||!d.estado) return sendJson(res,400,{error:'Preencha todos os campos obrigatórios.'}); await pool.query('UPDATE usuarios SET nome=?,telefone=?,cep=?,rua=?,numero=?,bairro=?,cidade=?,estado=? WHERE id=?',[d.nome,d.telefone,d.cep,d.rua,d.numero,d.bairro,d.cidade,d.estado,id]); return sendJson(res,200,await userPayload(id)); }
     const contact = url.pathname.match(/^\/api\/imoveis\/(\\d+)\/contatos$/); if (contact && req.method === 'POST') { const d=await bodyJson(req); if (!d.nome||!d.telefone||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(d.email||'')) return sendJson(res,400,{error:'Preencha os dados corretamente.'}); const [[property]]=await pool.query('SELECT id FROM imoveis WHERE id=?',[contact[1]]); if(!property) return sendJson(res,404,{error:'Imóvel não encontrado.'}); const [result]=await pool.query('INSERT INTO contatos (imovel_id,nome,telefone,email) VALUES (?,?,?,?)',[contact[1],d.nome,d.telefone,d.email]); return sendJson(res,201,{id:result.insertId,message:'Contato registrado com sucesso.'}); }
-    if (url.pathname === '/api/imoveis' && req.method === 'POST') { const d=await bodyJson(req); const sessionUser=cookies(req).runge_session; let userId=null; if(sessionUser) userId=await authenticatedUser(req,res); if(sessionUser && !userId) return; if(!userId) { if(!d.email_usuario||!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$/.test(d.senha_usuario||'')) return sendJson(res,400,{error:'E-mail ou senha inválidos.'}); const salt=crypto.randomBytes(16).toString('hex'); const hash=`${salt}:${crypto.scryptSync(d.senha_usuario,salt,64).toString('hex')}`; const [u]=await pool.query('INSERT INTO usuarios (tipo_usuario,nome,telefone,email,senha_hash,cep,rua,numero,bairro,cidade,estado,creci,cnpj) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',[d.tipo_usuario,d.nome_usuario,d.telefone_usuario,d.email_usuario,hash,d.cep_usuario,d.rua_usuario,d.numero_usuario,d.bairro_usuario,d.estado_usuario,d.creci_usuario||'',d.cnpj_usuario||'']); userId=u.insertId; } const [result]=await pool.query('INSERT INTO imoveis (titulo,tipo,preco,categoria,endereco,descricao,caracteristicas,latitude,longitude,tipo_usuario,usuario_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)',[d.titulo,d.tipo,Number(d.preco),d.categoria,d.endereco,descricaoSegura(d.descricao),d.caracteristicas||'{}',Number(d.latitude),Number(d.longitude),d.tipo_usuario||'Proprietário Direto',userId]); const [[row]]=await pool.query('SELECT * FROM imoveis WHERE id=?',[result.insertId]); return sendJson(res,201,imovelJson(row)); }
+    if (url.pathname === '/api/imoveis' && req.method === 'POST') return criarImovelJson(req, res);
     const detail=url.pathname.match(/^\/api\/imoveis\/(\\d+)$/); if(detail && req.method==='GET') { const [[row]]=await pool.query('SELECT * FROM imoveis WHERE id=?',[detail[1]]); return row ? sendJson(res,200,imovelJson(row)) : sendJson(res,404,{error:'Imóvel não encontrado.'}); }
     const relative=url.pathname==='/'?'/index.html':url.pathname; const file=path.resolve(root,'.'+relative); if(!file.startsWith(root)||!fs.existsSync(file)||fs.statSync(file).isDirectory()) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200,{'Content-Type':mimeTypes[path.extname(file)]||'application/octet-stream'}); fs.createReadStream(file).pipe(res);
   } catch (error) { console.error(error); if(!res.headersSent) sendJson(res,500,{error:'Erro interno do servidor.'}); }
 });
-initDatabase().then(()=>server.listen(port,()=>console.log(`Imobiliária Runge disponível em http://localhost:${port}`))).catch(error=>{console.error('Falha ao iniciar banco MySQL:',error);process.exit(1);});
+runMigrations(pool).then(()=>server.listen(port,()=>console.log(`Imobiliária Runge disponível em http://localhost:${port}`))).catch(error=>{console.error('Falha ao executar migrations do MySQL:',error);process.exit(1);});
