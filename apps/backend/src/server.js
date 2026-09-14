@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const mysql = require('mysql2/promise');
 const PropertyOffers = require('../../../packages/shared/property-offers');
+const PropertyDescription = require('../../../packages/shared/property-description');
 const { runMigrations } = require('./migrate');
 
 const projectRoot = path.resolve(__dirname, '../../..');
@@ -30,7 +31,7 @@ const pool = mysql.createPool({
 });
 const mimeTypes = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.json':'application/json; charset=utf-8', '.png':'image/png', '.jpg':'image/jpeg', '.svg':'image/svg+xml' };
 
-function descricaoSegura(value) { return String(value || '').replace(/<\/?(script|style|iframe)[^>]*>/gi, '').replace(/\s(?:on\w+|style|href|src)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '').replace(/<(?!\/?(?:strong|b|em|i|u|ul|ol|li|p|br)(?:\s|>))[^>]*>/gi, ''); }
+function descricaoSegura(value) { return PropertyDescription.sanitizar(value); }
 function imovelJson(row) { let caracteristicas = row.caracteristicas || {}; if (typeof caracteristicas === 'string') { try { caracteristicas = JSON.parse(caracteristicas) || {}; } catch (_) { caracteristicas = {}; } } const tipos = PropertyOffers.normalizeTypes(row.transacoes, row.tipo); const preco = Number(row.preco); const precoVenda = row.preco_venda == null ? (tipos.includes('Venda') ? preco : null) : Number(row.preco_venda); const precoAluguel = row.preco_aluguel == null ? (tipos.includes('Aluguel') ? preco : null) : Number(row.preco_aluguel); return { ...row, titulo: PropertyOffers.displayTitle({ ...row, tipos_transacao: tipos }), transacoes: tipos, tipos_transacao: tipos, preco_venda: precoVenda, preco_aluguel: precoAluguel, agua_inclusa: Boolean(row.agua_inclusa), luz_inclusa: Boolean(row.luz_inclusa), internet_inclusa: Boolean(row.internet_inclusa), condominio_incluso: Boolean(row.condominio_incluso), caracteristicas, descricao: descricaoSegura(row.descricao), preco, coordenadas: { latitude: Number(row.latitude), longitude: Number(row.longitude) } }; }
 async function comFotos(rows) {
   if (!rows.length) return [];

@@ -85,5 +85,21 @@
     return { transactions: normalizeTypes(property?.tipos_transacao, property?.tipo), prices: describe(property), included, condoFee };
   };
 
-  return { allowed, normalizeTypes, amount, format, primaryType, displayTitle, isChecked, parse, isValid, describe, summary };
+  const sort = (properties, order = 'recentes', transaction = '') => {
+    const priceOf = property => {
+      const offer = parse(property);
+      if (transaction === 'Aluguel') return offer.rent ?? offer.price;
+      if (transaction === 'Venda') return offer.sale ?? offer.price;
+      return offer.sale ?? offer.rent ?? offer.price;
+    };
+    const idOf = property => Number(property?.id) || 0;
+    return [...(properties || [])].sort((a, b) => {
+      if (order === 'menor-valor') return priceOf(a) - priceOf(b) || idOf(b) - idOf(a);
+      if (order === 'maior-valor') return priceOf(b) - priceOf(a) || idOf(b) - idOf(a);
+      if (order === 'antigos') return idOf(a) - idOf(b);
+      return idOf(b) - idOf(a);
+    });
+  };
+
+  return { allowed, normalizeTypes, amount, format, primaryType, displayTitle, isChecked, parse, isValid, describe, summary, sort };
 });

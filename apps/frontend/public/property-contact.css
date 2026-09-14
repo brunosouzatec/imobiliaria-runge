@@ -27,6 +27,15 @@
 
 .listing-whatsapp-icon { flex: 0 0 18px; height: 18px; width: 18px; }
 
+.property-share-icon { fill:none; flex:0 0 18px; height:18px; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; stroke-width:1.8; width:18px; }
+.listing-share-button,.property-share-detail-button { align-items:center; display:inline-flex; gap:7px; justify-content:center; }
+.listing-share-button { background:#fff; border:1px solid #d5e1da; border-radius:7px; color:#17635b; cursor:pointer; font-family:inherit; font-size:.78rem; font-weight:600; min-height:38px; padding:8px 11px; transition:background .2s,border-color .2s,color .2s; }
+.listing-share-button:hover,.listing-share-button:focus-visible { background:#edf7f3; border-color:#8db9aa; color:#104f48; }
+.listing-share-button:focus-visible,.property-share-detail-button:focus-visible { outline:3px solid #0b77704d; outline-offset:2px; }
+.property-share-status { color:#17635b; font-size:.75rem; font-weight:600; }
+.property-share-detail-button { margin:0; }
+.property-share-detail-status { grid-column:1/-1; }
+
 .whatsapp-form-note,
 .whatsapp-form-status {
   color: var(--muted);
@@ -44,6 +53,8 @@
   background: #128447;
   box-shadow: 0 12px 24px #18a95735;
 }
+
+.property-detail-actions .property-share-detail-button { background:#fff; color:var(--ink); }
 
 @media (max-width: 850px) {
   .listing-property-footer { align-items: flex-start; flex-direction: column; }

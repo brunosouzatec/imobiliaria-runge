@@ -70,6 +70,9 @@
 .property-detail-section { border-bottom: 1px solid var(--line); margin-top: 30px; padding: 0 0 28px; }
 .property-detail-section h2, .property-detail-card-title { color: var(--ink); font: 500 1.55rem/1.2 Georgia, serif; letter-spacing: -.02em; margin: 0 0 17px; }
 .property-detail-description { color: #435658; font-size: .96rem; line-height: 1.8; overflow-wrap: anywhere; }
+.property-detail-description p { margin: 0 0 12px; }
+.property-detail-description ul, .property-detail-description ol { margin: 0 0 14px; padding-left: 1.5rem; }
+.property-detail-description li { margin: 0 0 6px; padding-left: .15rem; }
 .property-detail-description > :first-child { margin-top: 0; }
 .property-detail-description > :last-child { margin-bottom: 0; }
 .property-detail-muted { color: var(--muted); font-size: .9rem; line-height: 1.6; margin: 0; }
