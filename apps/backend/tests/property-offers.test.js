@@ -53,3 +53,17 @@ test('formats monthly rent with the monthly suffix and reports included utilitie
   assert.equal(offers.describe({ tipos_transacao: ['Aluguel'], preco_aluguel: 1800 }), 'Aluguel: R$ 1.800,00/mês');
   assert.deepEqual(offers.summary({ tipos_transacao: ['Aluguel'], preco_aluguel: 1800, agua_inclusa: 1, internet_inclusa: true }).included, ['Água', 'Internet']);
 });
+
+test('sorts listings by recency and numeric price without mutating the source list', () => {
+  const listings = [
+    { id: 3, preco_venda: 280000, preco_aluguel: 1800, tipos_transacao: ['Venda', 'Aluguel'] },
+    { id: 1, preco: 95000, tipo: 'Venda' },
+    { id: 2, preco_aluguel: 1200, tipo: 'Aluguel' }
+  ];
+  assert.deepEqual(offers.sort(listings).map(item => item.id), [3, 2, 1]);
+  assert.deepEqual(offers.sort(listings, 'antigos').map(item => item.id), [1, 2, 3]);
+  assert.deepEqual(offers.sort(listings, 'menor-valor').map(item => item.id), [2, 1, 3]);
+  assert.deepEqual(offers.sort(listings, 'maior-valor').map(item => item.id), [3, 1, 2]);
+  assert.deepEqual(offers.sort(listings, 'menor-valor', 'Aluguel').map(item => item.id), [2, 3, 1]);
+  assert.deepEqual(listings.map(item => item.id), [3, 1, 2]);
+});

@@ -28,7 +28,23 @@ PropertyCard.methods.whatsappLink = item => PropertyContact.listingLink(item, wi
 
 PropertyCard.props.showEdit = { type: Boolean, default: false };
 const propertyCardSetupBase = PropertyCard.setup;
-PropertyCard.setup = props => ({ ...propertyCardSetupBase(props), PropertyOffers });
+PropertyCard.setup = props => {
+  const state = propertyCardSetupBase(props);
+  const shareStatus = ref('');
+  let statusTimer;
+  const compartilhar = async event => {
+    event?.stopPropagation();
+    const result = await PropertyShare.share(props.item);
+    if (result === 'cancelled') return;
+    const messages = { shared: 'Compartilhado.', copied: 'Link copiado.', prompted: 'Copie o link para compartilhar.', failed: 'Não foi possível compartilhar o link.' };
+    shareStatus.value = messages[result] || messages.failed;
+    window.clearTimeout(statusTimer);
+    statusTimer = window.setTimeout(() => { shareStatus.value = ''; }, 2800);
+  };
+  return { ...state, PropertyOffers, descricaoResumo: computed(() => PropertyDescription.resumo(props.item?.descricao) || 'Confira todos os detalhes deste imóvel.'), shareStatus, compartilhar };
+};
+PropertyCard.template = PropertyCard.template.replace("{{ item.descricao || 'Confira todos os detalhes deste imóvel.' }}", '{{ descricaoResumo }}');
+PropertyCard.template = PropertyCard.template.replace('<div class="listing-property-footer-actions">', '<div class="listing-property-footer-actions"><button class="listing-share-button" type="button" @click="compartilhar" :aria-label="\'Compartilhar \' + PropertyOffers.displayTitle(item)"><svg class="property-share-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"></path></svg><span>Compartilhar</span></button><span v-if="shareStatus" class="property-share-status" role="status" aria-live="polite">{{ shareStatus }}</span>');
 
 const Home = {
   components: { Header },
@@ -54,20 +70,71 @@ const Listing = { components: { Layout, PropertyCard }, setup() { const usuario 
 const listingSetupBase = Listing.setup;
 Listing.setup = () => {
   const state = listingSetupBase();
+  const sortOrder = ref(params().get('ordem') || 'recentes');
+  const characteristicKeys = ['quartos', 'banheiros', 'vagas', 'salas', 'piscina', 'quintal', 'churrasqueira', 'sacada', 'elevador', 'condominio', 'agua', 'energia', 'rua_asfaltada', 'area_verde', 'nascente', 'acessibilidade', 'estacionamento', 'ar_condicionado', 'topografia'];
+  const dimensionKeys = ['quartos', 'banheiros', 'vagas', 'salas', 'areaMin'];
+  const query = params();
+  for (const key of [...dimensionKeys, ...characteristicKeys]) state.filters.value[key] = query.get(key) || '';
+  const filterDefinitions = {
+    Casa: { dimensions: ['quartos', 'banheiros', 'vagas'], features: [['piscina', 'Piscina'], ['quintal', 'Quintal'], ['churrasqueira', 'Churrasqueira'], ['condominio', 'Condomínio fechado']] },
+    Apartamento: { dimensions: ['quartos', 'banheiros', 'vagas'], features: [['sacada', 'Sacada'], ['elevador', 'Elevador'], ['condominio', 'Condomínio fechado']] },
+    Terreno: { dimensions: [], features: [['agua', 'Água encanada'], ['energia', 'Energia elétrica'], ['rua_asfaltada', 'Rua asfaltada'], ['topografia', 'Topografia', ['Plano', 'Aclive', 'Declive', 'Irregular']]] },
+    'Chácara / Sítio': { dimensions: ['quartos', 'banheiros'], features: [['piscina', 'Piscina'], ['area_verde', 'Área verde'], ['nascente', 'Nascente ou lago'], ['energia', 'Energia elétrica']] },
+    Comercial: { dimensions: ['banheiros', 'vagas', 'salas'], features: [['acessibilidade', 'Acessibilidade'], ['estacionamento', 'Estacionamento'], ['ar_condicionado', 'Ar-condicionado']] }
+  };
+  const dimensionLabels = { quartos: 'Quartos', banheiros: 'Banheiros', vagas: 'Vagas de garagem', salas: 'Salas ou ambientes' };
+  const dimensionFilters = computed(() => (filterDefinitions[state.filters.value.categoria]?.dimensions || []).map(key => ({ key, label: dimensionLabels[key] })));
+  const featureFilterOptions = computed(() => filterDefinitions[state.filters.value.categoria]?.features || []);
+  const activeFilterCount = computed(() => ['q', 'categoria', 'tipo', 'faixa', ...dimensionKeys, ...characteristicKeys].filter(key => state.filters.value[key] !== '' && state.filters.value[key] !== undefined).length);
   const filtered = computed(() => (state.all.value || []).filter(item => {
     const ids = params().get('ids'); const q = state.filters.value.q.toLowerCase();
     if (ids && !ids.split(',').includes(String(item.id))) return false;
     if (state.filters.value.categoria && String(item.categoria || '').toLowerCase() !== state.filters.value.categoria.toLowerCase()) return false;
     if (state.filters.value.tipo && !PropertyOffers.normalizeTypes(item.tipos_transacao, item.tipo).includes(state.filters.value.tipo)) return false;
     if (q && !PropertySearch.matches(item, q)) return false;
-    const price = Number(state.filters.value.tipo === 'Aluguel' ? item.preco_aluguel ?? (item.tipo === 'Aluguel' ? item.preco : 0) : item.preco_venda ?? item.preco ?? 0);
-    if (state.filters.value.faixa === 'ate-250000' && price > 250000) return false;
-    if (state.filters.value.faixa === '250000-500000' && (price < 250000 || price > 500000)) return false;
-    if (state.filters.value.faixa === 'acima-500000' && price <= 500000) return false;
+    const offer = PropertyOffers.parse(item);
+    const price = state.filters.value.tipo === 'Aluguel' ? offer.rent ?? offer.price : offer.sale ?? offer.rent ?? offer.price;
+    const rent = state.filters.value.tipo === 'Aluguel';
+    const lower = rent ? 2500 : 250000;
+    const upper = rent ? 5000 : 500000;
+    if (state.filters.value.faixa === 'ate-250000' && price > lower) return false;
+    if (state.filters.value.faixa === '250000-500000' && (price < lower || price > upper)) return false;
+    if (state.filters.value.faixa === 'acima-500000' && price <= upper) return false;
+    const features = Object.fromEntries(PropertyCharacteristics.list(item.caracteristicas).map(feature => [feature.key, feature.value]));
+    const requiredDimensions = [...dimensionFilters.value.map(filter => filter.key), 'areaMin'];
+    for (const key of requiredDimensions) {
+      const minimum = Number(state.filters.value[key] || 0);
+      if (minimum && Number(features[key === 'areaMin' ? 'area' : key] || 0) < minimum) return false;
+    }
+    for (const [key] of featureFilterOptions.value) {
+      const selected = state.filters.value[key];
+      if (!selected) continue;
+      if (key === 'topografia' ? String(features.topografia || '') !== selected : !PropertyOffers.isChecked(features[key])) return false;
+    }
     return true;
   }));
-  return { ...state, filtered };
+  const ordered = computed(() => PropertyOffers.sort(filtered.value, sortOrder.value, state.filters.value.tipo));
+  const atualizar = () => {
+    state.atualizar();
+    const next = new URLSearchParams(window.location.search);
+    if (sortOrder.value && sortOrder.value !== 'recentes') next.set('ordem', sortOrder.value);
+    else next.delete('ordem');
+    history.replaceState(null, '', `imoveis.html?${next}`);
+  };
+  watch(() => state.filters.value.categoria, (category, previous) => {
+    if (!previous || category === previous) return;
+    const supported = new Set((filterDefinitions[category]?.features || []).map(([key]) => key));
+    for (const key of characteristicKeys) if (!supported.has(key)) state.filters.value[key] = '';
+    const dimensions = new Set(filterDefinitions[category]?.dimensions || []);
+    for (const key of dimensionKeys) if (key !== 'areaMin' && !dimensions.has(key)) state.filters.value[key] = '';
+  });
+  return { ...state, filtered, sortOrder, ordered, atualizar, dimensionFilters, featureFilterOptions, activeFilterCount };
 };
+Listing.template = Listing.template
+  .replace('<label>Ordenar<select><option>Mais recentes</option></select></label>', '<label>Ordenar<select v-model="sortOrder" aria-label="Ordenar imóveis" @change="atualizar"><option value="recentes">Mais recentes</option><option value="antigos">Mais antigos</option><option value="menor-valor">Menor valor</option><option value="maior-valor">Maior valor</option></select></label>')
+  .replace('v-for="item in filtered"', 'v-for="item in ordered"')
+  .replace('<option value="ate-250000">Até R$ 250 mil</option><option value="250000-500000">R$ 250 a 500 mil</option><option value="acima-500000">Acima de R$ 500 mil</option>', '<option value="ate-250000">{{ filters.tipo === \'Aluguel\' ? \'Até R$ 2.500/mês\' : \'Até R$ 250 mil\' }}</option><option value="250000-500000">{{ filters.tipo === \'Aluguel\' ? \'R$ 2.500 a 5.000/mês\' : \'R$ 250 a 500 mil\' }}</option><option value="acima-500000">{{ filters.tipo === \'Aluguel\' ? \'Acima de R$ 5.000/mês\' : \'Acima de R$ 500 mil\' }}</option>')
+  .replace('<aside class="listing-filters"><strong>Filtre sua busca</strong><p class="react-lead">Use a barra acima para refinar os resultados.</p><a class="react-button secondary" href="imoveis.html">Limpar filtros</a></aside>', '<details class="listing-filters listing-filter-panel" :open="activeFilterCount > 0"><summary>Mais filtros <span v-if="activeFilterCount" class="listing-filter-count">{{ activeFilterCount }}</span></summary><div class="listing-filter-content"><label>Área mínima (m²)<input v-model="filters.areaMin" type="number" min="0" step="1" placeholder="Ex.: 100"></label><label v-for="filter in dimensionFilters" :key="filter.key">{{ filter.label }} a partir de<select v-model="filters[filter.key]"><option value="">Qualquer quantidade</option><option value="1">1 ou mais</option><option value="2">2 ou mais</option><option value="3">3 ou mais</option><option value="4">4 ou mais</option></select></label><fieldset v-if="featureFilterOptions.length" class="listing-feature-filters"><legend>O que o imóvel possui</legend><label v-for="[key, label, options] in featureFilterOptions" :key="key" class="listing-feature-filter" :class="{ \'listing-feature-filter-select\': key === \'topografia\', \'is-selected\': filters[key] }"><template v-if="key === \'topografia\'"><span>{{ label }}</span><select v-model="filters[key]"><option value="">Qualquer</option><option v-for="option in options" :key="option">{{ option }}</option></select></template><template v-else><input v-model="filters[key]" type="checkbox" value="1"><span>{{ label }}</span></template></label></fieldset><p v-else class="listing-filter-hint">Selecione um tipo de imóvel para ver características específicas.</p><div class="listing-filter-actions"><button type="button" class="listing-filter-apply" @click="atualizar">Aplicar filtros</button><a href="imoveis.html">Limpar tudo</a></div></div></details>');
 
 const PropertyFeatureIcon = {
   props: { name: String },
@@ -78,7 +145,7 @@ const PropertyFeatureIcon = {
 const Detail = {
   components: { Layout, PropertyFeatureIcon },
   setup() {
-    const usuario = ref(null); const item = ref(null); const error = ref(''); const contact = ref(false); const message = ref(''); const lightboxIndex = ref(null);
+    const usuario = ref(null); const item = ref(null); const error = ref(''); const contact = ref(false); const message = ref(''); const lightboxIndex = ref(null); const shareStatus = ref('');
     const caracteristicas = computed(() => PropertyCharacteristics.list(item.value?.caracteristicas));
     const resumoCaracteristicas = computed(() => PropertyCharacteristics.summary(caracteristicas.value));
     const caracteristicasDetalhadas = computed(() => caracteristicas.value.filter(feature => !['area', 'quartos', 'banheiros', 'vagas'].includes(feature.key)));
@@ -114,6 +181,13 @@ const Detail = {
       }
     };
     const enviar = event => { const contactData = Object.fromEntries(new FormData(event.target)); const link = PropertyContact.formLink(item.value, contactData, window.location.origin); window.open(link, '_blank', 'noopener,noreferrer'); message.value = 'A conversa foi preparada no WhatsApp. Revise os dados e toque em Enviar no aplicativo.'; };
+    const compartilhar = async () => {
+      const result = await PropertyShare.share(item.value);
+      if (result === 'cancelled') return;
+      const messages = { shared: 'Compartilhado.', copied: 'Link copiado.', prompted: 'Copie o link para compartilhar.', failed: 'Não foi possível compartilhar o link.' };
+      shareStatus.value = messages[result] || messages.failed;
+      window.setTimeout(() => { shareStatus.value = ''; }, 2800);
+    };
     const abrirGaleria = index => { lightboxIndex.value = index; };
     const fecharGaleria = () => { lightboxIndex.value = null; };
     const proximaFoto = () => { if (item.value?.fotos?.length) lightboxIndex.value = (lightboxIndex.value + 1) % item.value.fotos.length; };
@@ -122,7 +196,7 @@ const Detail = {
     const logout = async () => { await fetch('/api/logout', { method: 'POST' }); usuario.value = null; };
     onMounted(() => { carregar(); window.addEventListener('keydown', atalhosGaleria); });
     onBeforeUnmount(() => window.removeEventListener('keydown', atalhosGaleria));
-    return { usuario, item, error, contact, message, lightboxIndex, caracteristicasDetalhadas, resumoCaracteristicas, valores, oferta, ofertaResumo, enviar, abrirGaleria, fecharGaleria, proximaFoto, fotoAnterior, logout, money, PropertyOffers };
+    return { usuario, item, error, contact, message, lightboxIndex, shareStatus, caracteristicasDetalhadas, resumoCaracteristicas, valores, oferta, ofertaResumo, enviar, compartilhar, abrirGaleria, fecharGaleria, proximaFoto, fotoAnterior, logout, money, PropertyOffers };
   },
   template: `<Layout :usuario="usuario" eyebrow="Detalhes do imóvel" @logout="logout">
     <p v-if="item === null" class="property-detail-loading">Carregando imóvel…</p>
@@ -149,7 +223,7 @@ const Detail = {
             <dl class="property-detail-prices"><div v-for="row in valores" :key="row.label"><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div><div v-if="!valores.length"><dt>Valor</dt><dd>{{ money(item.preco, item.tipo) }}</dd></div></dl>
             <p v-if="ofertaResumo.included.length" class="property-detail-included"><strong>Incluso:</strong> {{ ofertaResumo.included.join(', ') }}</p>
             <div v-if="resumoCaracteristicas.length" class="property-detail-summary" aria-label="Resumo das características"><div v-for="fact in resumoCaracteristicas" :key="fact.key"><strong>{{ fact.display }}</strong><span>{{ fact.label }}</span></div></div>
-            <div class="property-detail-actions"><button class="react-button" type="button" @click="contact = true">Tenho interesse</button><a v-if="usuario?.usuario?.id === item.usuario_id" class="react-button secondary" :href="'cadastro.html?modo=editar&id=' + item.id">Editar imóvel</a></div>
+            <div class="property-detail-actions"><button class="react-button" type="button" @click="contact = true">Tenho interesse</button><button class="react-button secondary property-share-detail-button" type="button" @click="compartilhar"><svg class="property-share-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"></path></svg>Compartilhar</button><span v-if="shareStatus" class="property-share-status property-share-detail-status" role="status" aria-live="polite">{{ shareStatus }}</span><a v-if="usuario?.usuario?.id === item.usuario_id" class="react-button secondary" :href="'cadastro.html?modo=editar&id=' + item.id">Editar imóvel</a></div>
           </section>
         </aside>
       </div>
@@ -253,6 +327,7 @@ const cadastroSetupOriginal = Cadastro.setup;
 Cadastro.setup = () => { const state = cadastroSetupOriginal(); state.imovel.value.caracteristicas ||= {}; const opcoesCaracteristicas = computed(() => { const comuns = [{ key: 'area', label: 'Área (m²)', type: 'number', placeholder: 'Ex.: 120' }]; const categorias = { Casa: [...comuns, { key: 'quartos', label: 'Quartos', type: 'number', placeholder: 'Ex.: 3' }, { key: 'banheiros', label: 'Banheiros', type: 'number', placeholder: 'Ex.: 2' }, { key: 'vagas', label: 'Vagas de garagem', type: 'number', placeholder: 'Ex.: 2' }, { key: 'suite', label: 'Suíte', type: 'check' }, { key: 'quintal', label: 'Quintal', type: 'check' }, { key: 'piscina', label: 'Piscina', type: 'check' }, { key: 'churrasqueira', label: 'Churrasqueira', type: 'check' }], Apartamento: [...comuns, { key: 'quartos', label: 'Quartos', type: 'number', placeholder: 'Ex.: 2' }, { key: 'banheiros', label: 'Banheiros', type: 'number', placeholder: 'Ex.: 1' }, { key: 'vagas', label: 'Vagas de garagem', type: 'number', placeholder: 'Ex.: 1' }, { key: 'suite', label: 'Suíte', type: 'check' }, { key: 'sacada', label: 'Sacada', type: 'check' }, { key: 'elevador', label: 'Elevador', type: 'check' }, { key: 'condominio', label: 'Condomínio fechado', type: 'check' }], Terreno: [{ key: 'area', label: 'Área (m²)', type: 'number', placeholder: 'Ex.: 700' }, { key: 'frente', label: 'Frente (m)', type: 'number', placeholder: 'Ex.: 20' }, { key: 'topografia', label: 'Topografia', type: 'select', options: ['Plano', 'Aclive', 'Declive', 'Irregular'] }, { key: 'agua', label: 'Água encanada', type: 'check' }, { key: 'energia', label: 'Energia elétrica', type: 'check' }, { key: 'rua_asfaltada', label: 'Rua asfaltada', type: 'check' }], 'Chácara / Sítio': [...comuns, { key: 'quartos', label: 'Quartos', type: 'number', placeholder: 'Ex.: 3' }, { key: 'banheiros', label: 'Banheiros', type: 'number', placeholder: 'Ex.: 2' }, { key: 'piscina', label: 'Piscina', type: 'check' }, { key: 'area_verde', label: 'Área verde', type: 'check' }, { key: 'nascente', label: 'Nascente ou lago', type: 'check' }, { key: 'energia', label: 'Energia elétrica', type: 'check' }], Comercial: [...comuns, { key: 'banheiros', label: 'Banheiros', type: 'number', placeholder: 'Ex.: 2' }, { key: 'vagas', label: 'Vagas', type: 'number', placeholder: 'Ex.: 3' }, { key: 'salas', label: 'Salas ou ambientes', type: 'number', placeholder: 'Ex.: 4' }, { key: 'acessibilidade', label: 'Acessibilidade', type: 'check' }, { key: 'estacionamento', label: 'Estacionamento', type: 'check' }, { key: 'ar_condicionado', label: 'Ar-condicionado', type: 'check' }] }; return categorias[state.imovel.value.categoria] || comuns; }); const formatarDescricao = command => { document.execCommand(command); }; const sincronizarDescricao = event => { state.imovel.value.descricao = event.target.innerHTML; }; const salvarOriginal = state.salvar; state.salvar = event => { state.imovel.value.caracteristicas = { ...state.imovel.value.caracteristicas }; return salvarOriginal(event); }; return { ...state, opcoesCaracteristicas, formatarDescricao, sincronizarDescricao }; };
 Cadastro.template = Cadastro.template.replace('<div class="form-section"><div class="section-heading"><span>03</span><h2>Fotos do imóvel</h2></div>', '<div class="form-section property-features-section"><div class="section-heading"><span>03</span><h2>O que o imóvel possui?</h2></div><p class="features-help">Selecione apenas as características que fazem sentido para este tipo de imóvel.</p><div class="features-grid"><template v-for="opcao in opcoesCaracteristicas" :key="opcao.key"><label v-if="opcao.type !== \'check\'" class="feature-field">{{ opcao.label }}<select v-if="opcao.type === \'select\'" v-model="imovel.caracteristicas[opcao.key]"><option value="">Selecione</option><option v-for="item in opcao.options" :key="item">{{ item }}</option></select><input v-else v-model="imovel.caracteristicas[opcao.key]" :type="opcao.type" :placeholder="opcao.placeholder"></label><label v-else class="feature-check"><input type="checkbox" v-model="imovel.caracteristicas[opcao.key]"><span>{{ opcao.label }}</span></label></template></div></div><div class="form-section"><div class="section-heading"><span>04</span><h2>Fotos do imóvel</h2></div>');
 Cadastro.template = Cadastro.template.replace('<label class="field field-wide">Descrição<textarea v-model="imovel.descricao" rows="4"></textarea></label>', '<div class="field field-wide description-editor-field"><span>Descrição</span><div class="description-toolbar" role="toolbar" aria-label="Ferramentas de edição"><button type="button" @mousedown.prevent="formatarDescricao(\'bold\')" title="Negrito"><strong>B</strong></button><button type="button" @mousedown.prevent="formatarDescricao(\'italic\')" title="Itálico"><em>I</em></button><button type="button" @mousedown.prevent="formatarDescricao(\'insertUnorderedList\')" title="Lista">☷</button><button type="button" @mousedown.prevent="formatarDescricao(\'justifyLeft\')" title="Alinhar à esquerda">≡</button><button type="button" @mousedown.prevent="formatarDescricao(\'removeFormat\')" title="Limpar formatação">Tx</button></div><div class="description-editor" contenteditable="true" role="textbox" aria-multiline="true" v-html="imovel.descricao" @input="sincronizarDescricao" data-placeholder="Descreva o imóvel, seus diferenciais e condições..."></div></div>');
+Cadastro.template = Cadastro.template.replace('data-placeholder="Descreva o imóvel, seus diferenciais e condições..."></div></div>', 'data-placeholder="Descreva o imóvel, seus diferenciais e condições..."></div><small class="description-editor-help">Ao colar um texto, cada linha será preservada como um tópico. Emojis também são mantidos.</small></div>');
 const featureMarker = '<div class="form-section property-features-section">'; const photoMarker = '<div class="form-section"><div class="section-heading"><span>04</span><h2>Fotos do imóvel</h2></div>'; const featureStart = Cadastro.template.indexOf(featureMarker); const photoStart = Cadastro.template.indexOf(photoMarker); if (featureStart >= 0 && photoStart > featureStart) { const featureBlock = Cadastro.template.slice(featureStart, photoStart).replace('<div class="section-heading"><span>03</span><h2>O que o imóvel possui?</h2></div>', '<div class="section-heading"><h2>O que o imóvel possui?</h2></div>'); Cadastro.template = Cadastro.template.slice(0, featureStart) + Cadastro.template.slice(photoStart); const priceMarker = '<label class="field">Preço (R$)'; Cadastro.template = Cadastro.template.replace(priceMarker, featureBlock + priceMarker).replace('<span>04</span><h2>Fotos do imóvel</h2>', '<span>03</span><h2>Fotos do imóvel</h2>'); }
 Cadastro.template = Cadastro.template.replace('<label class="field field-wide">Endereço ou bairro<input v-model="imovel.endereco" required></label>', '<label class="field">CEP<input v-model="imovel.cep" @input="formatarCepImovel" inputmode="numeric" placeholder="Ex.: 18274-558" autocomplete="postal-code" required><small v-if="cepImovelConsultando" class="field-help">Consultando CEP…</small></label><label class="field">Rua<input v-model="imovel.rua" @input="atualizarEnderecoImovel" placeholder="Ex.: Rua Onze de Agosto" autocomplete="address-line1" required></label><label class="field">Número<input v-model="imovel.numero" @input="atualizarEnderecoImovel" placeholder="Ex.: 420" autocomplete="address-line2" required></label><label class="field">Bairro<input v-model="imovel.bairro" @input="atualizarEnderecoImovel" placeholder="Ex.: Centro" autocomplete="address-level3" required></label><label class="field">Cidade<input v-model="imovel.cidade" @input="atualizarEnderecoImovel" placeholder="Ex.: Tatuí" autocomplete="address-level2" required></label><label class="field">Estado<input v-model="imovel.estado" @input="formatarEstadoImovel" maxlength="2" placeholder="Ex.: SP" autocomplete="address-level1" required></label>');
 Cadastro.template = Cadastro.template.replace('<div class="map-picker-field field-wide"><div class="map-picker-label"><span>Localização no mapa</span><small>Clique para marcar o imóvel</small></div>', '<div class="map-picker-field field-wide"><div class="map-picker-label"><span>Localização no mapa</span><small>Clique no mapa para preencher o endereço</small></div>');
@@ -263,6 +338,7 @@ Cadastro.template = Cadastro.template.replace(`v-if="imovel.tipos_transacao.incl
 Cadastro.template = Cadastro.template.replace('<label v-if="imovel.caracteristicas.condominio" class="condo-included-option"><input type="checkbox" v-model="imovel.condominio_incluso"> Condomínio incluso no valor</label>', '<label v-if="imovel.caracteristicas.condominio" class="condo-included-option"><input type="checkbox" v-model="imovel.condominio_incluso"> Condomínio incluso no valor</label><label v-if="imovel.caracteristicas.condominio && !imovel.condominio_incluso" class="field condo-fee-field">Valor mensal do condomínio (R$)<input :value="imovel.condominio_valor" @input="formatarPreco($event, \'condominio_valor\')" inputmode="numeric" placeholder="R$ 0,00" autocomplete="off" required></label>');
 Cadastro.template = Cadastro.template.replace('v-if="opcao.type !== \'check\'"', 'v-if="opcao.type !== \'check\' || opcao.key === \'suite\'"').replace('{{ opcao.label }}<select v-if="opcao.type === \'select\'"', '{{ opcao.key === \'suite\' ? \'Suítes\' : opcao.label }}<select v-if="opcao.type === \'select\'"').replace(':type="opcao.type" :placeholder="opcao.placeholder"', ':type="opcao.key === \'suite\' ? \'number\' : opcao.type" :min="opcao.key === \'suite\' ? 0 : null" :placeholder="opcao.key === \'suite\' ? \'Ex.: 1\' : opcao.placeholder"');
 Cadastro.template = Cadastro.template.replace('contenteditable="true" role="textbox" aria-multiline="true" v-html="imovel.descricao"', 'contenteditable="true" role="textbox" aria-multiline="true" ref="descricaoEditor"');
+Cadastro.template = Cadastro.template.replace('@input="sincronizarDescricao" data-placeholder=', '@input="sincronizarDescricao" @paste="colarDescricao" data-placeholder=');
 const cadastroSetupComCamposOriginal = Cadastro.setup;
 Cadastro.setup = () => {
   const state = cadastroSetupComCamposOriginal();
@@ -283,6 +359,18 @@ Cadastro.setup = () => {
     editor.innerHTML = state.imovel.value.descricao || '';
   }, { immediate: true });
   return { ...state, formatarPreco, descricaoEditor };
+};
+const cadastroSetupComColagemOriginal = Cadastro.setup;
+Cadastro.setup = () => {
+  const state = cadastroSetupComColagemOriginal();
+  const colarDescricao = event => {
+    const texto = event.clipboardData?.getData('text/plain');
+    if (typeof texto !== 'string') return;
+    event.preventDefault();
+    document.execCommand('insertHTML', false, PropertyDescription.textoParaHtml(texto));
+    state.imovel.value.descricao = event.currentTarget.innerHTML;
+  };
+  return { ...state, colarDescricao };
 };
 const appendOriginal = FormData.prototype.append;
 FormData.prototype.append = function(name, value, filename) {

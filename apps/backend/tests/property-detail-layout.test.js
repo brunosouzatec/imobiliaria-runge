@@ -45,7 +45,7 @@ test('detalhes distinguem imóvel inexistente de erro de carregamento', () => {
 });
 
 test('erros de renderização Vue deixam uma mensagem visível em vez de uma tela branca', () => {
-  const errorHandler = source.match(/app\.config\.errorHandler = \(error, instance, info\) => \{([\s\S]*?)\n\};\napp\.mount/);
+  const errorHandler = source.match(/app\.config\.errorHandler = \(error, instance, info\) => \{([\s\S]*?)\r?\n\};\r?\napp\.mount/);
   assert.ok(errorHandler, 'Vue render error handler is configured before mount');
   assert.match(errorHandler[1], /console\.error/);
   assert.match(errorHandler[1], /role="alert"/);
