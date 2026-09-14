@@ -4,11 +4,13 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const mysql = require('mysql2/promise');
-const PropertyOffers = require('./property-offers');
+const PropertyOffers = require('../../../packages/shared/property-offers');
 const { runMigrations } = require('./migrate');
 
-const root = __dirname;
-const dataDir = process.env.DATA_DIR || path.join(root, 'data');
+const projectRoot = path.resolve(__dirname, '../../..');
+const webRoot = path.resolve(projectRoot, 'apps/frontend/public');
+const sharedRoot = path.resolve(projectRoot, 'packages/shared');
+const dataDir = process.env.DATA_DIR || path.join(projectRoot, 'data');
 const photosDir = path.join(dataDir, 'Fotos_imoveis');
 fs.mkdirSync(photosDir, { recursive: true });
 const r2Enabled = Boolean(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME);
@@ -142,6 +144,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname.startsWith('/Fotos_imoveis/')) { const file = path.resolve(dataDir, `.${url.pathname}`); if (!file.startsWith(path.resolve(photosDir)) || !fs.existsSync(file)) return sendJson(res,404,{error:'Arquivo nÃ£o encontrado.'}); res.writeHead(200, {'Content-Type': mimeTypes[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable'}); return fs.createReadStream(file).pipe(res); }
     if (url.pathname === '/mapbox-config.js') { res.writeHead(200, {'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}); return res.end(`const MAPBOX_TOKEN = ${JSON.stringify(process.env.MAPBOX_TOKEN || '')};`); }
+    if (url.pathname.startsWith('/shared/')) { const file = path.resolve(sharedRoot, `.${url.pathname.slice('/shared'.length)}`); if (!file.startsWith(`${sharedRoot}${path.sep}`) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200, {'Content-Type':mimeTypes[path.extname(file)] || 'application/octet-stream'}); return fs.createReadStream(file).pipe(res); }
     if (url.pathname.startsWith('/uploads/')) { const file = path.resolve(uploadsDir, path.basename(url.pathname)); if (!file.startsWith(path.resolve(uploadsDir)) || !fs.existsSync(file)) return sendJson(res,404,{error:'Arquivo nÃ£o encontrado.'}); res.writeHead(200, {'Content-Type': mimeTypes[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable'}); return fs.createReadStream(file).pipe(res); }
     if (url.pathname === '/api/imoveis' && req.method === 'GET') { const [rows] = await pool.query('SELECT * FROM imoveis ORDER BY id DESC'); return sendJson(res, 200, await comFotos(rows)); }
     const detailFixed = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (detailFixed && req.method === 'GET') { const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [detailFixed[1]]); return row ? sendJson(res, 200, (await comFotos([row]))[0]) : sendJson(res, 404, { error: 'Imóvel não encontrado.' }); }
@@ -157,7 +160,7 @@ const server = http.createServer(async (req, res) => {
     const contact = url.pathname.match(/^\/api\/imoveis\/(\\d+)\/contatos$/); if (contact && req.method === 'POST') { const d=await bodyJson(req); if (!d.nome||!d.telefone||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(d.email||'')) return sendJson(res,400,{error:'Preencha os dados corretamente.'}); const [[property]]=await pool.query('SELECT id FROM imoveis WHERE id=?',[contact[1]]); if(!property) return sendJson(res,404,{error:'Imóvel não encontrado.'}); const [result]=await pool.query('INSERT INTO contatos (imovel_id,nome,telefone,email) VALUES (?,?,?,?)',[contact[1],d.nome,d.telefone,d.email]); return sendJson(res,201,{id:result.insertId,message:'Contato registrado com sucesso.'}); }
     if (url.pathname === '/api/imoveis' && req.method === 'POST') return criarImovelJson(req, res);
     const detail=url.pathname.match(/^\/api\/imoveis\/(\\d+)$/); if(detail && req.method==='GET') { const [[row]]=await pool.query('SELECT * FROM imoveis WHERE id=?',[detail[1]]); return row ? sendJson(res,200,imovelJson(row)) : sendJson(res,404,{error:'Imóvel não encontrado.'}); }
-    const relative=url.pathname==='/'?'/index.html':url.pathname; const file=path.resolve(root,'.'+relative); if(!file.startsWith(root)||!fs.existsSync(file)||fs.statSync(file).isDirectory()) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200,{'Content-Type':mimeTypes[path.extname(file)]||'application/octet-stream'}); fs.createReadStream(file).pipe(res);
+    const relative=url.pathname==='/'?'/index.html':url.pathname; const file=path.resolve(webRoot,'.'+relative); if(!file.startsWith(`${webRoot}${path.sep}`)||!fs.existsSync(file)||fs.statSync(file).isDirectory()) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200,{'Content-Type':mimeTypes[path.extname(file)]||'application/octet-stream'}); fs.createReadStream(file).pipe(res);
   } catch (error) { console.error(error); if(!res.headersSent) sendJson(res,500,{error:'Erro interno do servidor.'}); }
 });
 runMigrations(pool).then(()=>server.listen(port,()=>console.log(`Imobiliária Runge disponível em http://localhost:${port}`))).catch(error=>{console.error('Falha ao executar migrations do MySQL:',error);process.exit(1);});

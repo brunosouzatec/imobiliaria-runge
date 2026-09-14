@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const characteristics = require('../property-characteristics');
+const characteristics = require('../../../packages/shared/property-characteristics');
 
 test('formata atributos cadastrados e omite opções não selecionadas', () => {
   const result = characteristics.list(JSON.stringify({ area: '74', quartos: 2, vagas: 1, piscina: true, suite: false, campo_desconhecido: 'x' }));

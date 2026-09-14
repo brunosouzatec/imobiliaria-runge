@@ -13,7 +13,7 @@ async function runMigrations(pool) {
       name VARCHAR(255) PRIMARY KEY,
       applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`);
-    const directory = path.join(__dirname, 'migrations');
+    const directory = path.resolve(__dirname, '../migrations');
     const files = fs.readdirSync(directory).filter(file => /^\d+_[a-z0-9_-]+\.js$/i.test(file)).sort();
     const [appliedRows] = await connection.query('SELECT name FROM schema_migrations');
     const applied = new Set(appliedRows.map(row => row.name));

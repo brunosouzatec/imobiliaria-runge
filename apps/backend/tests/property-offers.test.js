@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const offers = require('../property-offers');
+const offers = require('../../../packages/shared/property-offers');
 
 test('normalizes multi-select transactions, removing duplicates and invalid values', () => {
   assert.deepEqual(offers.normalizeTypes('["Venda","Aluguel","Venda","Outro"]'), ['Venda', 'Aluguel']);

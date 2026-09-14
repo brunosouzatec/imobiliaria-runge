@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const address = require('../property-address');
+const address = require('../../../packages/shared/property-address');
 
 test('formata CEP e monta endereço estruturado para consulta', () => {
   assert.equal(address.formatCep('18274558'), '18274-558');
