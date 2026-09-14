@@ -31,12 +31,32 @@ test('backend, migrations, shared browser modules and infrastructure entrypoints
   assert.ok(fs.existsSync(path.join(projectRoot, 'apps/backend/src/server.js')));
   assert.ok(fs.existsSync(path.join(projectRoot, 'apps/backend/migrations/001_initial_schema.js')));
   assert.ok(fs.existsSync(path.join(sharedRoot, 'property-offers.js')));
+  assert.ok(fs.existsSync(path.join(sharedRoot, 'property-search.js')));
   assert.ok(fs.existsSync(path.join(sharedRoot, 'property-contact.js')));
   assert.match(fs.readFileSync(path.join(projectRoot, 'apps/backend/src/server.js'), 'utf8'), /url\.pathname\.startsWith\('\/shared\/'\)/);
   assert.match(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'), /apps\/backend\/src\/server\.js/);
   assert.match(fs.readFileSync(path.join(projectRoot, 'infra/Dockerfile'), 'utf8'), /apps\/backend\/src\/server\.js/);
   assert.match(fs.readFileSync(path.join(publicRoot, 'imoveis.html'), 'utf8'), /shared\/property-contact\.js/);
+  assert.match(fs.readFileSync(path.join(publicRoot, 'imoveis.html'), 'utf8'), /shared\/property-search\.js"><\/script>[\s\S]*vue-app\.js/);
   assert.match(fs.readFileSync(path.join(publicRoot, 'imovel.html'), 'utf8'), /shared\/property-contact\.js/);
+  for (const page of ['imoveis.html', 'meus-imoveis.html']) {
+    const html = fs.readFileSync(path.join(publicRoot, page), 'utf8');
+    assert.match(html, /<script src="\/shared\/property-characteristics\.js"><\/script>\s*<script src="\/shared\/property-offers\.js"><\/script>/, `${page} must load card dependencies before vue-app.js`);
+    assert.ok(html.indexOf('property-characteristics.js') < html.indexOf('vue-app.js'), `${page} loads characteristics before Vue components`);
+  }
   assert.match(fs.readFileSync(path.join(projectRoot, 'docker-compose.yml'), 'utf8'), /dockerfile: infra\/Dockerfile/);
   assert.match(fs.readFileSync(path.join(projectRoot, '.github/workflows/deploy.yml'), 'utf8'), /file: infra\/Dockerfile/);
+});
+
+test('development compose mounts source and watches backend without entering production deploy', () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
+  const devComposePath = path.join(projectRoot, 'docker-compose.dev.yml');
+  const devCompose = fs.readFileSync(devComposePath, 'utf8');
+  const deployWorkflow = fs.readFileSync(path.join(projectRoot, '.github/workflows/deploy.yml'), 'utf8');
+
+  assert.equal(packageJson.scripts.dev, 'node --watch apps/backend/src/server.js');
+  assert.match(devCompose, /command: \["npm", "run", "dev"\]/);
+  assert.match(devCompose, /\.\/apps:\/app\/apps/);
+  assert.match(devCompose, /\.\/packages:\/app\/packages/);
+  assert.doesNotMatch(deployWorkflow, /docker-compose\.dev\.yml/);
 });

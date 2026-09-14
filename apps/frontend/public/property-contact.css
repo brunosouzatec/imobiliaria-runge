@@ -25,7 +25,7 @@
   transform: translateY(-1px);
 }
 
-.listing-whatsapp-link span { font-size: 1rem; line-height: 1; }
+.listing-whatsapp-icon { flex: 0 0 18px; height: 18px; width: 18px; }
 
 .whatsapp-form-note,
 .whatsapp-form-status {

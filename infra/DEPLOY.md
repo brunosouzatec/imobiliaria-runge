@@ -12,6 +12,16 @@ docker compose up --build
 
 O sistema ficará disponível em `http://localhost:3000` e o banco será persistido no volume Docker `runge-data`.
 
+### Desenvolvimento sem reconstruir a cada edição
+
+Para desenvolvimento local, use o Compose adicional, que monta `apps/` e `packages/` no container. Alterações do frontend ficam disponíveis imediatamente; alterações do backend reiniciam o processo Node automaticamente:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+```
+
+Depois da primeira construção, não é necessário `--build` para alterações no código. O Compose padrão e o workflow de produção não incluem esse arquivo de desenvolvimento.
+
 O Compose permanece na raiz do repositório de propósito: mover o arquivo pode alterar o nome dos volumes nomeados e fazer a aplicação iniciar com um volume de banco vazio. O Dockerfile da aplicação está em `infra/Dockerfile` e é referenciado pelo Compose.
 
 O código da aplicação está organizado em `apps/frontend`, `apps/backend` e `packages/shared`. A interface continua sendo servida pelo backend no mesmo domínio e nas mesmas rotas.

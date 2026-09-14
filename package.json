@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "start": "node apps/backend/src/server.js",
+    "dev": "node --watch apps/backend/src/server.js",
     "test": "node --test"
   },
   "dependencies": {
