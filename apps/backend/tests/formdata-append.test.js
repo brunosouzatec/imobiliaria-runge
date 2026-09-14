@@ -5,7 +5,7 @@ const test = require('node:test');
 const { runInNewContext } = require('node:vm');
 
 test('FormData aceita campos de texto, características JSON e fotos Blob', () => {
-  const source = fs.readFileSync(path.join(__dirname, '..', 'vue-app.js'), 'utf8');
+  const source = fs.readFileSync(path.join(__dirname, '../../frontend/public/vue-app.js'), 'utf8');
   const patch = source.match(/const appendOriginal = FormData\.prototype\.append;[\s\S]*?(?=\nconst MeusImoveis)/)?.[0];
 
   assert.ok(patch, 'o adaptador global de FormData deve estar presente');

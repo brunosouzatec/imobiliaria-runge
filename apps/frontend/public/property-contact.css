@@ -1,0 +1,51 @@
+.listing-property-footer-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.listing-property-footer .listing-whatsapp-link {
+  align-items: center;
+  background: #18a957;
+  border-radius: 7px;
+  color: #fff;
+  display: inline-flex;
+  font-size: .78rem;
+  gap: 6px;
+  padding: 9px 12px;
+  transition: background .2s, transform .2s;
+}
+
+.listing-property-footer .listing-whatsapp-link:hover,
+.listing-property-footer .listing-whatsapp-link:focus-visible {
+  background: #128447;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.listing-whatsapp-link span { font-size: 1rem; line-height: 1; }
+
+.whatsapp-form-note,
+.whatsapp-form-status {
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.55;
+}
+
+.react-button.whatsapp-contact-button {
+  background: #18a957;
+  box-shadow: 0 8px 18px #18a95726;
+}
+
+.react-button.whatsapp-contact-button:hover,
+.react-button.whatsapp-contact-button:focus-visible {
+  background: #128447;
+  box-shadow: 0 12px 24px #18a95735;
+}
+
+@media (max-width: 850px) {
+  .listing-property-footer { align-items: flex-start; flex-direction: column; }
+  .listing-property-footer-actions { justify-content: flex-start; width: 100%; }
+}

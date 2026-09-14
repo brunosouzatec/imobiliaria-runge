@@ -15,4 +15,4 @@ USER node
 VOLUME ["/data"]
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["node", "apps/backend/src/server.js"]

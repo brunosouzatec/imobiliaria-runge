@@ -19,7 +19,9 @@ services:
       retries: 20
 
   imobiliaria-runge:
-    build: .
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
     image: ${IMAGE_NAME:-imobiliaria-runge:local}
     container_name: imobiliaria-runge
     restart: unless-stopped
