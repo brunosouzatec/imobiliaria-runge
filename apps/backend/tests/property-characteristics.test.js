@@ -19,9 +19,31 @@ test('monta o resumo com área, quartos, banheiros e vagas disponíveis', () => 
   assert.equal(characteristics.list({ area: 74.5 })[0].display, '74,5 m²');
 });
 
+test('inclui suítes no resumo em ordem útil para leitura do card', () => {
+  const features = characteristics.list({ vagas: 2, banheiros: 2, suite: 1, quartos: 3, area: 120 });
+  assert.deepEqual(characteristics.summary(features).map(feature => feature.key), ['area', 'quartos', 'suite', 'banheiros', 'vagas']);
+  assert.deepEqual(characteristics.summary(features).map(feature => feature.display), ['120 m²', '3 quartos', '1 suíte', '2 banheiros', '2 vagas']);
+});
+
 test('interpreta suíte como quantidade e pluraliza corretamente', () => {
   assert.equal(characteristics.list({ suite: 1 })[0].display, '1 suíte');
   assert.equal(characteristics.list({ suite: 2 })[0].display, '2 suítes');
+});
+
+test('fornece um ícone específico para cada característica exibida', () => {
+  const data = {
+    area: 80, quartos: 3, banheiros: 2, vagas: 2, suite: 1, quintal: true,
+    piscina: true, churrasqueira: true, sacada: true, elevador: true,
+    condominio: true, frente: 10, topografia: 'Plano', agua: true,
+    energia: true, rua_asfaltada: true, area_verde: true, nascente: true,
+    salas: 2, acessibilidade: true, estacionamento: true, ar_condicionado: true
+  };
+  const features = characteristics.list(data);
+  const icons = features.map(feature => characteristics.icon(feature.key));
+
+  assert.ok(icons.every(paths => Array.isArray(paths) && paths.length > 0));
+  assert.equal(new Set(icons.map(paths => paths.join('|'))).size, features.length);
+  assert.deepEqual(characteristics.icon('unknown'), characteristics.icon('default'));
 });
 
 test('oferece condomínio fechado em todo tipo exceto Comercial', () => {

@@ -1,0 +1,8 @@
+services:
+  imobiliaria-runge:
+    command: ["npm", "run", "dev"]
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./apps:/app/apps
+      - ./packages:/app/packages
