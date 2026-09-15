@@ -54,6 +54,7 @@
 .property-detail-transaction { color: var(--accent); font-size: .75rem; font-weight: 700; letter-spacing: .12em; margin: 0; text-transform: uppercase; }
 .property-detail-address { align-items: baseline; color: var(--muted); display: flex; font-size: .92rem; gap: 8px; line-height: 1.5; margin: 0; }
 .property-detail-address span { color: var(--teal); font-size: 1.1rem; }
+.property-detail-reference { color: #82918b; font-size: .74rem; letter-spacing: .02em; margin: 9px 0 0; }
 .property-detail-back { color: var(--teal); font-size: .82rem; font-weight: 650; margin-bottom: 3px; text-decoration: none; white-space: nowrap; }
 .property-detail-back:hover { color: var(--accent); }
 .property-detail-layout { align-items: start; display: grid; gap: 32px; grid-template-columns: minmax(0, 1fr) 320px; }
@@ -105,7 +106,7 @@
 .property-detail-not-found { margin: 40px auto; max-width: 1120px; }
 .property-detail-not-found a { color: var(--teal); }
 @media (max-width: 900px) { .property-detail-layout { grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; }.property-detail-gallery { grid-template-columns: minmax(0, 1.5fr) minmax(140px, 1fr); min-height: 300px; }.property-detail-cover { min-height: 300px; } }
-@media (max-width: 720px) { .property-detail-heading { align-items: flex-start; flex-direction: column; gap: 14px; }.property-detail-layout { display: flex; flex-direction: column; }.property-detail-main, .property-detail-sidebar { width: 100%; }.property-detail-sidebar { order: -1; }.property-detail-card { position: static; }.property-detail-gallery { grid-template-columns: 1fr; grid-template-rows: minmax(240px, 56vw) auto; min-height: 0; }.property-detail-cover { min-height: 0; }.property-detail-thumbnails { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(70px, 20vw); }.property-detail-characteristics ul { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .property-detail-heading { align-items: flex-start; flex-direction: column; gap: 14px; }.property-detail-layout { display: flex; flex-direction: column; }.property-detail-main, .property-detail-sidebar { width: 100%; }.property-detail-sidebar { order: -1; }.property-detail-card { position: sticky; top: 72px; z-index: 5; }.property-detail-gallery { grid-template-columns: 1fr; grid-template-rows: minmax(240px, 56vw) auto; min-height: 0; }.property-detail-cover { min-height: 0; }.property-detail-thumbnails { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(70px, 20vw); }.property-detail-characteristics ul { grid-template-columns: 1fr; } }
 @media (max-width: 420px) { .property-detail-card { padding: 17px; }.property-detail-thumbnails { gap: 6px; }.property-detail-gallery { gap: 6px; } }
 
 /* Keep compact account/result states centered in the available content area. */

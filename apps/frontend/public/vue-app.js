@@ -208,7 +208,7 @@ const Detail = {
     <section v-else-if="!item" class="property-detail-not-found"><h1>Imóvel não encontrado.</h1><a href="imoveis.html">Voltar para a lista</a></section>
     <article v-else class="property-detail">
       <header class="property-detail-heading">
-        <div><p class="property-detail-transaction">{{ oferta.types.join(' · ') }}</p><h1>{{ item.categoria }}</h1><p class="property-detail-address"><span aria-hidden="true">⌖</span>{{ item.endereco }}</p></div>
+        <div><p class="property-detail-transaction">{{ oferta.types.join(' · ') }}</p><h1>{{ item.categoria }}</h1><p class="property-detail-address"><span aria-hidden="true">⌖</span>{{ item.endereco }}</p><p class="property-detail-reference">Anúncio #{{ item.id }} · Publicado no Tatuí Imóveis</p></div>
         <a href="imoveis.html" class="property-detail-back">← Voltar aos imóveis</a>
       </header>
       <div class="property-detail-layout">
