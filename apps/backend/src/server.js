@@ -272,7 +272,20 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/mapbox-config.js') { const token = PropertySecurity.publicMapboxToken(process.env.MAPBOX_TOKEN || ''); res.writeHead(200, {'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}); return res.end(`const MAPBOX_TOKEN = ${JSON.stringify(token)};`); }
     if (url.pathname.startsWith('/shared/')) { const file = path.resolve(sharedRoot, `.${url.pathname.slice('/shared'.length)}`); if (!file.startsWith(`${sharedRoot}${path.sep}`) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200, {'Content-Type':mimeTypes[path.extname(file)] || 'application/octet-stream'}); return fs.createReadStream(file).pipe(res); }
     if (url.pathname === '/api/imoveis' && req.method === 'GET') { if (!rateLimit(req, res, 'public-list', 120, 60 * 1000)) return; const [rows] = await pool.query('SELECT * FROM imoveis ORDER BY id DESC'); return sendJson(res, 200, await comFotos(rows)); }
-    const detailFixed = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (detailFixed && req.method === 'GET') { if (!rateLimit(req, res, 'public-detail', 120, 60 * 1000)) return; const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [detailFixed[1]]); return row ? sendJson(res, 200, (await comFotos([row]))[0]) : sendJson(res, 404, { error: 'Imóvel não encontrado.' }); }
+    if (url.pathname === '/api/imoveis/destaques' && req.method === 'GET') {
+      if (!rateLimit(req, res, 'public-highlights', 60, 60 * 1000)) return;
+      const parsedLimit = Number.parseInt(url.searchParams.get('limit') || '4', 10);
+      const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 8) : 4;
+      const [rows] = await pool.query(`SELECT i.*, COUNT(v.id) AS visualizacoes
+        FROM imoveis i
+        LEFT JOIN imovel_visualizacoes v ON v.imovel_id = i.id
+          AND v.created_at >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01')
+        GROUP BY i.id
+        ORDER BY visualizacoes DESC, i.created_at DESC, i.id DESC
+        LIMIT ${limit}`);
+      return sendJson(res, 200, await comFotos(rows));
+    }
+    const detailFixed = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (detailFixed && req.method === 'GET') { if (!rateLimit(req, res, 'public-detail', 120, 60 * 1000)) return; const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [detailFixed[1]]); if (!row) return sendJson(res, 404, { error: 'Imóvel não encontrado.' }); await pool.query('INSERT INTO imovel_visualizacoes (imovel_id) VALUES (?)', [detailFixed[1]]); return sendJson(res, 200, (await comFotos([row]))[0]); }
     const editRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (editRoute && req.method === 'PATCH') return updateProperty(req, res, editRoute[1]);
     const photoRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)\/fotos$/); if (photoRoute && req.method === 'POST') return addPropertyPhotos(req, res, photoRoute[1]);
     const deletePhotoRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)\/fotos\/(\d+)$/); if (deletePhotoRoute && req.method === 'DELETE') return deletePropertyPhotoStored(req, res, deletePhotoRoute[1], deletePhotoRoute[2]);
