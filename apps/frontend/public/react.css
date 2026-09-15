@@ -304,3 +304,5 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .login-password-toggle { align-items: center; color: #667473; display: flex; font-size: .76rem; font-weight: 400; gap: 6px; letter-spacing: 0; margin-top: -2px; text-transform: none; }
 .login-password-toggle input { accent-color: #08716d; margin: 0; padding: 0; width: auto; }
 .react-form button:disabled { cursor: wait; opacity: .7; }
+.home-suggestions button { min-height: 46px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
