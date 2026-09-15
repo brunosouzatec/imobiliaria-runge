@@ -1,6 +1,7 @@
 name: Build and deploy Imobiliária Runge
 
 on:
+  pull_request:
   push:
     branches: [main]
   workflow_dispatch:
@@ -10,17 +11,38 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Configurar Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          cache: npm
+      - name: Instalar dependências do lockfile
+        run: npm ci --ignore-scripts
+      - name: Executar testes
+        run: npm test
+      - name: Auditar dependências
+        run: npm audit --audit-level=moderate
+
   build-and-push:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Login no GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -28,7 +50,7 @@ jobs:
 
       - name: Metadata da imagem
         id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -36,7 +58,7 @@ jobs:
             type=sha
 
       - name: Build e push
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           file: infra/Dockerfile
@@ -45,9 +67,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   deploy:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/main' }}
     needs: build-and-push
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Deploy via SSH
         env:
@@ -56,19 +80,22 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
-        uses: appleboy/ssh-action@v1.2.0
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+          IMAGE_REF: ghcr.io/${{ github.repository }}:latest
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: R2_ACCOUNT_ID,R2_ACCESS_KEY_ID,R2_SECRET_ACCESS_KEY,R2_BUCKET_NAME,R2_PUBLIC_URL
+          envs: R2_ACCOUNT_ID,R2_ACCESS_KEY_ID,R2_SECRET_ACCESS_KEY,R2_BUCKET_NAME,R2_PUBLIC_URL,DEPLOY_PATH,GHCR_READ_TOKEN,IMAGE_REF
           script: |
             set -eu
-            mkdir -p "${{ secrets.DEPLOY_PATH }}"
-            cd "${{ secrets.DEPLOY_PATH }}"
+            mkdir -p "$DEPLOY_PATH"
+            cd "$DEPLOY_PATH"
             touch .env
             sed -i '/^R2_ACCOUNT_ID=/d; /^R2_ACCESS_KEY_ID=/d; /^R2_SECRET_ACCESS_KEY=/d; /^R2_BUCKET_NAME=/d; /^R2_PUBLIC_URL=/d' .env
             printf '%s\n' "R2_ACCOUNT_ID=$R2_ACCOUNT_ID" "R2_ACCESS_KEY_ID=$R2_ACCESS_KEY_ID" "R2_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY" "R2_BUCKET_NAME=$R2_BUCKET_NAME" "R2_PUBLIC_URL=$R2_PUBLIC_URL" >> .env
-            echo "${{ secrets.GHCR_READ_TOKEN }}" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
-            docker pull ghcr.io/${{ github.repository }}:latest
-            IMAGE_NAME=ghcr.io/${{ github.repository }}:latest docker compose up -d --no-build --remove-orphans
+            printf '%s' "$GHCR_READ_TOKEN" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
+            docker pull "$IMAGE_REF"
+            IMAGE_NAME="$IMAGE_REF" docker compose up -d --no-build --remove-orphans
