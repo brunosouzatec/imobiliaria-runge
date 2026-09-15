@@ -391,18 +391,23 @@ Header.template = Header.template.replace('href="cadastro.html">Anunciar</a>', '
 Home.template = Home.template.replace('href="cadastro.html">Anunciar agora grátis', ':href="usuario ? \'cadastro.html?modo=imovel\' : \'login.html?fluxo=anunciar\'">Anunciar agora grátis');
 Listing.template = Listing.template.replace('href="cadastro.html">Anunciar imóvel', ':href="usuario ? \'cadastro.html?modo=imovel\' : \'login.html?fluxo=anunciar\'">Anunciar imóvel');
 Login.template = Login.template.replace('<a href="cadastro.html">Cadastre um imóvel</a>', '<a href="cadastro.html?novo=conta&amp;fluxo=anunciar">Criar conta para anunciar</a>');
+Login.template = Login.template.replace('<label>Senha<input type="password" v-model="senha" required></label>', '<label>Senha<input :type="mostrarSenha ? \'text\' : \'password\'" v-model="senha" autocomplete="current-password" required><span class="login-password-toggle"><input type="checkbox" v-model="mostrarSenha"> Mostrar senha</span></label>').replace('<button class="react-button">Entrar</button>', '<button class="react-button" :disabled="submetendo">{{ submetendo ? \'Entrando…\' : \'Entrar\' }}</button>');
 const loginSetupOriginal = Login.setup;
 Login.setup = () => {
   const state = loginSetupOriginal();
   const fluxoAnuncio = params().get('fluxo') === 'anunciar';
+  const mostrarSenha = ref(false);
+  const submetendo = ref(false);
   const entrar = async () => {
+    if (submetendo.value) return;
+    submetendo.value = true;
     state.message.value = 'Entrando…';
     try {
       const response = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: state.email.value, senha: state.senha.value }) });
       const result = await response.json();
       if (!response.ok) { state.message.value = result.error || 'Não foi possível entrar.'; return; }
       location.href = fluxoAnuncio ? 'cadastro.html?modo=imovel' : 'meus-imoveis.html';
-    } catch (_) { state.message.value = 'Não foi possível conectar. Tente novamente.'; }
+    } catch (_) { state.message.value = 'Não foi possível conectar. Tente novamente.'; } finally { submetendo.value = false; }
   };
   onMounted(async () => {
     if (!fluxoAnuncio) return;
@@ -411,7 +416,7 @@ Login.setup = () => {
       if (response.ok) location.replace('cadastro.html?modo=imovel');
     } catch (_) {}
   });
-  return { ...state, submit: entrar };
+  return { ...state, submit: entrar, mostrarSenha, submetendo };
 };
 const cadastroSetupAntesDoGate = Cadastro.setup;
 Cadastro.setup = () => {
