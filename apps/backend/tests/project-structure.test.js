@@ -33,6 +33,7 @@ test('backend, migrations, shared browser modules and infrastructure entrypoints
   assert.ok(fs.existsSync(path.join(sharedRoot, 'property-offers.js')));
   assert.ok(fs.existsSync(path.join(sharedRoot, 'property-search.js')));
   assert.ok(fs.existsSync(path.join(sharedRoot, 'property-contact.js')));
+  assert.ok(fs.existsSync(path.join(sharedRoot, 'property-security.js')));
   assert.match(fs.readFileSync(path.join(projectRoot, 'apps/backend/src/server.js'), 'utf8'), /url\.pathname\.startsWith\('\/shared\/'\)/);
   assert.match(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'), /apps\/backend\/src\/server\.js/);
   assert.match(fs.readFileSync(path.join(projectRoot, 'infra/Dockerfile'), 'utf8'), /apps\/backend\/src\/server\.js/);

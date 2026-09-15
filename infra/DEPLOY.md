@@ -11,6 +11,9 @@ docker compose up --build
 ```
 
 O sistema ficará disponível em `http://localhost:3000` e o banco será persistido no volume Docker `runge-data`.
+O MySQL é publicado somente em `127.0.0.1:3306`; a aplicação conversa com ele pela rede interna do Compose.
+O app local ainda usa HTTP. Em produção, mantenha a porta 3000 protegida por firewall até configurar um proxy HTTPS com domínio e certificado. Só defina `TRUST_PROXY=true` quando o app aceitar tráfego exclusivamente de um proxy confiável que sobrescreva `X-Forwarded-For` e `X-Forwarded-Proto`.
+`MAPBOX_TOKEN` é enviado ao navegador para renderizar o mapa: configure somente um token público `pk.` com escopos e URLs permitidos no painel do Mapbox. Tokens secretos `sk.` são recusados pela aplicação.
 
 ### Desenvolvimento sem reconstruir a cada edição
 
