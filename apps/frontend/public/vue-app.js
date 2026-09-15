@@ -90,6 +90,18 @@ Listing.setup = () => {
   const dimensionFilters = computed(() => (filterDefinitions[state.filters.value.categoria]?.dimensions || []).map(key => ({ key, label: dimensionLabels[key] })));
   const featureFilterOptions = computed(() => filterDefinitions[state.filters.value.categoria]?.features || []);
   const activeFilterCount = computed(() => ['q', 'categoria', 'tipo', 'faixa', ...dimensionKeys, ...characteristicKeys].filter(key => state.filters.value[key] !== '' && state.filters.value[key] !== undefined).length);
+  const activeFilterLabels = computed(() => {
+    const labels = [];
+    const filters = state.filters.value;
+    if (filters.q) labels.push(`Busca: ${filters.q}`);
+    if (filters.tipo) labels.push(filters.tipo === 'Venda' ? 'Comprar' : 'Alugar');
+    if (filters.categoria) labels.push(filters.categoria);
+    if (filters.faixa) labels.push(filters.faixa === 'ate-250000' ? 'Até R$ 250 mil' : filters.faixa === '250000-500000' ? 'R$ 250 a 500 mil' : 'Acima de R$ 500 mil');
+    for (const filter of dimensionFilters.value) if (filters[filter.key]) labels.push(`${filter.label}: ${filters[filter.key]}+`);
+    for (const [key, label] of featureFilterOptions.value) if (filters[key]) labels.push(`${label}${key === 'topografia' ? `: ${filters[key]}` : ''}`);
+    if (filters.areaMin) labels.push(`Área: ${filters.areaMin} m²+`);
+    return labels;
+  });
   const filtered = computed(() => (state.all.value || []).filter(item => {
     const ids = params().get('ids'); const q = state.filters.value.q.toLowerCase();
     if (ids && !ids.split(',').includes(String(item.id))) return false;
@@ -118,6 +130,11 @@ Listing.setup = () => {
     return true;
   }));
   const ordered = computed(() => PropertyOffers.sort(filtered.value, sortOrder.value, state.filters.value.tipo));
+  const limparFiltros = () => {
+    for (const key of Object.keys(state.filters.value)) state.filters.value[key] = '';
+    sortOrder.value = 'recentes';
+    atualizar();
+  };
   const atualizar = () => {
     state.atualizar();
     const next = new URLSearchParams(window.location.search);
@@ -132,13 +149,15 @@ Listing.setup = () => {
     const dimensions = new Set(filterDefinitions[category]?.dimensions || []);
     for (const key of dimensionKeys) if (key !== 'areaMin' && !dimensions.has(key)) state.filters.value[key] = '';
   });
-  return { ...state, filtered, sortOrder, ordered, atualizar, dimensionFilters, featureFilterOptions, activeFilterCount };
+  return { ...state, filtered, sortOrder, ordered, atualizar, limparFiltros, dimensionFilters, featureFilterOptions, activeFilterCount, activeFilterLabels };
 };
 Listing.template = Listing.template
   .replace('<label>Ordenar<select><option>Mais recentes</option></select></label>', '<label>Ordenar<select v-model="sortOrder" aria-label="Ordenar imóveis" @change="atualizar"><option value="recentes">Mais recentes</option><option value="antigos">Mais antigos</option><option value="menor-valor">Menor valor</option><option value="maior-valor">Maior valor</option></select></label>')
   .replace('v-for="item in filtered"', 'v-for="item in ordered"')
   .replace('<option value="ate-250000">Até R$ 250 mil</option><option value="250000-500000">R$ 250 a 500 mil</option><option value="acima-500000">Acima de R$ 500 mil</option>', '<option value="ate-250000">{{ filters.tipo === \'Aluguel\' ? \'Até R$ 2.500/mês\' : \'Até R$ 250 mil\' }}</option><option value="250000-500000">{{ filters.tipo === \'Aluguel\' ? \'R$ 2.500 a 5.000/mês\' : \'R$ 250 a 500 mil\' }}</option><option value="acima-500000">{{ filters.tipo === \'Aluguel\' ? \'Acima de R$ 5.000/mês\' : \'Acima de R$ 500 mil\' }}</option>')
-  .replace('<aside class="listing-filters"><strong>Filtre sua busca</strong><p class="react-lead">Use a barra acima para refinar os resultados.</p><a class="react-button secondary" href="imoveis.html">Limpar filtros</a></aside>', '<details class="listing-filters listing-filter-panel" :open="activeFilterCount > 0"><summary>Mais filtros <span v-if="activeFilterCount" class="listing-filter-count">{{ activeFilterCount }}</span></summary><div class="listing-filter-content"><label>Área mínima (m²)<input v-model="filters.areaMin" type="number" min="0" step="1" placeholder="Ex.: 100"></label><label v-for="filter in dimensionFilters" :key="filter.key">{{ filter.label }} a partir de<select v-model="filters[filter.key]"><option value="">Qualquer quantidade</option><option value="1">1 ou mais</option><option value="2">2 ou mais</option><option value="3">3 ou mais</option><option value="4">4 ou mais</option></select></label><fieldset v-if="featureFilterOptions.length" class="listing-feature-filters"><legend>O que o imóvel possui</legend><label v-for="[key, label, options] in featureFilterOptions" :key="key" class="listing-feature-filter" :class="{ \'listing-feature-filter-select\': key === \'topografia\', \'is-selected\': filters[key] }"><template v-if="key === \'topografia\'"><span>{{ label }}</span><select v-model="filters[key]"><option value="">Qualquer</option><option v-for="option in options" :key="option">{{ option }}</option></select></template><template v-else><input v-model="filters[key]" type="checkbox" value="1"><span>{{ label }}</span></template></label></fieldset><p v-else class="listing-filter-hint">Selecione um tipo de imóvel para ver características específicas.</p><div class="listing-filter-actions"><button type="button" class="listing-filter-apply" @click="atualizar">Aplicar filtros</button><a href="imoveis.html">Limpar tudo</a></div></div></details>');
+  .replace('<aside class="listing-filters"><strong>Filtre sua busca</strong><p class="react-lead">Use a barra acima para refinar os resultados.</p><a class="react-button secondary" href="imoveis.html">Limpar filtros</a></aside>', '<details class="listing-filters listing-filter-panel" :open="activeFilterCount > 0"><summary>Mais filtros <span v-if="activeFilterCount" class="listing-filter-count">{{ activeFilterCount }}</span></summary><div class="listing-filter-content"><label>Área mínima (m²)<input v-model="filters.areaMin" type="number" min="0" step="1" placeholder="Ex.: 100"></label><label v-for="filter in dimensionFilters" :key="filter.key">{{ filter.label }} a partir de<select v-model="filters[filter.key]"><option value="">Qualquer quantidade</option><option value="1">1 ou mais</option><option value="2">2 ou mais</option><option value="3">3 ou mais</option><option value="4">4 ou mais</option></select></label><fieldset v-if="featureFilterOptions.length" class="listing-feature-filters"><legend>O que o imóvel possui</legend><label v-for="[key, label, options] in featureFilterOptions" :key="key" class="listing-feature-filter" :class="{ \'listing-feature-filter-select\': key === \'topografia\', \'is-selected\': filters[key] }"><template v-if="key === \'topografia\'"><span>{{ label }}</span><select v-model="filters[key]"><option value="">Qualquer</option><option v-for="option in options" :key="option">{{ option }}</option></select></template><template v-else><input v-model="filters[key]" type="checkbox" value="1"><span>{{ label }}</span></template></label></fieldset><p v-else class="listing-filter-hint">Selecione um tipo de imóvel para ver características específicas.</p><div class="listing-filter-actions"><button type="button" class="listing-filter-apply" @click="atualizar">Aplicar filtros</button><button type="button" class="listing-filter-clear" @click="limparFiltros">Limpar tudo</button></div></div></details>')
+  .replace('</form><div class="listing-layout">', '</form><div v-if="activeFilterLabels.length" class="listing-active-filters" aria-label="Filtros aplicados"><span v-for="label in activeFilterLabels" :key="label" class="listing-filter-chip">{{ label }}</span><button type="button" @click="limparFiltros">Limpar filtros</button></div><div class="listing-layout">')
+  .replace('<p v-else-if="!filtered.length" class="listing-empty"><strong>Nenhum imóvel encontrado</strong><br>Tente remover algum filtro ou fazer uma nova busca.</p>', '<div v-else-if="!filtered.length" class="listing-empty"><strong>Nenhum imóvel encontrado</strong><p>Tente remover algum filtro ou fazer uma nova busca.</p><button type="button" class="react-button secondary" @click="limparFiltros">Limpar filtros</button></div>');
 
 const PropertyFeatureIcon = {
   props: { name: String },
