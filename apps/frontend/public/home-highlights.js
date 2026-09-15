@@ -92,6 +92,10 @@
       footer.parentNode.insertBefore(section, footer);
     } catch (_) { /* A home sem ranking continua utilizável se a API estiver indisponível. */ }
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load, { once: true });
-  else load();
+  function loadWhenHomeIsReady(attempt = 0) {
+    if (document.querySelector('.home-footer')) return load();
+    if (attempt < 100) window.setTimeout(() => loadWhenHomeIsReady(attempt + 1), 50);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => loadWhenHomeIsReady(), { once: true });
+  else loadWhenHomeIsReady();
 }());
