@@ -376,6 +376,18 @@ Cadastro.setup = () => {
   };
   return { ...state, colarDescricao };
 };
+Cadastro.template = Cadastro.template.replace('<form v-else class="property-form" @submit="salvar">', '<template v-else><div class="cadastro-progress" aria-label="Etapas do cadastro"><div class="cadastro-progress-step is-active"><span>1</span><strong>Informações</strong></div><div class="cadastro-progress-line"></div><div class="cadastro-progress-step is-active"><span>2</span><strong>Localização</strong></div><div class="cadastro-progress-line"></div><div class="cadastro-progress-step"><span>3</span><strong>Fotos</strong></div></div><form class="property-form" @submit="salvar">');
+Cadastro.template = Cadastro.template.replace('</button></form></main>` };', '</button></form></template></main>` };');
+Cadastro.template = Cadastro.template.replace('<input type="password" v-model="perfil.senha_usuario" placeholder="Mínimo de 8 caracteres" minlength="8" autocomplete="new-password" required>', '<input :type="mostrarSenha ? \'text\' : \'password\'" v-model="perfil.senha_usuario" placeholder="Ex.: CasaTatuí2026" minlength="8" autocomplete="new-password" required><label class="password-visibility"><input type="checkbox" v-model="mostrarSenha"> <span>Mostrar senha</span></label>');
+Cadastro.template = Cadastro.template.replace('<label class="field">Preço de venda (R$)<input :value="imovel.preco_venda"', '<label class="field">Preço de venda (R$)<input :value="imovel.preco_venda"');
+Cadastro.template = Cadastro.template.replace('<div class="price-fields-grid"><label v-if="imovel.tipos_transacao.includes(\'Venda\')"', '<div class="price-fields-grid"><p class="price-fields-help">Informe os valores em reais. O aluguel é mensal e pode ter itens inclusos.</p><label v-if="imovel.tipos_transacao.includes(\'Venda\')"');
+Cadastro.template = Cadastro.template.replace('<small>JPG, PNG ou WEBP · até 10 fotos, 5 MB cada</small>', '<small>JPG, PNG ou WEBP · até 10 fotos, 5 MB cada</small><strong class="photo-count" aria-live="polite">{{ fotos.length + existentes.length }}/10 fotos selecionadas</strong>');
+const cadastroSetupComUXOriginal = Cadastro.setup;
+Cadastro.setup = () => {
+  const state = cadastroSetupComUXOriginal();
+  const mostrarSenha = ref(false);
+  return { ...state, mostrarSenha };
+};
 const appendOriginal = FormData.prototype.append;
 FormData.prototype.append = function(name, value, filename) {
   if (name === 'caracteristicas' && value && typeof value === 'object') value = JSON.stringify(value);
