@@ -29,6 +29,20 @@ O Compose permanece na raiz do repositório de propósito: mover o arquivo pode 
 
 O código da aplicação está organizado em `apps/frontend`, `apps/backend` e `packages/shared`. A interface continua sendo servida pelo backend no mesmo domínio e nas mesmas rotas.
 
+## Modo de manutenção
+
+Para colocar o site temporariamente offline, defina `MAINTENANCE_MODE=true` no `.env` do servidor e recrie somente o serviço da aplicação:
+
+```bash
+sed -i '/^MAINTENANCE_MODE=/d' .env
+printf '%s\n' 'MAINTENANCE_MODE=true' >> .env
+IMAGE_NAME=ghcr.io/brunosouzatec/imobiliaria-runge:latest docker compose up -d --no-build --remove-orphans imobiliaria-runge
+```
+
+Durante a manutenção, as páginas e APIs respondem com HTTP `503` e exibem `manutencao.html`. O endpoint `/healthz` continua disponível para monitoramento. Para reabrir o site, altere o valor para `false` e execute o mesmo comando.
+
+O valor padrão é `false`, portanto uma nova implantação não coloca o site em manutenção por acidente.
+
 ## GitHub Actions + GHCR
 
 O workflow `.github/workflows/deploy.yml` constrói a imagem e publica em:
