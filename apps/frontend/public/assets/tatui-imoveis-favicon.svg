@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 112" role="img" aria-labelledby="title desc">
+  <title id="title">Tatuí Imóveis</title>
+  <desc id="desc">Símbolo da casa com nota musical da Tatuí Imóveis</desc>
+  <g fill="none" stroke="#0b5f5b" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke-width="6" d="M12 58 49 24l37 34v47H12z"/>
+    <path stroke-width="6" d="M49 24 68 7l37 34v64H86"/>
+    <path stroke-width="6" d="M49 72v33M49 105h24"/>
+    <path fill="#df6a25" stroke="none" d="M101 24v43c0 7-6 13-14 13-7 0-12-4-12-9s5-10 12-11c4 0 7 1 9 3V24z"/>
+    <path fill="#df6a25" stroke="none" d="M101 24c15 4 22 13 22 25 0 5-2 10-5 14 1-12-4-20-17-24z"/>
+  </g>
+</svg>
