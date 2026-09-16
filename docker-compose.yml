@@ -33,6 +33,7 @@ services:
     environment:
       PORT: 3000
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      MAINTENANCE_MODE: ${MAINTENANCE_MODE:-false}
       DB_HOST: mysql
       DB_PORT: 3306
       MYSQL_DATABASE: ${MYSQL_DATABASE}

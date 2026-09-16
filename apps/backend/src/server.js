@@ -8,6 +8,7 @@ const mysql = require('mysql2/promise');
 const PropertyOffers = require('../../../packages/shared/property-offers');
 const PropertyDescription = require('../../../packages/shared/property-description');
 const PropertySecurity = require('../../../packages/shared/property-security');
+const Maintenance = require('../../../packages/shared/maintenance');
 const { runMigrations } = require('./migrate');
 
 const projectRoot = path.resolve(__dirname, '../../..');
@@ -35,6 +36,7 @@ const pool = mysql.createPool({
   connectionLimit: 10
 });
 const mimeTypes = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.json':'application/json; charset=utf-8', '.png':'image/png', '.jpg':'image/jpeg', '.webp':'image/webp', '.svg':'image/svg+xml' };
+const maintenancePage = path.join(webRoot, 'manutencao.html');
 
 function httpError(message, statusCode) { return Object.assign(new Error(message), { statusCode }); }
 function enderecoCliente(req) {
@@ -255,6 +257,12 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    if (Maintenance.shouldShow(url.pathname, process.env.MAINTENANCE_MODE)) {
+      if (url.pathname.startsWith('/api/')) return sendJson(res, 503, { error: 'O site está temporariamente em manutenção.' }, { 'Retry-After': '3600' });
+      res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Retry-After': '3600' });
+      return fs.createReadStream(maintenancePage).pipe(res);
+    }
+    if (url.pathname === '/healthz' && req.method === 'GET') return sendJson(res, 200, { status: 'ok', maintenance: Maintenance.enabled(process.env.MAINTENANCE_MODE) });
     if (url.pathname.startsWith('/api/') && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !validSameOrigin(req)) return sendJson(res, 403, { error: 'Origem da requisição inválida.' });
     if (url.pathname.startsWith('/r2/')) {
       if (!r2Enabled) return sendJson(res, 404, { error: 'R2 não configurado.' });
