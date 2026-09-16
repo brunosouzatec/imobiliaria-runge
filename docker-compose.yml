@@ -29,7 +29,7 @@ services:
       mysql:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       PORT: 3000
       TRUST_PROXY: ${TRUST_PROXY:-false}
