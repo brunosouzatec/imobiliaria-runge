@@ -16,6 +16,7 @@
     return [
       `Olá! Tenho interesse no imóvel ${title}, anunciado no Tatuí Imóveis.`,
       address ? `Endereço: ${address}` : '',
+      property?.fotos?.[0]?.url ? `Foto principal: ${property.fotos[0].url}` : '',
       `Link do imóvel: ${url}`
     ].filter(Boolean).join('\n');
   }
