@@ -46,6 +46,11 @@ test('form contact link omits empty personal fields and safely encodes text', ()
   assert.equal(link.searchParams.has('text'), true);
 });
 
+test('mensagem do WhatsApp inclui link da primeira foto quando disponível', () => {
+  const link = new URL(contact.listingLink({ ...property, fotos: [{ url: 'https://cdn.example/fachada.jpg' }] }, 'https://imoveis.example'));
+  assert.match(link.searchParams.get('text'), /Foto principal: https:\/\/cdn\.example\/fachada\.jpg/);
+});
+
 test('listing and detail views use WhatsApp links instead of the old contact API', () => {
   const app = fs.readFileSync(path.join(projectRoot, 'apps/frontend/public/vue-app.js'), 'utf8');
 

@@ -9,10 +9,13 @@
 .listing-property-footer .listing-whatsapp-link {
   align-items: center;
   background: #18a957;
+  border: 0;
   border-radius: 7px;
   color: #fff;
+  cursor: pointer;
   display: inline-flex;
   font-size: .78rem;
+  font-family: inherit;
   gap: 6px;
   padding: 9px 12px;
   transition: background .2s, transform .2s;
