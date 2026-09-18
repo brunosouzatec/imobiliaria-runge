@@ -51,11 +51,12 @@ test('mensagem do WhatsApp inclui link da primeira foto quando disponível', () 
   assert.match(link.searchParams.get('text'), /Foto principal: https:\/\/cdn\.example\/fachada\.jpg/);
 });
 
-test('listing and detail views use WhatsApp links instead of the old contact API', () => {
+test('listing keeps direct WhatsApp sharing and detail contact requires consent before WhatsApp', () => {
   const app = fs.readFileSync(path.join(projectRoot, 'apps/frontend/public/vue-app.js'), 'utf8');
 
   assert.match(app, /listing-whatsapp-link/);
   assert.match(app, /PropertyContact\.listingLink\(item, window\.location\.origin\)/);
   assert.match(app, /PropertyContact\.formLink\(item\.value, contactData, window\.location\.origin\)/);
-  assert.doesNotMatch(app, /\/api\/imoveis\/\$\{item\.value\.id\}\/contatos/);
+  assert.match(app, /\/api\/imoveis\/\$\{item\.value\.id\}\/contatos/);
+  assert.match(app, /name="aceite_privacidade" value="true" type="checkbox" required/);
 });

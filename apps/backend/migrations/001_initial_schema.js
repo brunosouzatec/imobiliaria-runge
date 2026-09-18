@@ -20,16 +20,8 @@ async function up(connection) {
     telefone VARCHAR(40) NOT NULL,
     email VARCHAR(180) NOT NULL UNIQUE,
     senha_hash TEXT,
-    cep VARCHAR(12), rua VARCHAR(180), numero VARCHAR(30), bairro VARCHAR(120),
-    cidade VARCHAR(120), estado VARCHAR(2), creci VARCHAR(40), cnpj VARCHAR(24),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`);
-
-  for (const [column, definition] of [
-    ['cep', 'VARCHAR(12) NULL'], ['rua', 'VARCHAR(180) NULL'], ['numero', 'VARCHAR(30) NULL'],
-    ['bairro', 'VARCHAR(120) NULL'], ['cidade', 'VARCHAR(120) NULL'], ['estado', 'VARCHAR(2) NULL'],
-    ['creci', 'VARCHAR(40) NULL'], ['cnpj', 'VARCHAR(24) NULL']
-  ]) await ensureColumn(connection, 'usuarios', column, definition);
 
   await connection.query(`CREATE TABLE IF NOT EXISTS imoveis (
     id INT AUTO_INCREMENT PRIMARY KEY,

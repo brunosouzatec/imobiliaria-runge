@@ -128,3 +128,38 @@
 .react-page:has(> .react-form) > h1 { max-width: 760px; }
 .react-page:has(> .react-success) > .eyebrow { margin-left: auto; margin-right: auto; max-width: 700px; text-align: center; }
 .react-success { margin-left: auto; margin-right: auto; width: 100%; }
+.privacy-page { max-width: 900px; }
+.privacy-section { border-top: 1px solid var(--line); margin-top: 32px; padding-top: 26px; }
+.privacy-section h2 { color: var(--ink); font: 500 1.45rem/1.2 Georgia,serif; margin: 0 0 12px; }
+.privacy-section p, .privacy-section li { color: #435658; font-size: .95rem; line-height: 1.8; }
+.privacy-section ul { margin: 0; padding-left: 1.3rem; }
+.privacy-section a { color: var(--teal); font-weight: 650; }
+.privacy-disclaimer { background: #fff7ed; border: 1px solid #f0dfcf; border-radius: 10px; color: #765849; font-size: .82rem; line-height: 1.6; margin-top: 38px; padding: 16px 18px; }
+.privacy-consent { align-items: flex-start; color: var(--muted); display: flex!important; flex-direction: row!important; font-size: .82rem!important; gap: 9px; letter-spacing: 0!important; line-height: 1.5; text-transform: none!important; }
+.privacy-consent input { flex: 0 0 auto; margin-top: 3px; width: auto; }
+.privacy-consent a { color: var(--teal); font-weight: 650; }
+.password-field { position: relative; width: 100%; }
+.password-field > input { box-sizing: border-box; display: block; padding-right: 48px; width: 100%; }
+.password-toggle { align-items: center; background: transparent; border: 0; color: #60716f; cursor: pointer; display: inline-flex; height: 42px; justify-content: center; padding: 0; position: absolute; right: 5px; top: 50%; transform: translateY(-50%); width: 42px; }
+.password-toggle:hover, .password-toggle:focus-visible { color: var(--teal); }
+.password-toggle svg { fill: none; height: 20px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; transition: opacity .16s ease, transform .16s ease; width: 20px; }
+.password-toggle .password-eye-open { animation: password-eye-in .16s ease both; }
+.password-toggle .password-eye-closed { animation: password-eye-out .16s ease both; }
+@keyframes password-eye-in { from { opacity: 0; transform: scale(.72) rotate(-8deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes password-eye-out { from { opacity: 0; transform: scale(.72) rotate(8deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+.password-strength { margin-top: 11px; }
+.password-strength-head { align-items: center; display: flex; font-size: .84rem; justify-content: space-between; margin-bottom: 7px; }
+.password-strength-head span { color: var(--muted); letter-spacing: 0; text-transform: none; }
+.password-strength-head strong { color: var(--ink); font-size: .84rem; }
+.password-strength-track { background: #e7eeea; border-radius: 999px; height: 7px; overflow: hidden; }
+.password-strength-track i { background: #e5a323; border-radius: inherit; display: block; height: 100%; transition: width .2s ease, background .2s ease; }
+.password-strength-track i.strength-1, .password-strength-track i.strength-2 { background: #d97938; }
+.password-strength-track i.strength-3 { background: #c4952e; }
+.password-strength-track i.strength-4 { background: #2c8a64; }
+.password-strength ul { display: flex; flex-wrap: wrap; gap: 7px 16px; list-style: none; margin: 9px 0 0; padding: 0; }
+.password-strength li { color: #74817f; font-size: .82rem; letter-spacing: 0; line-height: 1.35; text-transform: none; }
+.password-strength li::before { content: '○'; display: inline-block; margin-right: 4px; }
+.password-strength li.valid { color: #28764e; font-weight: 650; }
+.password-strength li.valid::before { content: '✓'; }
+.password-match { color: #b6503d; display: block; font-size: .82rem; letter-spacing: 0; line-height: 1.35; margin-top: 7px; text-transform: none; }
+.password-match.matching { color: #28764e; font-weight: 650; }
