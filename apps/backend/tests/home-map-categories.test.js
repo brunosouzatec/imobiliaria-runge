@@ -22,5 +22,10 @@ test('home integra categorias ao mapa e aplica cores aos marcadores', () => {
   assert.match(categories, /home-map-categories/);
   assert.match(categories, /__homeSetCategory/);
   assert.match(categories, /Limpar categoria/);
+  assert.match(categories, /querySelector\('\.home-search'\)/);
+  assert.match(categories, /explorer\.append\(panel, search, map\)/);
+  const styles = fs.readFileSync(path.join(publicRoot, 'react.css'), 'utf8');
+  assert.match(styles, /home-map-explorer \.home-search.*grid-row:3/);
+  assert.match(styles, /home-map-explorer \.home-map.*grid-row:4/);
   assert.match(index, /<script src="home-categories\.js"><\/script>/);
 });
