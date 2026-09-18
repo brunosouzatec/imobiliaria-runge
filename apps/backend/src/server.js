@@ -82,10 +82,13 @@ function validSameOrigin(req) {
   const origin = req.headers.origin;
   if (!origin) return false;
   try {
-    const forwardedProto = process.env.TRUST_PROXY === 'true' ? String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() : '';
+    const trustProxy = process.env.TRUST_PROXY === 'true';
+    const forwardedProto = trustProxy ? String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() : '';
+    const forwardedHost = trustProxy ? String(req.headers['x-forwarded-host'] || '').split(',')[0].trim() : '';
     const protocol = secureRequest(req) ? 'https:' : 'http:';
-    const expected = `${protocol}//${req.headers.host}`;
-    return new URL(origin).origin === (forwardedProto ? `${forwardedProto}://${req.headers.host}` : expected);
+    const expectedHost = forwardedHost || req.headers.host;
+    const expected = `${protocol}//${expectedHost}`;
+    return new URL(origin).origin === (forwardedProto ? `${forwardedProto}://${expectedHost}` : expected);
   } catch (_) { return false; }
 }
 async function derivePassword(password, salt) {
