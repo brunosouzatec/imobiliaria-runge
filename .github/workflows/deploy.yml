@@ -97,8 +97,8 @@ jobs:
             cd "$DEPLOY_PATH"
             touch .env
             sed -i '/^R2_ACCOUNT_ID=/d; /^R2_ACCESS_KEY_ID=/d; /^R2_SECRET_ACCESS_KEY=/d; /^R2_BUCKET_NAME=/d; /^R2_PUBLIC_URL=/d' .env
-            sed -i '/^ADMIN_EMAIL=/d; /^ADMIN_PASSWORD=/d; /^TRUST_PROXY=/d' .env
-            printf '%s\n' "R2_ACCOUNT_ID=$R2_ACCOUNT_ID" "R2_ACCESS_KEY_ID=$R2_ACCESS_KEY_ID" "R2_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY" "R2_BUCKET_NAME=$R2_BUCKET_NAME" "R2_PUBLIC_URL=$R2_PUBLIC_URL" "ADMIN_EMAIL=$ADMIN_EMAIL" "ADMIN_PASSWORD=$ADMIN_PASSWORD" "TRUST_PROXY=true" >> .env
+            sed -i '/^ADMIN_EMAIL=/d; /^ADMIN_PASSWORD=/d; /^TRUST_PROXY=/d; /^PUBLIC_ORIGIN=/d' .env
+            printf '%s\n' "R2_ACCOUNT_ID=$R2_ACCOUNT_ID" "R2_ACCESS_KEY_ID=$R2_ACCESS_KEY_ID" "R2_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY" "R2_BUCKET_NAME=$R2_BUCKET_NAME" "R2_PUBLIC_URL=$R2_PUBLIC_URL" "ADMIN_EMAIL=$ADMIN_EMAIL" "ADMIN_PASSWORD=$ADMIN_PASSWORD" "TRUST_PROXY=true" "PUBLIC_ORIGIN=https://tatuiimoveis.com.br" >> .env
             printf '%s' "$GHCR_READ_TOKEN" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
             docker pull "$IMAGE_REF"
             IMAGE_NAME="$IMAGE_REF" docker compose up -d --no-build --remove-orphans
