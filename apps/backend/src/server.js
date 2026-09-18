@@ -10,6 +10,7 @@ const PropertyDescription = require('../../../packages/shared/property-descripti
 const PropertySecurity = require('../../../packages/shared/property-security');
 const Maintenance = require('../../../packages/shared/maintenance');
 const { runMigrations } = require('./migrate');
+const PRIVACY_POLICY_VERSION = '2026-09-18';
 
 const projectRoot = path.resolve(__dirname, '../../..');
 const webRoot = path.resolve(projectRoot, 'apps/frontend/public');
@@ -23,6 +24,7 @@ const r2PublicUrl = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
 const port = Number(process.env.PORT || 3000);
 const SESSION_TIMEOUT = 10 * 60 * 1000;
 const sessions = new Map();
+const adminSessions = new Map();
 const rateLimits = new Map();
 const scrypt = promisify(crypto.scrypt);
 let activePasswordHashes = 0;
@@ -37,6 +39,18 @@ const pool = mysql.createPool({
 });
 const mimeTypes = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.json':'application/json; charset=utf-8', '.png':'image/png', '.jpg':'image/jpeg', '.webp':'image/webp', '.svg':'image/svg+xml' };
 const maintenancePage = path.join(webRoot, 'manutencao.html');
+const cleanPageRoutes = new Map([
+  ['/index.html', '/'],
+  ['/imoveis.html', '/imoveis'],
+  ['/imovel.html', '/imovel'],
+  ['/login.html', '/login'],
+  ['/perfil.html', '/perfil'],
+  ['/cadastro.html', '/cadastro'],
+  ['/meus-imoveis.html', '/meus-imoveis'],
+  ['/sucesso.html', '/sucesso'],
+  ['/privacidade.html', '/privacidade'],
+  ['/admin.html', '/admin'],
+]);
 
 function httpError(message, statusCode) { return Object.assign(new Error(message), { statusCode }); }
 function enderecoCliente(req) {
@@ -91,15 +105,16 @@ async function verifyPassword(password, stored) {
 }
 function validRegistration(data) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
-  const limits = [['tipo_usuario', 80], ['nome_usuario', 180], ['telefone_usuario', 40], ['email_usuario', 180], ['creci_usuario', 40], ['cnpj_usuario', 24]];
+  const limits = [['tipo_usuario', 80], ['nome_usuario', 180], ['telefone_usuario', 40], ['email_usuario', 180]];
   return limits.every(([key, max]) => data[key] == null || (typeof data[key] === 'string' && data[key].length <= max))
     && ['tipo_usuario', 'nome_usuario', 'telefone_usuario'].every(key => typeof data[key] === 'string' && data[key].trim())
     && typeof data.email_usuario === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email_usuario.trim()) && data.email_usuario.trim().length <= 180
-    && PropertySecurity.validPassword(data.senha_usuario);
+    && PropertySecurity.validPassword(data.senha_usuario)
+    && (data.aceite_privacidade === true || data.aceite_privacidade === 'true');
 }
 async function insertUser(data) {
   const hash = await hashPassword(data.senha_usuario);
-  const [result] = await pool.query('INSERT INTO usuarios (tipo_usuario,nome,telefone,email,senha_hash,creci,cnpj) VALUES (?,?,?,?,?,?,?)', [data.tipo_usuario.trim(), data.nome_usuario.trim(), data.telefone_usuario.trim(), data.email_usuario.trim().toLowerCase(), hash, data.creci_usuario || '', data.cnpj_usuario || '']);
+  const [result] = await pool.query('INSERT INTO usuarios (tipo_usuario,nome,telefone,email,senha_hash,privacidade_versao,privacidade_aceita_em) VALUES (?,?,?,?,?,?,NOW())', [data.tipo_usuario.trim(), data.nome_usuario.trim(), data.telefone_usuario.trim(), data.email_usuario.trim().toLowerCase(), hash, PRIVACY_POLICY_VERSION]);
   return result.insertId;
 }
 function createSession(userId) {
@@ -171,8 +186,25 @@ async function removePhoto(caminho) {
 }
 function folderSlug(value) { return String(value || 'imovel').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'imovel'; }
 function cookies(req) { const result = {}; for (const item of String(req.headers.cookie || '').split(';')) { const separator = item.indexOf('='); if (separator < 1) continue; try { result[item.slice(0, separator).trim()] = decodeURIComponent(item.slice(separator + 1).trim()); } catch (_) { /* Ignore malformed cookies. */ } } return result; }
-async function userPayload(id) { const [[usuario]] = await pool.query('SELECT id,nome,email,telefone,tipo_usuario,creci,cnpj FROM usuarios WHERE id=?', [id]); const [rows] = await pool.query('SELECT * FROM imoveis WHERE usuario_id=? ORDER BY id DESC', [id]); return { usuario, imoveis: await comFotos(rows) }; }
+async function userPayload(id) { const [[usuario]] = await pool.query('SELECT id,nome,email,telefone,tipo_usuario,papel FROM usuarios WHERE id=?', [id]); const [rows] = await pool.query('SELECT * FROM imoveis WHERE usuario_id=? ORDER BY id DESC', [id]); return { usuario, imoveis: await comFotos(rows) }; }
 async function authenticatedUser(req, res) { const token = cookies(req).runge_session; const session = sessions.get(token); if (!session || session.expiresAt < Date.now()) { if (token) sessions.delete(token); sendJson(res, 401, { error:'Sessão expirada.' }); return null; } session.expiresAt = Date.now() + SESSION_TIMEOUT; return session.userId; }
+async function adminUser(req, res) {
+  const token = cookies(req).admin_session; const session = adminSessions.get(token);
+  if (!session || session.expiresAt < Date.now()) { if (token) adminSessions.delete(token); sendJson(res, 401, { error: 'Sessão administrativa expirada.' }); return null; }
+  session.expiresAt = Date.now() + SESSION_TIMEOUT;
+  const [[user]] = await pool.query('SELECT id,email,ativo FROM admin_usuarios WHERE id=?', [session.userId]);
+  if (!user?.ativo) { adminSessions.delete(token); sendJson(res, 403, { error: 'Administrador inativo.' }); return null; }
+  return user;
+}
+async function audit(userId, acao, entidade, entidadeId = null, detalhes = {}) {
+  await pool.query('INSERT INTO admin_auditoria (usuario_id,acao,entidade,entidade_id,detalhes) VALUES (?,?,?,?,?)', [userId, acao, entidade, entidadeId == null ? null : String(entidadeId), JSON.stringify(detalhes)]);
+}
+function propertyAuditSnapshot(property) {
+  const characteristics = typeof property?.caracteristicas === 'string' ? (() => { try { return JSON.parse(property.caracteristicas || '{}'); } catch (_) { return {}; } })() : (property?.caracteristicas || {});
+  return { tipo: property?.tipo || '', transacoes: property?.transacoes || '', preco: property?.preco ?? null, preco_venda: property?.preco_venda ?? null, preco_aluguel: property?.preco_aluguel ?? null, agua_inclusa: property?.agua_inclusa ?? false, luz_inclusa: property?.luz_inclusa ?? false, internet_inclusa: property?.internet_inclusa ?? false, condominio_incluso: property?.condominio_incluso ?? false, condominio_valor: property?.condominio_valor ?? null, categoria: property?.categoria || '', endereco: property?.endereco || '', cep: property?.cep || '', rua: property?.rua || '', numero: property?.numero || '', bairro: property?.bairro || '', cidade: property?.cidade || '', estado: property?.estado || '', descricao: property?.descricao || '', caracteristicas, latitude: property?.latitude ?? null, longitude: property?.longitude ?? null };
+}
+function adminCookie(token, maxAge = 600) { return 'admin_session=' + token + '; HttpOnly; SameSite=Lax; Max-Age=' + maxAge + '; Path=/'; }
+async function ensureAdminAccount() { if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) return; const hash = await hashPassword(process.env.ADMIN_PASSWORD); await pool.query('INSERT INTO admin_usuarios (email,senha_hash) VALUES (?,?) ON DUPLICATE KEY UPDATE senha_hash=VALUES(senha_hash),ativo=TRUE', [process.env.ADMIN_EMAIL.trim().toLowerCase(), hash]); }
 
 async function ownedProperty(req, res, propertyId) { const userId = await authenticatedUser(req, res); if (!userId) return null; const [[property]] = await pool.query('SELECT * FROM imoveis WHERE id=? AND usuario_id=?', [propertyId, userId]); if (!property) { sendJson(res, 404, { error: 'ImÃ³vel nÃ£o encontrado.' }); return null; } return { userId, property }; }
 function parsePropertyOffer(data) {
@@ -193,16 +225,18 @@ function validPropertyInput(data, offer) {
     && Number.isFinite(longitude) && longitude >= -180 && longitude <= 180
     && ['cep', 'rua', 'numero', 'bairro', 'cidade', 'estado'].every(key => data[key] == null || (typeof data[key] === 'string' && data[key].length <= ({ cep: 12, rua: 180, numero: 30, bairro: 120, cidade: 120, estado: 2 })[key]));
 }
-async function updateProperty(req, res, propertyId) {
-  const owned = await ownedProperty(req, res, propertyId); if (!owned) return;
+async function updateProperty(req, res, propertyId, adminId = null) {
+  const owned = adminId ? await (async () => { const [[property]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]); if (!property) { sendJson(res, 404, { error: 'Imóvel não encontrado.' }); return null; } return { userId: adminId, property }; })() : await ownedProperty(req, res, propertyId); if (!owned) return;
   const d = await bodyJson(req); const offer = parsePropertyOffer(d);
   if (!validPropertyInput(d, offer)) return sendJson(res, 400, { error: 'Confira os campos do imóvel, os valores e a localização.' });
   await pool.query('UPDATE imoveis SET tipo=?,transacoes=?,preco=?,preco_venda=?,preco_aluguel=?,agua_inclusa=?,luz_inclusa=?,internet_inclusa=?,condominio_incluso=?,condominio_valor=?,categoria=?,endereco=?,cep=?,rua=?,numero=?,bairro=?,cidade=?,estado=?,descricao=?,caracteristicas=?,latitude=?,longitude=? WHERE id=?', [offer.type, JSON.stringify(offer.types), offer.price, offer.sale, offer.rent, offer.water, offer.power, offer.internet, offer.condo, offer.condoAmount, d.categoria, d.endereco, d.cep || '', d.rua || '', d.numero || '', d.bairro || '', d.cidade || '', d.estado || '', descricaoSegura(d.descricao), JSON.stringify(d.caracteristicas || {}), Number(d.latitude), Number(d.longitude), propertyId]);
   const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]);
+  if (adminId) await audit(adminId, 'editar', 'imovel', propertyId, { antes: propertyAuditSnapshot(owned.property), depois: propertyAuditSnapshot(row) });
   return sendJson(res, 200, (await comFotos([row]))[0]);
 }
-async function addPropertyPhotos(req, res, propertyId) {
-  const owned = await ownedProperty(req, res, propertyId); if (!owned) return;
+async function addPropertyPhotos(req, res, propertyId, adminId = null) {
+  const owned = adminId ? await (async () => { const [[property]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]); if (!property) { sendJson(res, 404, { error: 'Imóvel não encontrado.' }); return null; } return { userId: adminId, property }; })() : await ownedProperty(req, res, propertyId); if (!owned) return;
+  const [photosBefore] = adminId ? await pool.query('SELECT id,nome_original,ordem FROM imovel_fotos WHERE imovel_id=? ORDER BY ordem,id', [propertyId]) : [[]];
   if (!rateLimit(req, res, 'photo-upload', 20, 15 * 60 * 1000, String(owned.userId))) return;
   const parsed = await parseMultipart(req);
   const displayTitle = PropertyOffers.displayTitle(owned.property);
@@ -222,6 +256,7 @@ async function addPropertyPhotos(req, res, propertyId) {
   }
   if (!uploaded) return sendJson(res, 400, { error: 'Nenhuma foto válida foi recebida. Use JPG, PNG ou WEBP de até 5 MB.' });
   const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]);
+  if (adminId) { const [photosAfter] = await pool.query('SELECT id,nome_original,ordem FROM imovel_fotos WHERE imovel_id=? ORDER BY ordem,id', [propertyId]); await audit(adminId, 'adicionar_fotos', 'imovel', propertyId, { antes: { ...propertyAuditSnapshot(owned.property), fotos: photosBefore }, depois: { ...propertyAuditSnapshot(row), fotos: photosAfter }, fotos_adicionadas: uploaded }); }
   return sendJson(res, 200, { ...(await comFotos([row]))[0], uploaded });
 }
 async function deletePropertyPhoto(req, res, propertyId, photoId) { const owned = await ownedProperty(req, res, propertyId); if (!owned) return; const [[photo]] = await pool.query('SELECT * FROM imovel_fotos WHERE id=? AND imovel_id=?', [photoId, propertyId]); if (!photo) return sendJson(res, 404, { error: 'Foto nÃ£o encontrada.' }); const file = path.resolve(dataDir, `.${photo.caminho}`); if (PropertySecurity.dentroDe(photosDir, file) && fs.existsSync(file)) fs.unlinkSync(file); await pool.query('DELETE FROM imovel_fotos WHERE id=?', [photoId]); return sendJson(res, 200, { success: true }); }
@@ -247,7 +282,7 @@ async function criarImovelJson(req, res) {
   const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [result.insertId]); return sendJson(res, 201, imovelJson(row));
 }
 
-async function deletePropertyPhotoStored(req, res, propertyId, photoId) { const owned = await ownedProperty(req, res, propertyId); if (!owned) return; const [[photo]] = await pool.query('SELECT * FROM imovel_fotos WHERE id=? AND imovel_id=?', [photoId, propertyId]); if (!photo) return sendJson(res, 404, { error: 'Foto não encontrada.' }); await removePhoto(photo.caminho); await pool.query('DELETE FROM imovel_fotos WHERE id=?', [photoId]); return sendJson(res, 200, { success: true }); }
+async function deletePropertyPhotoStored(req, res, propertyId, photoId, adminId = null) { const owned = adminId ? await (async () => { const [[property]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]); if (!property) { sendJson(res, 404, { error: 'Imóvel não encontrado.' }); return null; } return { userId: adminId, property }; })() : await ownedProperty(req, res, propertyId); if (!owned) return; const [[photo]] = await pool.query('SELECT * FROM imovel_fotos WHERE id=? AND imovel_id=?', [photoId, propertyId]); if (!photo) return sendJson(res, 404, { error: 'Foto não encontrada.' }); const [photosBefore] = adminId ? await pool.query('SELECT id,nome_original,ordem FROM imovel_fotos WHERE imovel_id=? ORDER BY ordem,id', [propertyId]) : [[]]; await removePhoto(photo.caminho); await pool.query('DELETE FROM imovel_fotos WHERE id=?', [photoId]); if (adminId) { const [photosAfter] = await pool.query('SELECT id,nome_original,ordem FROM imovel_fotos WHERE imovel_id=? ORDER BY ordem,id', [propertyId]); await audit(adminId, 'excluir_foto', 'imovel', propertyId, { antes: { ...propertyAuditSnapshot(owned.property), fotos: photosBefore }, depois: { ...propertyAuditSnapshot(owned.property), fotos: photosAfter }, foto: { id: photo.id, nome: photo.nome_original } }); } return sendJson(res, 200, { success: true }); }
 
 const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -279,6 +314,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname.startsWith('/Fotos_imoveis/')) { const file = path.resolve(dataDir, `.${url.pathname}`); if (!PropertySecurity.dentroDe(photosDir, file) || !fs.existsSync(file)) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200, {'Content-Type': mimeTypes[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable'}); return fs.createReadStream(file).pipe(res); }
     if (url.pathname === '/mapbox-config.js') { const token = PropertySecurity.publicMapboxToken(process.env.MAPBOX_TOKEN || ''); res.writeHead(200, {'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}); return res.end(`const MAPBOX_TOKEN = ${JSON.stringify(token)};`); }
     if (url.pathname.startsWith('/shared/')) { const file = path.resolve(sharedRoot, `.${url.pathname.slice('/shared'.length)}`); if (!file.startsWith(`${sharedRoot}${path.sep}`) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200, {'Content-Type':mimeTypes[path.extname(file)] || 'application/octet-stream'}); return fs.createReadStream(file).pipe(res); }
+    if (['GET', 'HEAD'].includes(req.method) && cleanPageRoutes.has(url.pathname)) { const cleanPath = cleanPageRoutes.get(url.pathname); res.writeHead(301, { Location: `${cleanPath}${url.search}`, 'Cache-Control': 'no-store' }); return res.end(); }
     if (url.pathname === '/api/imoveis' && req.method === 'GET') { if (!rateLimit(req, res, 'public-list', 120, 60 * 1000)) return; const [rows] = await pool.query('SELECT * FROM imoveis ORDER BY id DESC'); return sendJson(res, 200, await comFotos(rows)); }
     if (url.pathname === '/api/imoveis/destaques' && req.method === 'GET') {
       if (!rateLimit(req, res, 'public-highlights', 60, 60 * 1000)) return;
@@ -293,7 +329,7 @@ const server = http.createServer(async (req, res) => {
         LIMIT ${limit}`);
       return sendJson(res, 200, await comFotos(rows));
     }
-    const detailFixed = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (detailFixed && req.method === 'GET') { if (!rateLimit(req, res, 'public-detail', 120, 60 * 1000)) return; const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [detailFixed[1]]); if (!row) return sendJson(res, 404, { error: 'Imóvel não encontrado.' }); await pool.query('INSERT INTO imovel_visualizacoes (imovel_id) VALUES (?)', [detailFixed[1]]); return sendJson(res, 200, (await comFotos([row]))[0]); }
+    const detailFixed = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (detailFixed && req.method === 'GET') { if (!rateLimit(req, res, 'public-detail', 120, 60 * 1000)) return; const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [detailFixed[1]]); if (!row) return sendJson(res, 404, { error: 'Imóvel não encontrado.' }); const viewToken = cookies(req).runge_session; const viewSession = sessions.get(viewToken); await pool.query('INSERT INTO imovel_visualizacoes (imovel_id,usuario_id) VALUES (?,?)', [detailFixed[1], viewSession?.expiresAt > Date.now() ? viewSession.userId : null]); return sendJson(res, 200, (await comFotos([row]))[0]); }
     const editRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (editRoute && req.method === 'PATCH') return updateProperty(req, res, editRoute[1]);
     const photoRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)\/fotos$/); if (photoRoute && req.method === 'POST') return addPropertyPhotos(req, res, photoRoute[1]);
     const deletePhotoRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)\/fotos\/(\d+)$/); if (deletePhotoRoute && req.method === 'DELETE') return deletePropertyPhotoStored(req, res, deletePhotoRoute[1], deletePhotoRoute[2]);
@@ -302,7 +338,7 @@ const server = http.createServer(async (req, res) => {
       if (!rateLimit(req, res, 'login', 10, 15 * 60 * 1000)) return;
       const data = await bodyJson(req);
       if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.email !== 'string' || data.email.length > 180 || !PropertySecurity.validPassword(data.senha)) return sendJson(res, 401, { error: 'E-mail ou senha inválidos.' });
-      const [[user]] = await pool.query('SELECT * FROM usuarios WHERE LOWER(email)=LOWER(?) LIMIT 1', [data.email]);
+      const [[user]] = await pool.query('SELECT * FROM usuarios WHERE LOWER(email)=LOWER(?) AND ativo=TRUE LIMIT 1', [data.email]);
       const passwordOk = await verifyPassword(data.senha, user?.senha_hash);
       if (!user || !passwordOk) return sendJson(res, 401, { error: 'E-mail ou senha inválidos.' });
       const token = createSession(user.id); if (!token) return sendJson(res, 503, { error: 'Serviço de autenticação temporariamente ocupado.' });
@@ -318,14 +354,66 @@ const server = http.createServer(async (req, res) => {
       } catch (error) { if (error.code === 'ER_DUP_ENTRY') return sendJson(res, 409, { error: 'Este e-mail já está cadastrado.' }); throw error; }
     }
     if (url.pathname === '/api/minha-conta' && req.method === 'GET') { const id=await authenticatedUser(req,res); return id ? sendJson(res,200,await userPayload(id)) : undefined; }
-    if (url.pathname === '/api/logout' && req.method === 'POST') { const token=cookies(req).runge_session; sessions.delete(token); return sendJson(res,200,{success:true},{'Set-Cookie':sessionCookie(req, '', 0)}); }
+    if (url.pathname === '/api/logout' && req.method === 'POST') { const requestCookies = cookies(req); sessions.delete(requestCookies.runge_session); adminSessions.delete(requestCookies.admin_session); return sendJson(res,200,{success:true},{'Set-Cookie':sessionCookie(req, '', 0)}); }
+    if (url.pathname === '/api/conteudos/politica_privacidade' && req.method === 'GET') { const [[row]] = await pool.query('SELECT chave,titulo,conteudo,versao,updated_at FROM site_conteudos WHERE chave=?',['politica_privacidade']); return row ? sendJson(res,200,row) : sendJson(res,404,{error:'Conteúdo não encontrado.'}); }
     if (url.pathname === '/api/perfil' && req.method === 'PATCH') { const id=await authenticatedUser(req,res); if (!id) return; const d=await bodyJson(req); const fields = ['nome','telefone']; const max = { nome:180, telefone:40 }; if (!d || typeof d !== 'object' || Array.isArray(d) || !fields.every(key => typeof d[key] === 'string' && d[key].trim() && d[key].length <= max[key])) return sendJson(res,400,{error:'Confira os campos obrigatórios e seus limites.'}); await pool.query('UPDATE usuarios SET nome=?,telefone=? WHERE id=?',[d.nome.trim(),d.telefone.trim(),id]); return sendJson(res,200,await userPayload(id)); }
-    const contact = url.pathname.match(/^\/api\/imoveis\/(\d+)\/contatos$/); if (contact && req.method === 'POST') { if (!rateLimit(req, res, 'contact', 5, 15 * 60 * 1000)) return; const d=await bodyJson(req, 64 * 1024); if (!d || typeof d.nome !== 'string' || !d.nome.trim() || d.nome.length > 180 || typeof d.telefone !== 'string' || !d.telefone.trim() || d.telefone.length > 40 || typeof d.email !== 'string' || d.email.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) return sendJson(res,400,{error:'Preencha os dados corretamente.'}); const [[property]]=await pool.query('SELECT id FROM imoveis WHERE id=?',[contact[1]]); if(!property) return sendJson(res,404,{error:'Imóvel não encontrado.'}); const [result]=await pool.query('INSERT INTO contatos (imovel_id,nome,telefone,email) VALUES (?,?,?,?)',[contact[1],d.nome.trim(),d.telefone.trim(),d.email.trim().toLowerCase()]); return sendJson(res,201,{id:result.insertId,message:'Contato registrado com sucesso.'}); }
+    if (url.pathname === '/api/admin/login' && req.method === 'POST') { if (!rateLimit(req, res, 'admin-login', 10, 15 * 60 * 1000)) return; const data = await bodyJson(req); const [[user]] = await pool.query('SELECT * FROM admin_usuarios WHERE LOWER(email)=LOWER(?) AND ativo=TRUE LIMIT 1', [data?.email || '']); const ok = await verifyPassword(data?.senha, user?.senha_hash); if (!user || !ok) return sendJson(res,401,{error:'Usuário ou senha administrativos inválidos.'}); const token = crypto.randomBytes(32).toString('hex'); adminSessions.set(token,{userId:user.id,expiresAt:Date.now()+SESSION_TIMEOUT}); return sendJson(res,200,{usuario:{id:user.id,email:user.email}},{'Set-Cookie':adminCookie(token)}); }
+    if (url.pathname === '/api/admin/logout' && req.method === 'POST') { adminSessions.delete(cookies(req).admin_session); return sendJson(res,200,{success:true},{'Set-Cookie':adminCookie('',0)}); }
+    if (url.pathname === '/api/admin/dashboard' && req.method === 'GET') {
+      const admin = await adminUser(req, res); if (!admin) return;
+      const [[users]] = await pool.query('SELECT COUNT(*) total FROM usuarios');
+      const [[properties]] = await pool.query('SELECT COUNT(*) total FROM imoveis');
+      const [[views]] = await pool.query('SELECT COUNT(*) total FROM imovel_visualizacoes WHERE created_at >= DATE_FORMAT(CURRENT_DATE, "%Y-%m-01")');
+      const [[contacts]] = await pool.query('SELECT COUNT(*) total FROM contatos WHERE created_at >= DATE_FORMAT(CURRENT_DATE, "%Y-%m-01")');
+      const [latest] = await pool.query('SELECT i.id,i.categoria,i.tipo,i.created_at,u.nome AS anunciante FROM imoveis i LEFT JOIN usuarios u ON u.id=i.usuario_id ORDER BY i.created_at DESC,i.id DESC LIMIT 8');
+      const [popular] = await pool.query('SELECT i.id,i.categoria,i.tipo,COUNT(v.id) AS acessos FROM imoveis i LEFT JOIN imovel_visualizacoes v ON v.imovel_id=i.id AND v.created_at >= DATE_FORMAT(CURRENT_DATE, "%Y-%m-01") GROUP BY i.id ORDER BY acessos DESC,i.id DESC LIMIT 8');
+      return sendJson(res, 200, { usuario: admin, metricas: { usuarios: Number(users.total), imoveis: Number(properties.total), acessosMes: Number(views.total), contatosMes: Number(contacts.total) }, ultimos: latest, populares: popular });
+    }
+    if (url.pathname === '/api/admin/imoveis' && req.method === 'GET') {
+      const admin = await adminUser(req, res); if (!admin) return;
+      const [rows] = await pool.query('SELECT i.*,u.nome AS anunciante,COUNT(v.id) AS acessos FROM imoveis i LEFT JOIN usuarios u ON u.id=i.usuario_id LEFT JOIN imovel_visualizacoes v ON v.imovel_id=i.id GROUP BY i.id ORDER BY i.created_at DESC,i.id DESC');
+      return sendJson(res, 200, await comFotos(rows));
+    }
+    const adminProperty = url.pathname.match(/^\/api\/admin\/imoveis\/(\d+)$/);
+    if (adminProperty && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [adminProperty[1]]); if (!row) return sendJson(res, 404, { error: 'Imóvel não encontrado.' }); const [historico] = await pool.query("SELECT a.id,a.acao,a.detalhes,a.created_at,u.email AS administrador FROM admin_auditoria a LEFT JOIN admin_usuarios u ON u.id=a.usuario_id WHERE a.entidade='imovel' AND a.entidade_id=? ORDER BY a.created_at DESC,a.id DESC", [adminProperty[1]]); return sendJson(res, 200, { ...(await comFotos([row]))[0], historico }); }
+    if (adminProperty && req.method === 'PATCH') { const admin = await adminUser(req, res); if (!admin) return; return updateProperty(req, res, adminProperty[1], admin.id); }
+    const adminPhotoRoute = url.pathname.match(/^\/api\/admin\/imoveis\/(\d+)\/fotos(?:\/(\d+))?$/);
+    if (adminPhotoRoute && req.method === 'POST' && !adminPhotoRoute[2]) { const admin = await adminUser(req, res); if (!admin) return; return addPropertyPhotos(req, res, adminPhotoRoute[1], admin.id); }
+    if (adminPhotoRoute && adminPhotoRoute[2] && req.method === 'DELETE') { const admin = await adminUser(req, res); if (!admin) return; return deletePropertyPhotoStored(req, res, adminPhotoRoute[1], adminPhotoRoute[2], admin.id); }
+    if (adminProperty && req.method === 'DELETE') {
+      const admin = await adminUser(req, res); if (!admin) return;
+      const [[property]] = await pool.query('SELECT id FROM imoveis WHERE id=?', [adminProperty[1]]); if (!property) return sendJson(res, 404, { error: 'Imóvel não encontrado.' });
+      const [photos] = await pool.query('SELECT caminho FROM imovel_fotos WHERE imovel_id=?', [adminProperty[1]]);
+      for (const photo of photos) await removePhoto(photo.caminho);
+      await pool.query('DELETE FROM imoveis WHERE id=?', [adminProperty[1]]); await audit(admin.id, 'excluir', 'imovel', adminProperty[1]);
+      return sendJson(res, 200, { success: true });
+    }
+    if (url.pathname === '/api/admin/usuarios' && req.method === 'GET') {
+      const admin = await adminUser(req, res); if (!admin) return;
+      const [rows] = await pool.query('SELECT u.id,u.nome,u.email,u.telefone,u.tipo_usuario,u.papel,u.created_at,COUNT(DISTINCT i.id) AS imoveis,COUNT(DISTINCT v.id) AS acessos FROM usuarios u LEFT JOIN imoveis i ON i.usuario_id=u.id LEFT JOIN imovel_visualizacoes v ON v.usuario_id=u.id GROUP BY u.id ORDER BY u.created_at DESC');
+      return sendJson(res, 200, rows);
+    }
+    const adminUserRoute = url.pathname.match(/^\/api\/admin\/usuarios\/(\d+)$/);
+    if (adminUserRoute && req.method === 'PATCH') { const admin = await adminUser(req, res); if (!admin) return; const data = await bodyJson(req); if (!data || !['usuario','editor','admin'].includes(data.papel) || typeof data.ativo !== 'boolean') return sendJson(res,400,{error:'Perfil ou status inválido.'}); await pool.query('UPDATE usuarios SET papel=?,ativo=? WHERE id=?',[data.papel,data.ativo,adminUserRoute[1]]); await audit(admin.id,'alterar_acesso','usuario',adminUserRoute[1],{papel:data.papel,ativo:data.ativo}); const [[row]] = await pool.query('SELECT id,nome,email,papel,ativo FROM usuarios WHERE id=?',[adminUserRoute[1]]); return sendJson(res,200,row); }
+    if (adminUserRoute && req.method === 'GET') {
+      const admin = await adminUser(req, res); if (!admin) return;
+      const [[user]] = await pool.query('SELECT id,nome,email,telefone,tipo_usuario,papel,created_at FROM usuarios WHERE id=?', [adminUserRoute[1]]); if (!user) return sendJson(res, 404, { error: 'Usuário não encontrado.' });
+      const [properties] = await pool.query('SELECT * FROM imoveis WHERE usuario_id=? ORDER BY created_at DESC', [user.id]);
+      const [accessed] = await pool.query('SELECT v.created_at,i.id,i.categoria,i.tipo FROM imovel_visualizacoes v JOIN imoveis i ON i.id=v.imovel_id WHERE v.usuario_id=? ORDER BY v.created_at DESC LIMIT 100', [user.id]);
+      return sendJson(res, 200, { usuario:user, imoveis:await comFotos(properties), acessados:accessed });
+    }
+    if (url.pathname === '/api/admin/auditoria' && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [rows] = await pool.query('SELECT a.*,u.nome AS usuario FROM admin_auditoria a LEFT JOIN usuarios u ON u.id=a.usuario_id ORDER BY a.created_at DESC LIMIT 100'); return sendJson(res, 200, rows); }
+    const contentRoute = url.pathname.match(/^\/api\/admin\/conteudos\/([a-z0-9_-]+)$/);
+    if (contentRoute && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [[row]] = await pool.query('SELECT * FROM site_conteudos WHERE chave=?', [contentRoute[1]]); return row ? sendJson(res, 200, row) : sendJson(res, 404, { error: 'Conteúdo não encontrado.' }); }
+    if (contentRoute && req.method === 'PATCH') { const admin = await adminUser(req, res); if (!admin) return; const data = await bodyJson(req, 256 * 1024); if (!data || typeof data.conteudo !== 'string' || !data.conteudo.trim() || data.conteudo.length > 200000) return sendJson(res,400,{error:'O conteúdo é obrigatório e deve ter até 200 mil caracteres.'}); await pool.query('UPDATE site_conteudos SET conteudo=?,versao=versao+1,atualizado_por=? WHERE chave=?',[data.conteudo.trim(),admin.id,contentRoute[1]]); await audit(admin.id,'editar','conteudo',contentRoute[1]); const [[row]] = await pool.query('SELECT * FROM site_conteudos WHERE chave=?',[contentRoute[1]]); return sendJson(res,200,row); }
+    const contact = url.pathname.match(/^\/api\/imoveis\/(\d+)\/contatos$/); if (contact && req.method === 'POST') { if (!rateLimit(req, res, 'contact', 5, 15 * 60 * 1000)) return; const d=await bodyJson(req, 64 * 1024); if (!d || typeof d.nome !== 'string' || !d.nome.trim() || d.nome.length > 180 || typeof d.telefone !== 'string' || !d.telefone.trim() || d.telefone.length > 40 || typeof d.email !== 'string' || d.email.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email) || !(d.aceite_privacidade === true || d.aceite_privacidade === 'true')) return sendJson(res,400,{error:'Preencha os dados corretamente e aceite a Política de Privacidade.'}); const [[property]]=await pool.query('SELECT id FROM imoveis WHERE id=?',[contact[1]]); if(!property) return sendJson(res,404,{error:'Imóvel não encontrado.'}); const [result]=await pool.query('INSERT INTO contatos (imovel_id,nome,telefone,email,privacidade_versao,privacidade_aceita_em) VALUES (?,?,?, ?, ?, NOW())',[contact[1],d.nome.trim(),d.telefone.trim(),d.email.trim().toLowerCase(),PRIVACY_POLICY_VERSION]); return sendJson(res,201,{id:result.insertId,message:'Contato registrado com sucesso.'}); }
     if (url.pathname === '/api/imoveis' && req.method === 'POST') return criarImovelJson(req, res);
-    const relative=url.pathname==='/'?'/index.html':url.pathname; const file=path.resolve(webRoot,'.'+relative); if(!file.startsWith(`${webRoot}${path.sep}`)||!fs.existsSync(file)||fs.statSync(file).isDirectory()) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200,{'Content-Type':mimeTypes[path.extname(file)]||'application/octet-stream'}); fs.createReadStream(file).pipe(res);
+    const cleanRoute = url.pathname === '/' ? '/index.html' : url.pathname;
+    const relative = cleanRoute.endsWith('.html') || path.extname(cleanRoute) ? cleanRoute : `${cleanRoute}.html`;
+    const file=path.resolve(webRoot,'.'+relative); if(!file.startsWith(`${webRoot}${path.sep}`)||!fs.existsSync(file)||fs.statSync(file).isDirectory()) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200,{'Content-Type':mimeTypes[path.extname(file)]||'application/octet-stream'}); fs.createReadStream(file).pipe(res);
   } catch (error) { if (error.code === 'ER_DUP_ENTRY') return sendJson(res, 409, { error: 'Este e-mail já está cadastrado.' }); if (error.statusCode && error.statusCode < 500) return sendJson(res, error.statusCode, { error: error.message }); if (error.statusCode === 503) return sendJson(res, 503, { error: error.message }); console.error(error); if(!res.headersSent) sendJson(res,500,{error:'Erro interno do servidor.'}); }
 });
 server.headersTimeout = 15_000;
 server.requestTimeout = 120_000;
 server.keepAliveTimeout = 5_000;
-runMigrations(pool).then(()=>server.listen(port,()=>console.log(`Imobiliária Runge disponível em http://localhost:${port}`))).catch(error=>{console.error('Falha ao executar migrations do MySQL:',error);process.exit(1);});
+runMigrations(pool).then(()=>ensureAdminAccount()).then(()=>server.listen(port,()=>console.log(`Imobiliária Runge disponível em http://localhost:${port}`))).catch(error=>{console.error('Falha ao executar migrations do MySQL:',error);process.exit(1);});

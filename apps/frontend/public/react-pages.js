@@ -83,7 +83,7 @@ function DetailPageOwnerEdit() {
   return <Layout eyebrow={`${item.tipo} · ${item.categoria}`}><h1>{item.titulo}</h1>{item.fotos?.length > 0 && <div className="property-gallery">{item.fotos.map(foto => <img key={foto.id} src={foto.url} alt={foto.nome || item.titulo} />)}</div>}<p className="react-price">{money(item.preco, item.tipo)}</p><p className="react-lead">⌖ {item.endereco}</p><p className="react-description">{item.descricao}</p><div className="property-detail-actions"><button className="react-button" onClick={() => setContact(true)}>Entrar em contato</button>{isOwner && <a className="react-button secondary" href={`cadastro.html?modo=editar&id=${item.id}`}>Editar imóvel</a>}</div>{contact && <div className="react-modal"><div className="react-modal-card"><button className="modal-close" onClick={() => setContact(false)}>×</button><h2>Entrar em contato</h2><form className="react-form" onSubmit={send}><label>Nome<input name="nome" required /></label><label>Telefone<input name="telefone" required /></label><label>E-mail<input name="email" type="email" required /></label>{message && <p>{message}</p>}<button className="react-button">Enviar contato</button></form></div></div>}</Layout>;
 }
 
-const path = location.pathname;
+const path = location.pathname === '/' ? '/index.html' : location.pathname.endsWith('.html') ? location.pathname : `${location.pathname}.html`;
 const Page = path.endsWith('login.html') ? LoginPageWithEdit : path.endsWith('imovel.html') ? DetailPageOwnerEdit : path.endsWith('sucesso.html') ? SuccessPage : path.endsWith('perfil.html') ? ProfilePage : ListPage;
 ReactDOM.createRoot(document.getElementById('root')).render(<Page/>);
 

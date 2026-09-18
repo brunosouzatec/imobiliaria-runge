@@ -53,9 +53,11 @@
   });
   panel.append(grid, clear);
   const map = mapColumn.querySelector('.home-map');
+  const search = document.querySelector('.home-search');
   const explorer = document.createElement('div');
   explorer.className = 'home-map-explorer';
   map.parentNode.insertBefore(explorer, map);
-  explorer.append(panel, map);
+  if (search) explorer.append(panel, search, map);
+  else explorer.append(panel, map);
   section.remove();
 })();

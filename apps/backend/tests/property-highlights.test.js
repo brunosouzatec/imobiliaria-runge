@@ -15,7 +15,7 @@ test('ranking mensal possui tabela, consulta e registro de visualizações', () 
   assert.match(migration, /FOREIGN KEY \(imovel_id\) REFERENCES imoveis\(id\) ON DELETE CASCADE/);
   assert.match(server, /\/api\/imoveis\/destaques/);
   assert.match(server, /DATE_FORMAT\(CURRENT_DATE, '%Y-%m-01'\)/);
-  assert.match(server, /INSERT INTO imovel_visualizacoes \(imovel_id\)/);
+  assert.match(server, /INSERT INTO imovel_visualizacoes \(imovel_id,usuario_id\)/);
 });
 
 test('home carrega destaques sem inserir dados de anúncios como HTML', () => {
