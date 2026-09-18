@@ -24,6 +24,7 @@ const r2PublicUrl = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
 const port = Number(process.env.PORT || 3000);
 const SESSION_TIMEOUT = 10 * 60 * 1000;
 const sessions = new Map();
+const adminSessions = new Map();
 const rateLimits = new Map();
 const scrypt = promisify(crypto.scrypt);
 let activePasswordHashes = 0;
@@ -188,15 +189,18 @@ function cookies(req) { const result = {}; for (const item of String(req.headers
 async function userPayload(id) { const [[usuario]] = await pool.query('SELECT id,nome,email,telefone,tipo_usuario,papel FROM usuarios WHERE id=?', [id]); const [rows] = await pool.query('SELECT * FROM imoveis WHERE usuario_id=? ORDER BY id DESC', [id]); return { usuario, imoveis: await comFotos(rows) }; }
 async function authenticatedUser(req, res) { const token = cookies(req).runge_session; const session = sessions.get(token); if (!session || session.expiresAt < Date.now()) { if (token) sessions.delete(token); sendJson(res, 401, { error:'Sessão expirada.' }); return null; } session.expiresAt = Date.now() + SESSION_TIMEOUT; return session.userId; }
 async function adminUser(req, res) {
-  const id = await authenticatedUser(req, res); if (!id) return null;
-  const [[user]] = await pool.query('SELECT id,nome,email,papel FROM usuarios WHERE id=?', [id]);
-  const isAdmin = user && (['admin', 'editor'].includes(user.papel) || (process.env.ADMIN_EMAIL && user.email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase()));
-  if (!isAdmin) { sendJson(res, 403, { error: 'Acesso administrativo não autorizado.' }); return null; }
+  const token = cookies(req).admin_session; const session = adminSessions.get(token);
+  if (!session || session.expiresAt < Date.now()) { if (token) adminSessions.delete(token); sendJson(res, 401, { error: 'Sessão administrativa expirada.' }); return null; }
+  session.expiresAt = Date.now() + SESSION_TIMEOUT;
+  const [[user]] = await pool.query('SELECT id,email,ativo FROM admin_usuarios WHERE id=?', [session.userId]);
+  if (!user?.ativo) { adminSessions.delete(token); sendJson(res, 403, { error: 'Administrador inativo.' }); return null; }
   return user;
 }
 async function audit(userId, acao, entidade, entidadeId = null, detalhes = {}) {
   await pool.query('INSERT INTO admin_auditoria (usuario_id,acao,entidade,entidade_id,detalhes) VALUES (?,?,?,?,?)', [userId, acao, entidade, entidadeId == null ? null : String(entidadeId), JSON.stringify(detalhes)]);
 }
+function adminCookie(token, maxAge = 600) { return 'admin_session=' + token + '; HttpOnly; SameSite=Lax; Max-Age=' + maxAge + '; Path=/'; }
+async function ensureAdminAccount() { if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) return; const hash = await hashPassword(process.env.ADMIN_PASSWORD); await pool.query('INSERT INTO admin_usuarios (email,senha_hash) VALUES (?,?) ON DUPLICATE KEY UPDATE senha_hash=VALUES(senha_hash),ativo=TRUE', [process.env.ADMIN_EMAIL.trim().toLowerCase(), hash]); }
 
 async function ownedProperty(req, res, propertyId) { const userId = await authenticatedUser(req, res); if (!userId) return null; const [[property]] = await pool.query('SELECT * FROM imoveis WHERE id=? AND usuario_id=?', [propertyId, userId]); if (!property) { sendJson(res, 404, { error: 'ImÃ³vel nÃ£o encontrado.' }); return null; } return { userId, property }; }
 function parsePropertyOffer(data) {
@@ -347,6 +351,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/logout' && req.method === 'POST') { const token=cookies(req).runge_session; sessions.delete(token); return sendJson(res,200,{success:true},{'Set-Cookie':sessionCookie(req, '', 0)}); }
     if (url.pathname === '/api/conteudos/politica_privacidade' && req.method === 'GET') { const [[row]] = await pool.query('SELECT chave,titulo,conteudo,versao,updated_at FROM site_conteudos WHERE chave=?',['politica_privacidade']); return row ? sendJson(res,200,row) : sendJson(res,404,{error:'Conteúdo não encontrado.'}); }
     if (url.pathname === '/api/perfil' && req.method === 'PATCH') { const id=await authenticatedUser(req,res); if (!id) return; const d=await bodyJson(req); const fields = ['nome','telefone']; const max = { nome:180, telefone:40 }; if (!d || typeof d !== 'object' || Array.isArray(d) || !fields.every(key => typeof d[key] === 'string' && d[key].trim() && d[key].length <= max[key])) return sendJson(res,400,{error:'Confira os campos obrigatórios e seus limites.'}); await pool.query('UPDATE usuarios SET nome=?,telefone=? WHERE id=?',[d.nome.trim(),d.telefone.trim(),id]); return sendJson(res,200,await userPayload(id)); }
+    if (url.pathname === '/api/admin/login' && req.method === 'POST') { if (!rateLimit(req, res, 'admin-login', 10, 15 * 60 * 1000)) return; const data = await bodyJson(req); const [[user]] = await pool.query('SELECT * FROM admin_usuarios WHERE LOWER(email)=LOWER(?) AND ativo=TRUE LIMIT 1', [data?.email || '']); const ok = await verifyPassword(data?.senha, user?.senha_hash); if (!user || !ok) return sendJson(res,401,{error:'Usuário ou senha administrativos inválidos.'}); const token = crypto.randomBytes(32).toString('hex'); adminSessions.set(token,{userId:user.id,expiresAt:Date.now()+SESSION_TIMEOUT}); return sendJson(res,200,{usuario:{id:user.id,email:user.email}},{'Set-Cookie':adminCookie(token)}); }
+    if (url.pathname === '/api/admin/logout' && req.method === 'POST') { adminSessions.delete(cookies(req).admin_session); return sendJson(res,200,{success:true},{'Set-Cookie':adminCookie('',0)}); }
     if (url.pathname === '/api/admin/dashboard' && req.method === 'GET') {
       const admin = await adminUser(req, res); if (!admin) return;
       const [[users]] = await pool.query('SELECT COUNT(*) total FROM usuarios');
@@ -400,4 +406,4 @@ const server = http.createServer(async (req, res) => {
 server.headersTimeout = 15_000;
 server.requestTimeout = 120_000;
 server.keepAliveTimeout = 5_000;
-runMigrations(pool).then(()=>server.listen(port,()=>console.log(`Imobiliária Runge disponível em http://localhost:${port}`))).catch(error=>{console.error('Falha ao executar migrations do MySQL:',error);process.exit(1);});
+runMigrations(pool).then(()=>ensureAdminAccount()).then(()=>server.listen(port,()=>console.log(`Imobiliária Runge disponível em http://localhost:${port}`))).catch(error=>{console.error('Falha ao executar migrations do MySQL:',error);process.exit(1);});
