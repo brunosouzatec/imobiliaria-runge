@@ -199,6 +199,10 @@ async function adminUser(req, res) {
 async function audit(userId, acao, entidade, entidadeId = null, detalhes = {}) {
   await pool.query('INSERT INTO admin_auditoria (usuario_id,acao,entidade,entidade_id,detalhes) VALUES (?,?,?,?,?)', [userId, acao, entidade, entidadeId == null ? null : String(entidadeId), JSON.stringify(detalhes)]);
 }
+function propertyAuditSnapshot(property) {
+  const characteristics = typeof property?.caracteristicas === 'string' ? (() => { try { return JSON.parse(property.caracteristicas || '{}'); } catch (_) { return {}; } })() : (property?.caracteristicas || {});
+  return { tipo: property?.tipo || '', transacoes: property?.transacoes || '', preco: property?.preco ?? null, preco_venda: property?.preco_venda ?? null, preco_aluguel: property?.preco_aluguel ?? null, agua_inclusa: property?.agua_inclusa ?? false, luz_inclusa: property?.luz_inclusa ?? false, internet_inclusa: property?.internet_inclusa ?? false, condominio_incluso: property?.condominio_incluso ?? false, condominio_valor: property?.condominio_valor ?? null, categoria: property?.categoria || '', endereco: property?.endereco || '', cep: property?.cep || '', rua: property?.rua || '', numero: property?.numero || '', bairro: property?.bairro || '', cidade: property?.cidade || '', estado: property?.estado || '', descricao: property?.descricao || '', caracteristicas, latitude: property?.latitude ?? null, longitude: property?.longitude ?? null };
+}
 function adminCookie(token, maxAge = 600) { return 'admin_session=' + token + '; HttpOnly; SameSite=Lax; Max-Age=' + maxAge + '; Path=/'; }
 async function ensureAdminAccount() { if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) return; const hash = await hashPassword(process.env.ADMIN_PASSWORD); await pool.query('INSERT INTO admin_usuarios (email,senha_hash) VALUES (?,?) ON DUPLICATE KEY UPDATE senha_hash=VALUES(senha_hash),ativo=TRUE', [process.env.ADMIN_EMAIL.trim().toLowerCase(), hash]); }
 
@@ -227,11 +231,12 @@ async function updateProperty(req, res, propertyId, adminId = null) {
   if (!validPropertyInput(d, offer)) return sendJson(res, 400, { error: 'Confira os campos do imóvel, os valores e a localização.' });
   await pool.query('UPDATE imoveis SET tipo=?,transacoes=?,preco=?,preco_venda=?,preco_aluguel=?,agua_inclusa=?,luz_inclusa=?,internet_inclusa=?,condominio_incluso=?,condominio_valor=?,categoria=?,endereco=?,cep=?,rua=?,numero=?,bairro=?,cidade=?,estado=?,descricao=?,caracteristicas=?,latitude=?,longitude=? WHERE id=?', [offer.type, JSON.stringify(offer.types), offer.price, offer.sale, offer.rent, offer.water, offer.power, offer.internet, offer.condo, offer.condoAmount, d.categoria, d.endereco, d.cep || '', d.rua || '', d.numero || '', d.bairro || '', d.cidade || '', d.estado || '', descricaoSegura(d.descricao), JSON.stringify(d.caracteristicas || {}), Number(d.latitude), Number(d.longitude), propertyId]);
   const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]);
-  if (adminId) await audit(adminId, 'editar', 'imovel', propertyId);
+  if (adminId) await audit(adminId, 'editar', 'imovel', propertyId, { antes: propertyAuditSnapshot(owned.property), depois: propertyAuditSnapshot(row) });
   return sendJson(res, 200, (await comFotos([row]))[0]);
 }
-async function addPropertyPhotos(req, res, propertyId) {
-  const owned = await ownedProperty(req, res, propertyId); if (!owned) return;
+async function addPropertyPhotos(req, res, propertyId, adminId = null) {
+  const owned = adminId ? await (async () => { const [[property]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]); if (!property) { sendJson(res, 404, { error: 'Imóvel não encontrado.' }); return null; } return { userId: adminId, property }; })() : await ownedProperty(req, res, propertyId); if (!owned) return;
+  const [photosBefore] = adminId ? await pool.query('SELECT id,nome_original,ordem FROM imovel_fotos WHERE imovel_id=? ORDER BY ordem,id', [propertyId]) : [[]];
   if (!rateLimit(req, res, 'photo-upload', 20, 15 * 60 * 1000, String(owned.userId))) return;
   const parsed = await parseMultipart(req);
   const displayTitle = PropertyOffers.displayTitle(owned.property);
@@ -251,6 +256,7 @@ async function addPropertyPhotos(req, res, propertyId) {
   }
   if (!uploaded) return sendJson(res, 400, { error: 'Nenhuma foto válida foi recebida. Use JPG, PNG ou WEBP de até 5 MB.' });
   const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]);
+  if (adminId) { const [photosAfter] = await pool.query('SELECT id,nome_original,ordem FROM imovel_fotos WHERE imovel_id=? ORDER BY ordem,id', [propertyId]); await audit(adminId, 'adicionar_fotos', 'imovel', propertyId, { antes: { ...propertyAuditSnapshot(owned.property), fotos: photosBefore }, depois: { ...propertyAuditSnapshot(row), fotos: photosAfter }, fotos_adicionadas: uploaded }); }
   return sendJson(res, 200, { ...(await comFotos([row]))[0], uploaded });
 }
 async function deletePropertyPhoto(req, res, propertyId, photoId) { const owned = await ownedProperty(req, res, propertyId); if (!owned) return; const [[photo]] = await pool.query('SELECT * FROM imovel_fotos WHERE id=? AND imovel_id=?', [photoId, propertyId]); if (!photo) return sendJson(res, 404, { error: 'Foto nÃ£o encontrada.' }); const file = path.resolve(dataDir, `.${photo.caminho}`); if (PropertySecurity.dentroDe(photosDir, file) && fs.existsSync(file)) fs.unlinkSync(file); await pool.query('DELETE FROM imovel_fotos WHERE id=?', [photoId]); return sendJson(res, 200, { success: true }); }
@@ -276,7 +282,7 @@ async function criarImovelJson(req, res) {
   const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [result.insertId]); return sendJson(res, 201, imovelJson(row));
 }
 
-async function deletePropertyPhotoStored(req, res, propertyId, photoId) { const owned = await ownedProperty(req, res, propertyId); if (!owned) return; const [[photo]] = await pool.query('SELECT * FROM imovel_fotos WHERE id=? AND imovel_id=?', [photoId, propertyId]); if (!photo) return sendJson(res, 404, { error: 'Foto não encontrada.' }); await removePhoto(photo.caminho); await pool.query('DELETE FROM imovel_fotos WHERE id=?', [photoId]); return sendJson(res, 200, { success: true }); }
+async function deletePropertyPhotoStored(req, res, propertyId, photoId, adminId = null) { const owned = adminId ? await (async () => { const [[property]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]); if (!property) { sendJson(res, 404, { error: 'Imóvel não encontrado.' }); return null; } return { userId: adminId, property }; })() : await ownedProperty(req, res, propertyId); if (!owned) return; const [[photo]] = await pool.query('SELECT * FROM imovel_fotos WHERE id=? AND imovel_id=?', [photoId, propertyId]); if (!photo) return sendJson(res, 404, { error: 'Foto não encontrada.' }); const [photosBefore] = adminId ? await pool.query('SELECT id,nome_original,ordem FROM imovel_fotos WHERE imovel_id=? ORDER BY ordem,id', [propertyId]) : [[]]; await removePhoto(photo.caminho); await pool.query('DELETE FROM imovel_fotos WHERE id=?', [photoId]); if (adminId) { const [photosAfter] = await pool.query('SELECT id,nome_original,ordem FROM imovel_fotos WHERE imovel_id=? ORDER BY ordem,id', [propertyId]); await audit(adminId, 'excluir_foto', 'imovel', propertyId, { antes: { ...propertyAuditSnapshot(owned.property), fotos: photosBefore }, depois: { ...propertyAuditSnapshot(owned.property), fotos: photosAfter }, foto: { id: photo.id, nome: photo.nome_original } }); } return sendJson(res, 200, { success: true }); }
 
 const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -369,7 +375,11 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, await comFotos(rows));
     }
     const adminProperty = url.pathname.match(/^\/api\/admin\/imoveis\/(\d+)$/);
+    if (adminProperty && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [adminProperty[1]]); if (!row) return sendJson(res, 404, { error: 'Imóvel não encontrado.' }); const [historico] = await pool.query("SELECT a.id,a.acao,a.detalhes,a.created_at,u.email AS administrador FROM admin_auditoria a LEFT JOIN admin_usuarios u ON u.id=a.usuario_id WHERE a.entidade='imovel' AND a.entidade_id=? ORDER BY a.created_at DESC,a.id DESC", [adminProperty[1]]); return sendJson(res, 200, { ...(await comFotos([row]))[0], historico }); }
     if (adminProperty && req.method === 'PATCH') { const admin = await adminUser(req, res); if (!admin) return; return updateProperty(req, res, adminProperty[1], admin.id); }
+    const adminPhotoRoute = url.pathname.match(/^\/api\/admin\/imoveis\/(\d+)\/fotos(?:\/(\d+))?$/);
+    if (adminPhotoRoute && req.method === 'POST' && !adminPhotoRoute[2]) { const admin = await adminUser(req, res); if (!admin) return; return addPropertyPhotos(req, res, adminPhotoRoute[1], admin.id); }
+    if (adminPhotoRoute && adminPhotoRoute[2] && req.method === 'DELETE') { const admin = await adminUser(req, res); if (!admin) return; return deletePropertyPhotoStored(req, res, adminPhotoRoute[1], adminPhotoRoute[2], admin.id); }
     if (adminProperty && req.method === 'DELETE') {
       const admin = await adminUser(req, res); if (!admin) return;
       const [[property]] = await pool.query('SELECT id FROM imoveis WHERE id=?', [adminProperty[1]]); if (!property) return sendJson(res, 404, { error: 'Imóvel não encontrado.' });
