@@ -18,7 +18,7 @@
     <p class="eyebrow">Transparência e privacidade</p>
     <h1>Política de Privacidade</h1>
     <p class="react-lead">Esta política explica, em linguagem simples, como o portal Tatuí Imóveis trata dados pessoais quando você navega, cria uma conta, anuncia um imóvel ou demonstra interesse em uma oportunidade.</p>
-    <section class="privacy-section"><h2>1. Dados que podemos coletar</h2><p>Dependendo da ação realizada, podemos tratar nome, telefone, e-mail, senha protegida, endereço do imóvel, informações do imóvel, fotos e mensagens de interesse.</p></section>
+    <section class="privacy-section" id="politica-dinamica"><h2>1. Dados que podemos coletar</h2><p>Dependendo da ação realizada, podemos tratar nome, telefone, e-mail, senha protegida, endereço do imóvel, informações do imóvel, fotos e mensagens de interesse.</p></section>
     <section class="privacy-section"><h2>2. Para que usamos esses dados</h2><ul><li>criar e proteger sua conta;</li><li>publicar e administrar anúncios;</li><li>localizar o imóvel no mapa e organizar resultados;</li><li>registrar solicitações de contato sobre um anúncio;</li><li>prevenir abuso, fraude e acessos indevidos;</li><li>atender solicitações relacionadas à privacidade.</li></ul></section>
     <section class="privacy-section"><h2>3. Compartilhamentos</h2><p>Usamos serviços de infraestrutura e funcionalidades externas para operar o portal, como hospedagem, armazenamento de fotos, mapas e consulta de CEP. Quando você escolhe continuar pelo WhatsApp, os dados informados são registrados para controle do contato e preparados para envio ao aplicativo, que passa a tratar a conversa conforme suas próprias políticas.</p></section>
     <section class="privacy-section"><h2>4. Cookies e sessões</h2><p>Utilizamos um cookie técnico de sessão para manter o login e proteger a área do usuário. Não usamos, nesta versão, cookies de publicidade ou de rastreamento comportamental.</p></section>
@@ -30,3 +30,4 @@
   <footer class="site-footer"><a class="site-footer-brand" href="index.html"><img src="assets/tatui-imoveis-logo-light.svg" alt="Tatuí Imóveis"><span>O portal de imóveis de Tatuí.</span></a><nav><a href="imoveis.html">Imóveis</a><a href="index.html#contato">Contato</a><a href="privacidade.html">Política de Privacidade</a></nav><span class="site-footer-note">Tatuí, a cidade que a gente ama.</span></footer>
 </body>
 </html>
+<script>fetch('/api/conteudos/politica_privacidade').then(r=>r.ok?r.json():null).then(data=>{if(!data?.conteudo)return;const section=document.querySelector('#politica-dinamica');section.innerHTML='';data.conteudo.split(/\r?\n/).filter(Boolean).forEach((line,index)=>{const p=document.createElement(index?'p':'h2');p.textContent=line;section.appendChild(p);});}).catch(()=>{});</script>

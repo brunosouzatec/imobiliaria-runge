@@ -487,7 +487,7 @@ Login.setup = () => {
       const response = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: state.email.value, senha: state.senha.value }) });
       const result = await response.json();
       if (!response.ok) { state.message.value = result.error || 'Não foi possível entrar.'; return; }
-      location.href = fluxoAnuncio ? 'cadastro.html?modo=imovel' : 'meus-imoveis.html';
+      const destino = params().get('redirect'); location.href = destino || (fluxoAnuncio ? 'cadastro.html?modo=imovel' : 'meus-imoveis.html');
     } catch (_) { state.message.value = 'Não foi possível conectar. Tente novamente.'; } finally { submetendo.value = false; }
   };
   onMounted(async () => {
