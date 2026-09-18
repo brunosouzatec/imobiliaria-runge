@@ -82,6 +82,8 @@ function validSameOrigin(req) {
   const origin = req.headers.origin;
   if (!origin) return false;
   try {
+    const configuredOrigin = String(process.env.PUBLIC_ORIGIN || '').trim();
+    if (configuredOrigin && new URL(origin).origin === new URL(configuredOrigin).origin) return true;
     const trustProxy = process.env.TRUST_PROXY === 'true';
     const forwardedProto = trustProxy ? String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() : '';
     const forwardedHost = trustProxy ? String(req.headers['x-forwarded-host'] || '').split(',')[0].trim() : '';
