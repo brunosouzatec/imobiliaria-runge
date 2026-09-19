@@ -22,3 +22,9 @@ test('senha SMTP administrativa também possui controle de mostrar e ocultar', (
   assert.match(admin, /class="password-toggle" aria-label="Mostrar senha"/);
   assert.match(admin, /admin-content \.password-toggle/);
 });
+
+test('cadastro de anunciante mantém o campo de confirmação após remover os campos de endereço', () => {
+  assert.match(frontend, /confirmationField/);
+  assert.match(frontend, /v-model="perfil\.senha_confirmacao"/);
+  assert.match(frontend, /senhaConfirmacaoStatus/);
+});
