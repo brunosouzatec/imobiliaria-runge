@@ -10,7 +10,7 @@ const PropertyDescription = require('../../../packages/shared/property-descripti
 const PropertySecurity = require('../../../packages/shared/property-security');
 const Maintenance = require('../../../packages/shared/maintenance');
 const { runMigrations } = require('./migrate');
-const { sendPasswordResetEmail, smtpConfigured } = require('./mailer');
+const { sendPasswordResetEmail, sendTestEmail, diagnoseSmtpError, smtpConfigured } = require('./mailer');
 const PRIVACY_POLICY_VERSION = '2026-09-18';
 
 const projectRoot = path.resolve(__dirname, '../../..');
@@ -462,6 +462,25 @@ const server = http.createServer(async (req, res) => {
       const smtp = { SMTP_HOST: data.host.trim(), SMTP_PORT: port, SMTP_SECURE: data.secure, SMTP_USER: data.usuario.trim(), SMTP_PASS: data.senha || current.SMTP_PASS, SMTP_FROM: data.remetente.trim() };
       await pool.query('INSERT INTO admin_configuracoes (chave,valor,atualizado_por) VALUES (?,?,?) ON DUPLICATE KEY UPDATE valor=VALUES(valor),atualizado_por=VALUES(atualizado_por)', ['smtp', encryptSettings(smtp), admin.id]); await audit(admin.id, 'configurar', 'smtp');
       return sendJson(res, 200, { configurado: true, host: smtp.SMTP_HOST, port: smtp.SMTP_PORT, secure: smtp.SMTP_SECURE, usuario: smtp.SMTP_USER, remetente: smtp.SMTP_FROM, appUrl: process.env.APP_PUBLIC_URL || '' });
+    }
+    if (url.pathname === '/api/admin/configuracoes/email/teste' && req.method === 'POST') {
+      const admin = await adminUser(req, res); if (!admin) return;
+      if (!rateLimit(req, res, 'admin-email-test', 5, 15 * 60 * 1000, `admin:${admin.id}`)) return;
+      const data = await bodyJson(req, 16 * 1024);
+      const email = typeof data?.email === 'string' ? data.email.trim().toLowerCase() : '';
+      if (!email || email.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendJson(res, 400, { error: 'Informe um e-mail válido para receber o teste.' });
+      const smtp = await loadSmtpSettings();
+      if (!smtpConfigured(smtp || {})) return sendJson(res, 400, { error: 'Configure e salve o SMTP antes de enviar um teste.' });
+      try {
+        const result = await sendTestEmail({ email }, smtp);
+        await audit(admin.id, 'testar', 'smtp', null, { destinatario: email, messageId: result.messageId || null });
+        return sendJson(res, 200, { success: true, message: 'E-mail de teste enviado. Verifique a caixa de entrada e o spam.', messageId: result.messageId || null });
+      } catch (error) {
+        const diagnostic = diagnoseSmtpError(error);
+        console.error('Falha no teste SMTP:', { host: smtp.SMTP_HOST, port: smtp.SMTP_PORT, secure: smtp.SMTP_SECURE, codigo: diagnostic.codigo, etapa: diagnostic.etapa, comando: diagnostic.comando });
+        await audit(admin.id, 'falha_teste', 'smtp', null, { destinatario: email, etapa: diagnostic.etapa, codigo: diagnostic.codigo });
+        return sendJson(res, 502, { error: diagnostic.mensagem, diagnostico: diagnostic });
+      }
     }
     const contentRoute = url.pathname.match(/^\/api\/admin\/conteudos\/([a-z0-9_-]+)$/);
     if (contentRoute && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [[row]] = await pool.query('SELECT * FROM site_conteudos WHERE chave=?', [contentRoute[1]]); return row ? sendJson(res, 200, row) : sendJson(res, 404, { error: 'Conteúdo não encontrado.' }); }
