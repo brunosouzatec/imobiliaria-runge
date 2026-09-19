@@ -10,6 +10,7 @@ const PropertyDescription = require('../../../packages/shared/property-descripti
 const PropertySecurity = require('../../../packages/shared/property-security');
 const Maintenance = require('../../../packages/shared/maintenance');
 const { runMigrations } = require('./migrate');
+const { sendPasswordResetEmail, smtpConfigured } = require('./mailer');
 const PRIVACY_POLICY_VERSION = '2026-09-18';
 
 const projectRoot = path.resolve(__dirname, '../../..');
@@ -23,6 +24,7 @@ const r2Client = r2Enabled ? new S3Client({ region: 'auto', endpoint: `https://$
 const r2PublicUrl = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
 const port = Number(process.env.PORT || 3000);
 const SESSION_TIMEOUT = 10 * 60 * 1000;
+const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000;
 const sessions = new Map();
 const adminSessions = new Map();
 const rateLimits = new Map();
@@ -44,6 +46,7 @@ const cleanPageRoutes = new Map([
   ['/imoveis.html', '/imoveis'],
   ['/imovel.html', '/imovel'],
   ['/login.html', '/login'],
+  ['/recuperar-senha.html', '/recuperar-senha'],
   ['/perfil.html', '/perfil'],
   ['/cadastro.html', '/cadastro'],
   ['/meus-imoveis.html', '/meus-imoveis'],
@@ -129,6 +132,41 @@ function createSession(userId) {
   const token = crypto.randomBytes(32).toString('hex');
   sessions.set(token, { userId, expiresAt: now + SESSION_TIMEOUT });
   return token;
+}
+function passwordResetHash(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
+function settingsKey() { const secret = String(process.env.APP_SECRET || ''); if (!secret) throw httpError('APP_SECRET não configurado.', 503); return crypto.createHash('sha256').update(secret).digest(); }
+function encryptSettings(value) { const iv = crypto.randomBytes(12); const cipher = crypto.createCipheriv('aes-256-gcm', settingsKey(), iv); const encrypted = Buffer.concat([cipher.update(JSON.stringify(value), 'utf8'), cipher.final()]); return `v1:${iv.toString('hex')}:${cipher.getAuthTag().toString('hex')}:${encrypted.toString('hex')}`; }
+function decryptSettings(value) { try { const [, ivHex, tagHex, dataHex] = String(value).split(':'); const decipher = crypto.createDecipheriv('aes-256-gcm', settingsKey(), Buffer.from(ivHex, 'hex')); decipher.setAuthTag(Buffer.from(tagHex, 'hex')); return JSON.parse(Buffer.concat([decipher.update(Buffer.from(dataHex, 'hex')), decipher.final()]).toString('utf8')); } catch (_) { return null; } }
+async function loadSmtpSettings() { const [[row]] = await pool.query('SELECT valor FROM admin_configuracoes WHERE chave=?', ['smtp']); return row ? decryptSettings(row.valor) : null; }
+function passwordResetMessage() { return 'Se o e-mail estiver cadastrado, enviaremos um link para recuperação de senha.'; }
+async function requestPasswordReset(data, req, res) {
+  const email = typeof data?.email === 'string' ? data.email.trim().toLowerCase() : '';
+  if (!email || email.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendJson(res, 200, { message: passwordResetMessage() });
+  const [[user]] = await pool.query('SELECT id,nome,email FROM usuarios WHERE LOWER(email)=? AND ativo=TRUE LIMIT 1', [email]);
+  const smtp = await loadSmtpSettings();
+  if (user && smtpConfigured(smtp || {})) {
+    const token = crypto.randomBytes(32).toString('hex');
+    await pool.query('DELETE FROM recuperacao_senha_tokens WHERE usuario_id=? OR expires_at<=NOW()', [user.id]);
+    await pool.query('INSERT INTO recuperacao_senha_tokens (usuario_id,token_hash,expires_at) VALUES (?,?,?)', [user.id, passwordResetHash(token), new Date(Date.now() + PASSWORD_RESET_TTL_MS)]);
+    try { await sendPasswordResetEmail({ email: user.email, name: user.nome, token }, smtp); } catch (error) { console.error('Falha ao enviar e-mail de recuperação:', error.message); }
+  }
+  return sendJson(res, 200, { message: passwordResetMessage() });
+}
+async function resetPassword(data, res) {
+  const token = typeof data?.token === 'string' ? data.token.trim().toLowerCase() : '';
+  if (!/^[a-f0-9]{64}$/.test(token) || !PropertySecurity.validPassword(data?.senha) || data.senha !== data.senha_confirmacao) return sendJson(res, 400, { error: 'O link é inválido ou a senha não atende aos requisitos.' });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[reset]] = await connection.query('SELECT id,usuario_id FROM recuperacao_senha_tokens WHERE token_hash=? AND used_at IS NULL AND expires_at>NOW() FOR UPDATE', [passwordResetHash(token)]);
+    if (!reset) { await connection.rollback(); return sendJson(res, 400, { error: 'O link é inválido ou expirou. Solicite uma nova recuperação.' }); }
+    const hash = await hashPassword(data.senha);
+    await connection.query('UPDATE usuarios SET senha_hash=? WHERE id=? AND ativo=TRUE', [hash, reset.usuario_id]);
+    await connection.query('UPDATE recuperacao_senha_tokens SET used_at=NOW() WHERE id=?', [reset.id]);
+    await connection.commit();
+    for (const [sessionToken, session] of sessions) if (session.userId === reset.usuario_id) sessions.delete(sessionToken);
+    return sendJson(res, 200, { message: 'Senha alterada com sucesso. Você já pode entrar com a nova senha.' });
+  } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
 }
 
 function descricaoSegura(value) { return PropertyDescription.sanitizar(value); }
@@ -349,6 +387,14 @@ const server = http.createServer(async (req, res) => {
       const token = createSession(user.id); if (!token) return sendJson(res, 503, { error: 'Serviço de autenticação temporariamente ocupado.' });
       return sendJson(res, 200, await userPayload(user.id), { 'Set-Cookie': sessionCookie(req, token) });
     }
+    if (url.pathname === '/api/recuperar-senha' && req.method === 'POST') {
+      if (!rateLimit(req, res, 'password-reset-request', 5, 60 * 60 * 1000)) return;
+      return requestPasswordReset(await bodyJson(req), req, res);
+    }
+    if (url.pathname === '/api/redefinir-senha' && req.method === 'POST') {
+      if (!rateLimit(req, res, 'password-reset-complete', 10, 60 * 60 * 1000)) return;
+      return resetPassword(await bodyJson(req), res);
+    }
     if (url.pathname === '/api/usuarios' && req.method === 'POST') {
       if (!rateLimit(req, res, 'registration', 5, 60 * 60 * 1000)) return;
       const d = await bodyJson(req);
@@ -408,6 +454,15 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { usuario:user, imoveis:await comFotos(properties), acessados:accessed });
     }
     if (url.pathname === '/api/admin/auditoria' && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [rows] = await pool.query('SELECT a.*,au.email AS administrador FROM admin_auditoria a LEFT JOIN admin_usuarios au ON au.id=a.usuario_id ORDER BY a.created_at DESC LIMIT 100'); return sendJson(res, 200, rows); }
+    if (url.pathname === '/api/admin/configuracoes/email' && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const smtp = await loadSmtpSettings(); return sendJson(res, 200, { configurado: Boolean(smtp && smtpConfigured(smtp)), host: smtp?.SMTP_HOST || '', port: smtp?.SMTP_PORT || 587, secure: Boolean(smtp?.SMTP_SECURE), usuario: smtp?.SMTP_USER || '', remetente: smtp?.SMTP_FROM || '', appUrl: process.env.APP_PUBLIC_URL || '' }); }
+    if (url.pathname === '/api/admin/configuracoes/email' && req.method === 'PATCH') {
+      const admin = await adminUser(req, res); if (!admin) return;
+      const data = await bodyJson(req); const current = await loadSmtpSettings(); const port = Number(data?.port);
+      if (!data || typeof data.host !== 'string' || !data.host.trim() || data.host.length > 255 || !Number.isInteger(port) || port < 1 || port > 65535 || typeof data.usuario !== 'string' || !data.usuario.trim() || data.usuario.length > 255 || typeof data.remetente !== 'string' || !data.remetente.trim() || data.remetente.length > 255 || typeof data.secure !== 'boolean' || (data.senha !== undefined && typeof data.senha !== 'string') || (!data.senha && !current?.SMTP_PASS)) return sendJson(res, 400, { error: 'Preencha os dados do SMTP e informe a senha na primeira configuração.' });
+      const smtp = { SMTP_HOST: data.host.trim(), SMTP_PORT: port, SMTP_SECURE: data.secure, SMTP_USER: data.usuario.trim(), SMTP_PASS: data.senha || current.SMTP_PASS, SMTP_FROM: data.remetente.trim() };
+      await pool.query('INSERT INTO admin_configuracoes (chave,valor,atualizado_por) VALUES (?,?,?) ON DUPLICATE KEY UPDATE valor=VALUES(valor),atualizado_por=VALUES(atualizado_por)', ['smtp', encryptSettings(smtp), admin.id]); await audit(admin.id, 'configurar', 'smtp');
+      return sendJson(res, 200, { configurado: true, host: smtp.SMTP_HOST, port: smtp.SMTP_PORT, secure: smtp.SMTP_SECURE, usuario: smtp.SMTP_USER, remetente: smtp.SMTP_FROM, appUrl: process.env.APP_PUBLIC_URL || '' });
+    }
     const contentRoute = url.pathname.match(/^\/api\/admin\/conteudos\/([a-z0-9_-]+)$/);
     if (contentRoute && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [[row]] = await pool.query('SELECT * FROM site_conteudos WHERE chave=?', [contentRoute[1]]); return row ? sendJson(res, 200, row) : sendJson(res, 404, { error: 'Conteúdo não encontrado.' }); }
     if (contentRoute && req.method === 'PATCH') { const admin = await adminUser(req, res); if (!admin) return; const data = await bodyJson(req, 256 * 1024); if (!data || typeof data.conteudo !== 'string' || !data.conteudo.trim() || data.conteudo.length > 200000) return sendJson(res,400,{error:'O conteúdo é obrigatório e deve ter até 200 mil caracteres.'}); await pool.query('UPDATE site_conteudos SET conteudo=?,versao=versao+1,atualizado_por=? WHERE chave=?',[data.conteudo.trim(),admin.id,contentRoute[1]]); await audit(admin.id,'editar','conteudo',contentRoute[1]); const [[row]] = await pool.query('SELECT * FROM site_conteudos WHERE chave=?',[contentRoute[1]]); return sendJson(res,200,row); }

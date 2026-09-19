@@ -4,6 +4,8 @@ const removePropertyTitle = require('../migrations/002_remove_property_title');
 const removeAdvertiserAddress = require('../migrations/004_remove_advertiser_address');
 const privacyConsent = require('../migrations/004_privacy_consent');
 const removeAdvertiserFields = require('../migrations/005_remove_advertiser_fields');
+const passwordResetTokens = require('../migrations/008_password_reset_tokens');
+const adminSettings = require('../migrations/009_admin_settings');
 
 test('title removal migration drops the legacy column only when it exists', async () => {
   const statements = [];
@@ -57,4 +59,15 @@ test('advertiser fields migration removes address and professional identifiers o
     'ALTER TABLE `usuarios` DROP COLUMN `cep`',
     'ALTER TABLE `usuarios` DROP COLUMN `creci`'
   ]);
+});
+
+test('password recovery migrations create token and encrypted admin settings tables', async () => {
+  const statements = [];
+  const connection = { query: async sql => { statements.push(sql); } };
+  await passwordResetTokens.up(connection);
+  await adminSettings.up(connection);
+  assert.match(statements[0], /CREATE TABLE IF NOT EXISTS recuperacao_senha_tokens/);
+  assert.match(statements[0], /token_hash CHAR\(64\) NOT NULL UNIQUE/);
+  assert.match(statements[1], /CREATE TABLE IF NOT EXISTS admin_configuracoes/);
+  assert.match(statements[1], /atualizado_por INT NULL/);
 });
