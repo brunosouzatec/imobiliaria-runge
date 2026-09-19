@@ -122,3 +122,7 @@ body { background: var(--cream); color: var(--ink); font-family: Arial, sans-ser
 .admin-history-item small { display:block; margin-top:6px; }
 .admin-history-item pre { background:#fff; border:1px solid #e3ebe6; border-radius:7px; color:#334b49; font:12px/1.5 Consolas,monospace; margin:12px 0 0; max-height:240px; overflow:auto; padding:12px; white-space:pre-wrap; word-break:break-word; }
 @media (max-width:600px) { .admin-edit-banner { align-items:stretch; flex-direction:column; }.admin-history-modal { padding:12px; }.admin-history-card { padding:22px 18px; } }
+/* Tipografia padronizada dos validadores de senha, legível em desktop e mobile. */
+.password-strength-head,
+.password-strength-head strong { font-size: .88rem; }
+.password-strength li { font-size: .88rem; line-height: 1.4; }

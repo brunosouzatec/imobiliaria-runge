@@ -164,3 +164,6 @@
 .password-strength li.valid::before { content: '✓'; }
 .password-match { color: #b6503d; display: block; font-size: .82rem; letter-spacing: 0; line-height: 1.35; margin-top: 7px; text-transform: none; }
 .password-match.matching { color: #28764e; font-weight: 650; }
+.password-strength-head,
+.password-strength-head strong { font-size: .88rem; }
+.password-strength li { font-size: .88rem; line-height: 1.4; }
