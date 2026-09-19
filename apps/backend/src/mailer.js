@@ -23,12 +23,13 @@ async function sendPasswordResetEmail({ email, name, token }, config = process.e
   const link = `${baseUrl}/recuperar-senha?token=${encodeURIComponent(token)}`;
   const safeName = escapeHtml(name);
   const safeLink = escapeHtml(link);
+  const safeLogoUrl = escapeHtml(`${baseUrl}/assets/tatui-imoveis-share.png`);
   return transporter.sendMail({
     from: config.SMTP_FROM,
     to: email,
     subject: 'Recuperação de senha | Tatuí Imóveis',
     text: `Olá${name ? `, ${name}` : ''}!\n\nRecebemos uma solicitação para alterar sua senha. Acesse o link abaixo em até 30 minutos:\n\n${link}\n\nSe você não solicitou essa alteração, ignore este e-mail.`,
-    html: `<p>Olá${name ? `, ${safeName}` : ''}!</p><p>Recebemos uma solicitação para alterar sua senha.</p><p><a href="${safeLink}">Criar uma nova senha</a></p><p>Este link expira em 30 minutos. Se você não solicitou essa alteração, ignore este e-mail.</p>`
+    html: `<!doctype html><html lang="pt-BR"><body style="background:#f6f5f1;margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:#173c3d"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f6f5f1;padding:32px 12px"><tr><td align="center"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background:#fff;border:1px solid #dfe6e2;border-radius:12px;overflow:hidden"><tr><td style="padding:36px 40px 32px"><p style="font-size:16px;line-height:1.6;margin:0 0 18px">Olá${name ? `, ${safeName}` : ''}!</p><h1 style="font-size:25px;line-height:1.25;font-weight:600;margin:0 0 18px;color:#173c3d">Redefina sua senha</h1><p style="font-size:15px;line-height:1.7;color:#607674;margin:0 0 24px">Recebemos uma solicitação para alterar a senha da sua conta no Tatuí Imóveis.</p><table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px"><tr><td bgcolor="#e5651c" style="border-radius:7px"><a href="${safeLink}" style="display:inline-block;color:#fff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 22px">Criar uma nova senha</a></td></tr></table><p style="font-size:13px;line-height:1.6;color:#607674;margin:0">Este link expira em 30 minutos. Se você não solicitou essa alteração, ignore este e-mail.</p></td></tr><tr><td align="center" bgcolor="#173c3d" style="padding:24px 20px"><img src="${safeLogoUrl}" width="240" alt="Tatuí Imóveis — O portal de imóveis de Tatuí" style="display:block;margin:0 auto;max-width:100%;height:auto;border:0"><p style="color:#b8cbc5;font-size:12px;line-height:1.5;margin:14px 0 0">O portal de imóveis de Tatuí.</p></td></tr></table></td></tr></table></body></html>`
   });
 }
 
