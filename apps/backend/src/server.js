@@ -138,19 +138,24 @@ function settingsKey() { const secret = String(process.env.APP_SECRET || ''); if
 function encryptSettings(value) { const iv = crypto.randomBytes(12); const cipher = crypto.createCipheriv('aes-256-gcm', settingsKey(), iv); const encrypted = Buffer.concat([cipher.update(JSON.stringify(value), 'utf8'), cipher.final()]); return `v1:${iv.toString('hex')}:${cipher.getAuthTag().toString('hex')}:${encrypted.toString('hex')}`; }
 function decryptSettings(value) { try { const [, ivHex, tagHex, dataHex] = String(value).split(':'); const decipher = crypto.createDecipheriv('aes-256-gcm', settingsKey(), Buffer.from(ivHex, 'hex')); decipher.setAuthTag(Buffer.from(tagHex, 'hex')); return JSON.parse(Buffer.concat([decipher.update(Buffer.from(dataHex, 'hex')), decipher.final()]).toString('utf8')); } catch (_) { return null; } }
 async function loadSmtpSettings() { const [[row]] = await pool.query('SELECT valor FROM admin_configuracoes WHERE chave=?', ['smtp']); return row ? decryptSettings(row.valor) : null; }
-function passwordResetMessage() { return 'Se o e-mail estiver cadastrado, enviaremos um link para recuperação de senha.'; }
 async function requestPasswordReset(data, req, res) {
   const email = typeof data?.email === 'string' ? data.email.trim().toLowerCase() : '';
-  if (!email || email.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendJson(res, 200, { message: passwordResetMessage() });
+  if (!email || email.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendJson(res, 400, { message: 'Informe um endereço de e-mail válido.' });
   const [[user]] = await pool.query('SELECT id,nome,email FROM usuarios WHERE LOWER(email)=? AND ativo=TRUE LIMIT 1', [email]);
+  if (!user) return sendJson(res, 404, { message: 'Este e-mail não está cadastrado.' });
   const smtp = await loadSmtpSettings();
-  if (user && smtpConfigured(smtp || {})) {
-    const token = crypto.randomBytes(32).toString('hex');
-    await pool.query('DELETE FROM recuperacao_senha_tokens WHERE usuario_id=? OR expires_at<=NOW()', [user.id]);
-    await pool.query('INSERT INTO recuperacao_senha_tokens (usuario_id,token_hash,expires_at) VALUES (?,?,?)', [user.id, passwordResetHash(token), new Date(Date.now() + PASSWORD_RESET_TTL_MS)]);
-    try { await sendPasswordResetEmail({ email: user.email, name: user.nome, token }, smtp); } catch (error) { console.error('Falha ao enviar e-mail de recuperação:', error.message); }
+  if (!smtpConfigured(smtp || {})) return sendJson(res, 503, { message: 'O e-mail foi encontrado, mas o serviço de envio ainda não está configurado.' });
+  const token = crypto.randomBytes(32).toString('hex');
+  await pool.query('DELETE FROM recuperacao_senha_tokens WHERE usuario_id=? OR expires_at<=NOW()', [user.id]);
+  await pool.query('INSERT INTO recuperacao_senha_tokens (usuario_id,token_hash,expires_at) VALUES (?,?,?)', [user.id, passwordResetHash(token), new Date(Date.now() + PASSWORD_RESET_TTL_MS)]);
+  try {
+    await sendPasswordResetEmail({ email: user.email, name: user.nome, token }, smtp);
+    return sendJson(res, 200, { message: 'E-mail de recuperação enviado. Verifique sua caixa de entrada e a pasta de spam.' });
+  } catch (error) {
+    await pool.query('DELETE FROM recuperacao_senha_tokens WHERE usuario_id=? AND token_hash=?', [user.id, passwordResetHash(token)]);
+    console.error('Falha ao enviar e-mail de recuperação:', error.message);
+    return sendJson(res, 502, { message: 'Encontramos seu cadastro, mas não foi possível enviar o e-mail de recuperação. Tente novamente mais tarde.' });
   }
-  return sendJson(res, 200, { message: passwordResetMessage() });
 }
 async function resetPassword(data, res) {
   const token = typeof data?.token === 'string' ? data.token.trim().toLowerCase() : '';
