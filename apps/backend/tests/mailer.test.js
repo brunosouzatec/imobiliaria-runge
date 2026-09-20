@@ -20,11 +20,13 @@ test('SendGrid envia payload Web API com Bearer sem expor a chave', async () => 
   let request;
   global.fetch = async (url, options) => { request = { url, options }; return { ok: true, status: 202, headers: { get: () => 'sg-message-id' } }; };
   try {
-    const result = await sendWithSendGrid({ to: 'teste@example.com', subject: 'Teste', text: 'Texto', html: '<p>Texto</p>' }, { SENDGRID_API_KEY: 'SG.secret', SMTP_FROM: 'noreply@tatuiimoveis.com.br' });
+    const result = await sendWithSendGrid({ to: 'teste@example.com', subject: 'Teste', text: 'Texto', html: '<img src="cid:tatui-imoveis-logo@tatuiimoveis.com.br">' }, { SENDGRID_API_KEY: 'SG.secret', SMTP_FROM: 'noreply@tatuiimoveis.com.br', APP_PUBLIC_URL: 'https://tatuiimoveis.com.br' });
     assert.equal(result.messageId, 'sg-message-id');
     assert.equal(request.url, 'https://api.sendgrid.com/v3/mail/send');
     assert.equal(request.options.headers.Authorization, 'Bearer SG.secret');
     assert.match(request.options.body, /"email":"teste@example.com"/);
+    assert.match(request.options.body, /https:\/\/tatuiimoveis\.com\.br\/assets\/tatui-imoveis-logo-email\.png/);
+    assert.doesNotMatch(request.options.body, /attachments/);
   } finally { global.fetch = originalFetch; }
 });
 
@@ -33,12 +35,12 @@ test('e-mail de teste do SendGrid usa o mesmo padrão visual do SMTP', async () 
   let payload;
   global.fetch = async (_url, options) => { payload = JSON.parse(options.body); return { ok: true, status: 202, headers: { get: () => null } }; };
   try {
-    await sendTestEmail({ email: 'teste@example.com' }, { EMAIL_PROVIDER: 'sendgrid', SENDGRID_API_KEY: 'SG.secret', SMTP_FROM: 'noreply@tatuiimoveis.com.br' });
+    await sendTestEmail({ email: 'teste@example.com' }, { EMAIL_PROVIDER: 'sendgrid', SENDGRID_API_KEY: 'SG.secret', SMTP_FROM: 'noreply@tatuiimoveis.com.br', APP_PUBLIC_URL: 'https://tatuiimoveis.com.br' });
     const html = payload.content.find(item => item.type === 'text/html').value;
     assert.match(html, /Teste de configuração de e-mail/);
     assert.match(html, /bgcolor="#173c3d"/);
-    assert.match(html, /cid:tatui-imoveis-logo@tatuiimoveis\.com\.br/);
-    assert.equal(payload.attachments[0].disposition, 'inline');
+    assert.match(html, /https:\/\/tatuiimoveis\.com\.br\/assets\/tatui-imoveis-logo-email\.png/);
+    assert.equal(payload.attachments, undefined);
   } finally { global.fetch = originalFetch; }
 });
 

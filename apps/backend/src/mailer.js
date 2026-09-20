@@ -1,5 +1,4 @@
 const nodemailer = require('nodemailer');
-const fs = require('fs');
 const path = require('path');
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }
 
@@ -62,9 +61,11 @@ function testEmailContent({ email, timestamp }) {
 }
 
 async function sendWithSendGrid(message, config) {
-  const logoPath = path.resolve(__dirname, '../../frontend/public/assets/tatui-imoveis-logo-email.png');
-  const payload = { personalizations: [{ to: [{ email: message.to }] }], from: { email: config.SMTP_FROM }, subject: message.subject, content: [{ type: 'text/plain', value: message.text }, { type: 'text/html', value: message.html }] };
-  if (fs.existsSync(logoPath)) payload.attachments = [{ content: fs.readFileSync(logoPath).toString('base64'), type: 'image/png', filename: 'tatui-imoveis-logo-email.png', disposition: 'inline', content_id: 'tatui-imoveis-logo@tatuiimoveis.com.br' }];
+  const publicUrl = String(config.APP_PUBLIC_URL || process.env.APP_PUBLIC_URL || '').replace(/\/$/, '');
+  if (!/^https:\/\//i.test(publicUrl)) throw new Error('APP_PUBLIC_URL HTTPS não configurada para o logo do e-mail.');
+  const hostedLogo = `${publicUrl}/assets/tatui-imoveis-logo-email.png`;
+  const html = message.html.replace(/cid:tatui-imoveis-logo@tatuiimoveis\.com\.br/g, escapeHtml(hostedLogo));
+  const payload = { personalizations: [{ to: [{ email: message.to }] }], from: { email: config.SMTP_FROM }, subject: message.subject, content: [{ type: 'text/plain', value: message.text }, { type: 'text/html', value: html }] };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
