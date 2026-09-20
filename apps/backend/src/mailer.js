@@ -63,7 +63,8 @@ function testEmailContent({ email, timestamp }) {
 async function sendWithSendGrid(message, config) {
   const publicUrl = String(config.EMAIL_PUBLIC_URL || process.env.EMAIL_PUBLIC_URL || config.APP_PUBLIC_URL || process.env.APP_PUBLIC_URL || '').replace(/\/$/, '');
   if (!/^https:\/\//i.test(publicUrl)) { const error = new Error('APP_PUBLIC_URL HTTPS não configurada para o logo do e-mail.'); error.code = 'SENDGRID_CONFIG_ERROR'; throw error; }
-  const hostedLogo = `${publicUrl}/r2/assets/tatui-imoveis-logo-email.png`;
+  const logoPath = String(config.EMAIL_LOGO_PATH || process.env.EMAIL_LOGO_PATH || '/assets/tatui-imoveis-logo-email.png').replace(/^\/+/, '/');
+  const hostedLogo = `${publicUrl}${logoPath.startsWith('/') ? logoPath : `/${logoPath}`}`;
   const html = message.html.replace(/cid:tatui-imoveis-logo@tatuiimoveis\.com\.br/g, escapeHtml(hostedLogo));
   const payload = { personalizations: [{ to: [{ email: message.to }] }], from: { email: config.SMTP_FROM }, subject: message.subject, content: [{ type: 'text/plain', value: message.text }, { type: 'text/html', value: html }] };
   const controller = new AbortController();
