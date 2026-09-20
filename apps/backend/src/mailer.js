@@ -1,5 +1,4 @@
 const nodemailer = require('nodemailer');
-const fs = require('fs');
 const path = require('path');
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }
 
@@ -54,10 +53,20 @@ function passwordResetContent({ email, name, token }, config) {
   return { to: email, subject: 'Recuperação de senha | Tatuí Imóveis', text, html };
 }
 
+function testEmailContent({ email, timestamp }) {
+  const logoCid = 'tatui-imoveis-logo@tatuiimoveis.com.br';
+  const text = `Olá!\n\nEste é um e-mail de teste da Tatuí Imóveis. A configuração foi validada com sucesso em ${timestamp}.\n\nSe você recebeu esta mensagem, o serviço de envio está pronto para enviar e-mails de recuperação de senha.`;
+  const html = `<!doctype html><html lang="pt-BR"><body style="background:#f6f5f1;margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:#173c3d"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f6f5f1;padding:32px 12px"><tr><td align="center"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background:#fff;border:1px solid #dfe6e2;border-radius:12px;overflow:hidden"><tr><td style="padding:36px 40px 32px"><p style="font-size:16px;line-height:1.6;margin:0 0 18px">Olá!</p><h1 style="font-size:25px;line-height:1.25;font-weight:600;margin:0 0 18px;color:#173c3d">Teste de configuração de e-mail</h1><p style="font-size:15px;line-height:1.7;color:#607674;margin:0 0 24px">A configuração da Tatuí Imóveis foi validada com sucesso em ${escapeHtml(timestamp)}.</p><table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 24px"><tr><td align="center" bgcolor="#e5651c" style="border-radius:7px"><span style="display:inline-block;color:#fff;font-size:15px;font-weight:700;padding:14px 22px">Envio confirmado</span></td></tr></table><p style="font-size:13px;line-height:1.6;color:#607674;margin:0">Se você recebeu esta mensagem, o serviço está pronto para enviar os e-mails de recuperação de senha.</p></td></tr><tr><td align="center" bgcolor="#173c3d" style="padding:10px 20px"><img src="cid:${logoCid}" width="240" alt="Tatuí Imóveis — O portal de imóveis de Tatuí" style="display:block;margin:0 auto;height:auto;border:0"></td></tr></table></td></tr></table></body></html>`;
+  return { to: email, subject: 'Teste de configuração de e-mail | Tatuí Imóveis', text, html };
+}
+
 async function sendWithSendGrid(message, config) {
-  const logoPath = path.resolve(__dirname, '../../frontend/public/assets/tatui-imoveis-logo-email.png');
-  const payload = { personalizations: [{ to: [{ email: message.to }] }], from: { email: config.SMTP_FROM }, subject: message.subject, content: [{ type: 'text/plain', value: message.text }, { type: 'text/html', value: message.html }] };
-  if (fs.existsSync(logoPath)) payload.attachments = [{ content: fs.readFileSync(logoPath).toString('base64'), type: 'image/png', filename: 'tatui-imoveis-logo-email.png', disposition: 'inline', content_id: 'tatui-imoveis-logo@tatuiimoveis.com.br' }];
+  const publicUrl = String(config.EMAIL_PUBLIC_URL || process.env.EMAIL_PUBLIC_URL || config.APP_PUBLIC_URL || process.env.APP_PUBLIC_URL || '').replace(/\/$/, '');
+  if (!/^https:\/\//i.test(publicUrl)) { const error = new Error('APP_PUBLIC_URL HTTPS não configurada para o logo do e-mail.'); error.code = 'SENDGRID_CONFIG_ERROR'; throw error; }
+  const logoPath = String(config.EMAIL_LOGO_PATH || process.env.EMAIL_LOGO_PATH || '/assets/tatui-imoveis-logo-email.png').replace(/^\/+/, '/');
+  const hostedLogo = `${publicUrl}${logoPath.startsWith('/') ? logoPath : `/${logoPath}`}`;
+  const html = message.html.replace(/cid:tatui-imoveis-logo@tatuiimoveis\.com\.br/g, escapeHtml(hostedLogo));
+  const payload = { personalizations: [{ to: [{ email: message.to }] }], from: { email: config.SMTP_FROM }, subject: message.subject, content: [{ type: 'text/plain', value: message.text }, { type: 'text/html', value: html }] };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
@@ -100,8 +109,16 @@ function diagnoseSmtpError(error) {
   if (code === 'ESOCKET' || code === 'CERT_HAS_EXPIRED' || code === 'ERR_TLS_CERT_ALTNAME_INVALID') {
     return { etapa: 'TLS/SSL', codigo: code, comando: command, mensagem: 'A conexão segura falhou. Use porta 465 com SSL ativado ou porta 587 com SSL desativado para STARTTLS.' };
   }
-  if (code === 'SENDGRID_API_ERROR' && responseCode === 401) return { etapa: 'autenticação', codigo: String(responseCode), comando: null, mensagem: 'A chave do SendGrid foi rejeitada. Confira se ela está ativa e possui a permissão Mail Send.' };
-  if (code === 'SENDGRID_API_ERROR' && responseCode === 403) return { etapa: 'remetente', codigo: String(responseCode), comando: null, mensagem: 'O SendGrid recusou o remetente. Verifique a autenticação do domínio ou a autorização do endereço de envio.' };
+  if (code === 'SENDGRID_CONFIG_ERROR') return { etapa: 'configuração', codigo: code, comando: null, mensagem: 'Configure a URL pública HTTPS do site antes de usar o logo nos e-mails do SendGrid.' };
+  if (code === 'SENDGRID_API_ERROR') {
+    let details = '';
+    try { const parsed = JSON.parse(String(error?.response || '{}')); details = Array.isArray(parsed.errors) ? parsed.errors.map(item => [item.field, item.message].filter(Boolean).join(': ')).join(' | ') : ''; } catch (_) { details = ''; }
+    if (responseCode === 401) return { etapa: 'autenticação', codigo: String(responseCode), comando: null, mensagem: 'A chave do SendGrid foi rejeitada. Confira se ela está ativa e possui a permissão Mail Send.' };
+    if (responseCode === 403) return { etapa: 'remetente', codigo: String(responseCode), comando: null, mensagem: 'O SendGrid recusou o remetente. Verifique a autenticação do domínio ou a autorização do endereço de envio.' };
+    if (responseCode === 400) return { etapa: 'requisição', codigo: String(responseCode), comando: null, mensagem: details ? `O SendGrid rejeitou os dados do envio: ${details}` : 'O SendGrid rejeitou os dados do envio. Confira o remetente autorizado, o destinatário e o conteúdo da mensagem.' };
+    if (responseCode === 429) return { etapa: 'limite', codigo: String(responseCode), comando: null, mensagem: 'O SendGrid atingiu um limite temporário de envio. Aguarde alguns instantes e tente novamente.' };
+    if (responseCode >= 500) return { etapa: 'serviço', codigo: String(responseCode), comando: null, mensagem: 'O SendGrid apresentou uma indisponibilidade temporária. Tente novamente em alguns minutos.' };
+  }
   if (code === 'EENVELOPE' || responseCode === 550 || responseCode === 553) {
     return { etapa: 'remetente', codigo: code || String(responseCode), comando: command, mensagem: 'O provedor rejeitou o remetente ou destinatário. Use um remetente autorizado e com o mesmo domínio da conta SMTP.' };
   }
@@ -111,11 +128,11 @@ function diagnoseSmtpError(error) {
 async function sendTestEmail({ email }, config = process.env) {
   const timestamp = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   if (!emailConfigured(config)) throw new Error('Serviço de e-mail não configurado.');
-  const message = { to: email, subject: 'Teste de configuração de e-mail | Tatuí Imóveis', text: `Este é um e-mail de teste da Tatuí Imóveis.\n\nA configuração foi validada com sucesso em ${timestamp}.\n\nSe você recebeu esta mensagem, o sistema está pronto para enviar e-mails de recuperação de senha.`, html: `<p>Este é um e-mail de teste da <strong>Tatuí Imóveis</strong>.</p><p>A configuração foi validada com sucesso em ${escapeHtml(timestamp)}.</p><p>Se você recebeu esta mensagem, o sistema está pronto para enviar e-mails de recuperação de senha.</p>` };
+  const message = testEmailContent({ email, timestamp });
   if (emailProvider(config) === 'sendgrid') return sendWithSendGrid(message, config);
   const transporter = createMailer(config);
   await transporter.verify();
-  return transporter.sendMail({ from: config.SMTP_FROM, ...message });
+  return transporter.sendMail({ from: config.SMTP_FROM, ...message, attachments: [logoAttachment()].filter(Boolean) });
 }
 
 module.exports = { createMailer, sendPasswordResetEmail, sendTestEmail, diagnoseSmtpError, smtpConfigured, sendGridConfigured, emailConfigured, emailProvider, sendWithSendGrid };

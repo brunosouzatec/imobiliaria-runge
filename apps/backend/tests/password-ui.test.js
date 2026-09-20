@@ -29,6 +29,7 @@ test('administração oferece SendGrid Web API somente na aba de e-mail', () => 
   assert.match(admin, /SendGrid Web API/);
   assert.match(admin, /id="email-provider"/);
   assert.match(admin, /sendgrid/);
+  assert.match(admin, /document\.querySelector\('\#email-provider'\)\?\.value/);
 });
 
 test('cadastro de anunciante mantém o campo de confirmação após remover os campos de endereço', () => {

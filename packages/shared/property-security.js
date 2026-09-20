@@ -14,7 +14,7 @@ function imageInfo(buffer) {
 }
 
 function safeR2Key(key) {
-  return typeof key === 'string' && key.length <= 512 && key.startsWith('imoveis/')
+  return typeof key === 'string' && key.length <= 512 && (key.startsWith('imoveis/') || key === 'assets/tatui-imoveis-logo-email.png')
     && !key.includes('\0') && !key.split('/').some(part => !part || part === '.' || part === '..' || part.includes('\\'));
 }
 

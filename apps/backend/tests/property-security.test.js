@@ -13,6 +13,7 @@ test('recognizes only JPEG, PNG and WebP signatures, not client MIME types', () 
 
 test('limits R2 proxy keys to normalized objects under the property image prefix', () => {
   assert.equal(security.safeR2Key('imoveis/42-casa/abc.jpg'), true);
+  assert.equal(security.safeR2Key('assets/tatui-imoveis-logo-email.png'), true);
   for (const key of ['/etc/passwd', 'imoveis/../secret', 'imoveis/a\\b', 'imoveis//file.jpg', 'other/file.jpg']) {
     assert.equal(security.safeR2Key(key), false, `reject ${key}`);
   }
