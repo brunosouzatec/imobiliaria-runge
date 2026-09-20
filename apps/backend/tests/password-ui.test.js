@@ -25,6 +25,12 @@ test('senha SMTP administrativa também possui controle de mostrar e ocultar', (
   assert.match(admin, /admin-content \.password-toggle/);
 });
 
+test('administração oferece SendGrid Web API somente na aba de e-mail', () => {
+  assert.match(admin, /SendGrid Web API/);
+  assert.match(admin, /id="email-provider"/);
+  assert.match(admin, /sendgrid/);
+});
+
 test('cadastro de anunciante mantém o campo de confirmação após remover os campos de endereço', () => {
   assert.match(frontend, /confirmationField/);
   assert.match(frontend, /v-model="perfil\.senha_confirmacao"/);
