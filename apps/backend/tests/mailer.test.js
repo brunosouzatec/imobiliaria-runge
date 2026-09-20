@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createMailer, diagnoseSmtpError, smtpConfigured, sendGridConfigured, emailConfigured, emailProvider, sendWithSendGrid } = require('../src/mailer');
+const { createMailer, diagnoseSmtpError, smtpConfigured, sendGridConfigured, emailConfigured, emailProvider, sendWithSendGrid, sendTestEmail } = require('../src/mailer');
 
 test('SMTP é considerado configurado somente com os dados essenciais', () => {
   assert.equal(smtpConfigured({ SMTP_HOST: 'smtp.example.com', SMTP_USER: 'user@example.com', SMTP_PASS: 'secret', SMTP_FROM: 'user@example.com' }), true);
@@ -25,6 +25,20 @@ test('SendGrid envia payload Web API com Bearer sem expor a chave', async () => 
     assert.equal(request.url, 'https://api.sendgrid.com/v3/mail/send');
     assert.equal(request.options.headers.Authorization, 'Bearer SG.secret');
     assert.match(request.options.body, /"email":"teste@example.com"/);
+  } finally { global.fetch = originalFetch; }
+});
+
+test('e-mail de teste do SendGrid usa o mesmo padrão visual do SMTP', async () => {
+  const originalFetch = global.fetch;
+  let payload;
+  global.fetch = async (_url, options) => { payload = JSON.parse(options.body); return { ok: true, status: 202, headers: { get: () => null } }; };
+  try {
+    await sendTestEmail({ email: 'teste@example.com' }, { EMAIL_PROVIDER: 'sendgrid', SENDGRID_API_KEY: 'SG.secret', SMTP_FROM: 'noreply@tatuiimoveis.com.br' });
+    const html = payload.content.find(item => item.type === 'text/html').value;
+    assert.match(html, /Teste de configuração de e-mail/);
+    assert.match(html, /bgcolor="#173c3d"/);
+    assert.match(html, /cid:tatui-imoveis-logo@tatuiimoveis\.com\.br/);
+    assert.equal(payload.attachments[0].disposition, 'inline');
   } finally { global.fetch = originalFetch; }
 });
 

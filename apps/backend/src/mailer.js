@@ -54,6 +54,13 @@ function passwordResetContent({ email, name, token }, config) {
   return { to: email, subject: 'Recuperação de senha | Tatuí Imóveis', text, html };
 }
 
+function testEmailContent({ email, timestamp }) {
+  const logoCid = 'tatui-imoveis-logo@tatuiimoveis.com.br';
+  const text = `Olá!\n\nEste é um e-mail de teste da Tatuí Imóveis. A configuração foi validada com sucesso em ${timestamp}.\n\nSe você recebeu esta mensagem, o serviço de envio está pronto para enviar e-mails de recuperação de senha.`;
+  const html = `<!doctype html><html lang="pt-BR"><body style="background:#f6f5f1;margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:#173c3d"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f6f5f1;padding:32px 12px"><tr><td align="center"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background:#fff;border:1px solid #dfe6e2;border-radius:12px;overflow:hidden"><tr><td style="padding:36px 40px 32px"><p style="font-size:16px;line-height:1.6;margin:0 0 18px">Olá!</p><h1 style="font-size:25px;line-height:1.25;font-weight:600;margin:0 0 18px;color:#173c3d">Teste de configuração de e-mail</h1><p style="font-size:15px;line-height:1.7;color:#607674;margin:0 0 24px">A configuração da Tatuí Imóveis foi validada com sucesso em ${escapeHtml(timestamp)}.</p><table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 24px"><tr><td align="center" bgcolor="#e5651c" style="border-radius:7px"><span style="display:inline-block;color:#fff;font-size:15px;font-weight:700;padding:14px 22px">Envio confirmado</span></td></tr></table><p style="font-size:13px;line-height:1.6;color:#607674;margin:0">Se você recebeu esta mensagem, o serviço está pronto para enviar os e-mails de recuperação de senha.</p></td></tr><tr><td align="center" bgcolor="#173c3d" style="padding:10px 20px"><img src="cid:${logoCid}" width="240" alt="Tatuí Imóveis — O portal de imóveis de Tatuí" style="display:block;margin:0 auto;height:auto;border:0"></td></tr></table></td></tr></table></body></html>`;
+  return { to: email, subject: 'Teste de configuração de e-mail | Tatuí Imóveis', text, html };
+}
+
 async function sendWithSendGrid(message, config) {
   const logoPath = path.resolve(__dirname, '../../frontend/public/assets/tatui-imoveis-logo-email.png');
   const payload = { personalizations: [{ to: [{ email: message.to }] }], from: { email: config.SMTP_FROM }, subject: message.subject, content: [{ type: 'text/plain', value: message.text }, { type: 'text/html', value: message.html }] };
@@ -111,11 +118,11 @@ function diagnoseSmtpError(error) {
 async function sendTestEmail({ email }, config = process.env) {
   const timestamp = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   if (!emailConfigured(config)) throw new Error('Serviço de e-mail não configurado.');
-  const message = { to: email, subject: 'Teste de configuração de e-mail | Tatuí Imóveis', text: `Este é um e-mail de teste da Tatuí Imóveis.\n\nA configuração foi validada com sucesso em ${timestamp}.\n\nSe você recebeu esta mensagem, o sistema está pronto para enviar e-mails de recuperação de senha.`, html: `<p>Este é um e-mail de teste da <strong>Tatuí Imóveis</strong>.</p><p>A configuração foi validada com sucesso em ${escapeHtml(timestamp)}.</p><p>Se você recebeu esta mensagem, o sistema está pronto para enviar e-mails de recuperação de senha.</p>` };
+  const message = testEmailContent({ email, timestamp });
   if (emailProvider(config) === 'sendgrid') return sendWithSendGrid(message, config);
   const transporter = createMailer(config);
   await transporter.verify();
-  return transporter.sendMail({ from: config.SMTP_FROM, ...message });
+  return transporter.sendMail({ from: config.SMTP_FROM, ...message, attachments: [logoAttachment()].filter(Boolean) });
 }
 
 module.exports = { createMailer, sendPasswordResetEmail, sendTestEmail, diagnoseSmtpError, smtpConfigured, sendGridConfigured, emailConfigured, emailProvider, sendWithSendGrid };
