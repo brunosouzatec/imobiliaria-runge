@@ -30,6 +30,16 @@ test('SendGrid envia payload Web API com Bearer sem expor a chave', async () => 
   } finally { global.fetch = originalFetch; }
 });
 
+test('SendGrid aceita URL pública de e-mail separada da URL local da aplicação', async () => {
+  const originalFetch = global.fetch;
+  let request;
+  global.fetch = async (_url, options) => { request = JSON.parse(options.body); return { ok: true, status: 202, headers: { get: () => null } }; };
+  try {
+    await sendWithSendGrid({ to: 'teste@example.com', subject: 'Teste', text: 'Texto', html: '<img src="cid:tatui-imoveis-logo@tatuiimoveis.com.br">' }, { SENDGRID_API_KEY: 'SG.secret', SMTP_FROM: 'noreply@tatuiimoveis.com.br', APP_PUBLIC_URL: 'http://localhost:3000', EMAIL_PUBLIC_URL: 'https://tatuiimoveis.com.br' });
+    assert.match(request.content[1].value, /https:\/\/tatuiimoveis\.com\.br\/r2\/assets\/tatui-imoveis-logo-email\.png/);
+  } finally { global.fetch = originalFetch; }
+});
+
 test('e-mail de teste do SendGrid usa o mesmo padrão visual do SMTP', async () => {
   const originalFetch = global.fetch;
   let payload;
