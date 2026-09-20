@@ -25,7 +25,7 @@ test('SendGrid envia payload Web API com Bearer sem expor a chave', async () => 
     assert.equal(request.url, 'https://api.sendgrid.com/v3/mail/send');
     assert.equal(request.options.headers.Authorization, 'Bearer SG.secret');
     assert.match(request.options.body, /"email":"teste@example.com"/);
-    assert.match(request.options.body, /https:\/\/tatuiimoveis\.com\.br\/assets\/tatui-imoveis-logo-email\.png/);
+    assert.match(request.options.body, /https:\/\/tatuiimoveis\.com\.br\/r2\/assets\/tatui-imoveis-logo-email\.png/);
     assert.doesNotMatch(request.options.body, /attachments/);
   } finally { global.fetch = originalFetch; }
 });
@@ -39,7 +39,7 @@ test('e-mail de teste do SendGrid usa o mesmo padrão visual do SMTP', async () 
     const html = payload.content.find(item => item.type === 'text/html').value;
     assert.match(html, /Teste de configuração de e-mail/);
     assert.match(html, /bgcolor="#173c3d"/);
-    assert.match(html, /https:\/\/tatuiimoveis\.com\.br\/assets\/tatui-imoveis-logo-email\.png/);
+    assert.match(html, /https:\/\/tatuiimoveis\.com\.br\/r2\/assets\/tatui-imoveis-logo-email\.png/);
     assert.equal(payload.attachments, undefined);
   } finally { global.fetch = originalFetch; }
 });
