@@ -10,7 +10,7 @@ const PropertyDescription = require('../../../packages/shared/property-descripti
 const PropertySecurity = require('../../../packages/shared/property-security');
 const Maintenance = require('../../../packages/shared/maintenance');
 const { runMigrations } = require('./migrate');
-const { sendPasswordResetEmail, sendTestEmail, diagnoseSmtpError, smtpConfigured } = require('./mailer');
+const { sendPasswordResetEmail, sendTestEmail, diagnoseSmtpError, emailConfigured, emailProvider } = require('./mailer');
 const PRIVACY_POLICY_VERSION = '2026-09-18';
 
 const projectRoot = path.resolve(__dirname, '../../..');
@@ -144,7 +144,7 @@ async function requestPasswordReset(data, req, res) {
   const [[user]] = await pool.query('SELECT id,nome,email FROM usuarios WHERE LOWER(email)=? AND ativo=TRUE LIMIT 1', [email]);
   if (!user) return sendJson(res, 404, { message: 'Este e-mail não está cadastrado.' });
   const smtp = await loadSmtpSettings();
-  if (!smtpConfigured(smtp || {})) return sendJson(res, 503, { message: 'O e-mail foi encontrado, mas o serviço de envio ainda não está configurado.' });
+  if (!emailConfigured(smtp || {})) return sendJson(res, 503, { message: 'O e-mail foi encontrado, mas o serviço de envio ainda não está configurado.' });
   const token = crypto.randomBytes(32).toString('hex');
   await pool.query('DELETE FROM recuperacao_senha_tokens WHERE usuario_id=? OR expires_at<=NOW()', [user.id]);
   await pool.query('INSERT INTO recuperacao_senha_tokens (usuario_id,token_hash,expires_at) VALUES (?,?,?)', [user.id, passwordResetHash(token), new Date(Date.now() + PASSWORD_RESET_TTL_MS)]);
@@ -459,14 +459,25 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { usuario:user, imoveis:await comFotos(properties), acessados:accessed });
     }
     if (url.pathname === '/api/admin/auditoria' && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [rows] = await pool.query('SELECT a.*,au.email AS administrador FROM admin_auditoria a LEFT JOIN admin_usuarios au ON au.id=a.usuario_id ORDER BY a.created_at DESC LIMIT 100'); return sendJson(res, 200, rows); }
-    if (url.pathname === '/api/admin/configuracoes/email' && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const smtp = await loadSmtpSettings(); return sendJson(res, 200, { configurado: Boolean(smtp && smtpConfigured(smtp)), host: smtp?.SMTP_HOST || '', port: smtp?.SMTP_PORT || 587, secure: Boolean(smtp?.SMTP_SECURE), usuario: smtp?.SMTP_USER || '', remetente: smtp?.SMTP_FROM || '', appUrl: process.env.APP_PUBLIC_URL || '' }); }
+    if (url.pathname === '/api/admin/configuracoes/email' && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const settings = await loadSmtpSettings(); const provider = emailProvider(settings || {}); return sendJson(res, 200, { configurado: Boolean(settings && emailConfigured(settings)), provedor: provider, host: settings?.SMTP_HOST || '', port: settings?.SMTP_PORT || 587, secure: Boolean(settings?.SMTP_SECURE), usuario: settings?.SMTP_USER || '', remetente: settings?.SMTP_FROM || '', appUrl: process.env.APP_PUBLIC_URL || '' }); }
     if (url.pathname === '/api/admin/configuracoes/email' && req.method === 'PATCH') {
       const admin = await adminUser(req, res); if (!admin) return;
       const data = await bodyJson(req); const current = await loadSmtpSettings(); const port = Number(data?.port);
-      if (!data || typeof data.host !== 'string' || !data.host.trim() || data.host.length > 255 || !Number.isInteger(port) || port < 1 || port > 65535 || typeof data.usuario !== 'string' || !data.usuario.trim() || data.usuario.length > 255 || typeof data.remetente !== 'string' || !data.remetente.trim() || data.remetente.length > 255 || typeof data.secure !== 'boolean' || (data.senha !== undefined && typeof data.senha !== 'string') || (!data.senha && !current?.SMTP_PASS)) return sendJson(res, 400, { error: 'Preencha os dados do SMTP e informe a senha na primeira configuração.' });
-      const smtp = { SMTP_HOST: data.host.trim(), SMTP_PORT: port, SMTP_SECURE: data.secure, SMTP_USER: data.usuario.trim(), SMTP_PASS: data.senha || current.SMTP_PASS, SMTP_FROM: data.remetente.trim() };
-      await pool.query('INSERT INTO admin_configuracoes (chave,valor,atualizado_por) VALUES (?,?,?) ON DUPLICATE KEY UPDATE valor=VALUES(valor),atualizado_por=VALUES(atualizado_por)', ['smtp', encryptSettings(smtp), admin.id]); await audit(admin.id, 'configurar', 'smtp');
-      return sendJson(res, 200, { configurado: true, host: smtp.SMTP_HOST, port: smtp.SMTP_PORT, secure: smtp.SMTP_SECURE, usuario: smtp.SMTP_USER, remetente: smtp.SMTP_FROM, appUrl: process.env.APP_PUBLIC_URL || '' });
+      const provider = data?.provedor === 'sendgrid' ? 'sendgrid' : data?.provedor === 'smtp' ? 'smtp' : '';
+      if (!data || !provider || typeof data.remetente !== 'string' || !data.remetente.trim() || data.remetente.length > 255 || (data.senha !== undefined && typeof data.senha !== 'string') || (data.senha !== undefined && data.senha.length > 4096)) return sendJson(res, 400, { error: 'Informe o provedor e um remetente válido.' });
+      let settings;
+      if (provider === 'sendgrid') {
+        const apiKey = data.senha || current?.SENDGRID_API_KEY;
+        if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) return sendJson(res, 400, { error: 'Informe a chave da API do SendGrid na primeira configuração.' });
+        settings = { EMAIL_PROVIDER: 'sendgrid', SENDGRID_API_KEY: apiKey.trim(), SMTP_FROM: data.remetente.trim() };
+      } else {
+        const port = Number(data.porta);
+        if (typeof data.host !== 'string' || !data.host.trim() || data.host.length > 255 || !Number.isInteger(port) || port < 1 || port > 65535 || typeof data.usuario !== 'string' || !data.usuario.trim() || data.usuario.length > 255 || typeof data.seguro !== 'boolean') return sendJson(res, 400, { error: 'Preencha corretamente os dados do SMTP.' });
+        if (!data.senha && !current?.SMTP_PASS) return sendJson(res, 400, { error: 'Informe a senha do SMTP na primeira configuração.' });
+        settings = { EMAIL_PROVIDER: 'smtp', SMTP_HOST: data.host.trim(), SMTP_PORT: port, SMTP_SECURE: data.seguro, SMTP_USER: data.usuario.trim(), SMTP_PASS: data.senha || current?.SMTP_PASS, SMTP_FROM: data.remetente.trim() };
+      }
+      await pool.query('INSERT INTO admin_configuracoes (chave,valor,atualizado_por) VALUES (?,?,?) ON DUPLICATE KEY UPDATE valor=VALUES(valor),atualizado_por=VALUES(atualizado_por)', ['smtp', encryptSettings(settings), admin.id]); await audit(admin.id, 'configurar', provider === 'sendgrid' ? 'sendgrid' : 'smtp');
+      return sendJson(res, 200, { configurado: true, provedor: provider, host: settings.SMTP_HOST || '', port: settings.SMTP_PORT || 587, secure: Boolean(settings.SMTP_SECURE), usuario: settings.SMTP_USER || '', remetente: settings.SMTP_FROM, appUrl: process.env.APP_PUBLIC_URL || '' });
     }
     if (url.pathname === '/api/admin/configuracoes/email/teste' && req.method === 'POST') {
       const admin = await adminUser(req, res); if (!admin) return;
@@ -475,7 +486,7 @@ const server = http.createServer(async (req, res) => {
       const email = typeof data?.email === 'string' ? data.email.trim().toLowerCase() : '';
       if (!email || email.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendJson(res, 400, { error: 'Informe um e-mail válido para receber o teste.' });
       const smtp = await loadSmtpSettings();
-      if (!smtpConfigured(smtp || {})) return sendJson(res, 400, { error: 'Configure e salve o SMTP antes de enviar um teste.' });
+      if (!emailConfigured(smtp || {})) return sendJson(res, 400, { error: 'Configure e salve o serviço de e-mail antes de enviar um teste.' });
       try {
         const result = await sendTestEmail({ email }, smtp);
         await audit(admin.id, 'testar', 'smtp', null, { destinatario: email, messageId: result.messageId || null });
