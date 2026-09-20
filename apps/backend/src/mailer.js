@@ -12,6 +12,10 @@ function createMailer(config = process.env) {
     host: config.SMTP_HOST,
     port: Number(config.SMTP_PORT || 587),
     secure: String(config.SMTP_SECURE || '').toLowerCase() === 'true' || Number(config.SMTP_PORT || 587) === 465,
+    // Evita que um firewall/provedor bloqueando SMTP deixe a tela administrativa presa.
+    connectionTimeout: 15000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
     auth: { user: config.SMTP_USER, pass: config.SMTP_PASS }
   });
 }
