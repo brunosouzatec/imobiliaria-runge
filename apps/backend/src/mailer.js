@@ -62,7 +62,7 @@ function testEmailContent({ email, timestamp }) {
 
 async function sendWithSendGrid(message, config) {
   const publicUrl = String(config.APP_PUBLIC_URL || process.env.APP_PUBLIC_URL || '').replace(/\/$/, '');
-  if (!/^https:\/\//i.test(publicUrl)) throw new Error('APP_PUBLIC_URL HTTPS não configurada para o logo do e-mail.');
+  if (!/^https:\/\//i.test(publicUrl)) { const error = new Error('APP_PUBLIC_URL HTTPS não configurada para o logo do e-mail.'); error.code = 'SENDGRID_CONFIG_ERROR'; throw error; }
   const hostedLogo = `${publicUrl}/assets/tatui-imoveis-logo-email.png`;
   const html = message.html.replace(/cid:tatui-imoveis-logo@tatuiimoveis\.com\.br/g, escapeHtml(hostedLogo));
   const payload = { personalizations: [{ to: [{ email: message.to }] }], from: { email: config.SMTP_FROM }, subject: message.subject, content: [{ type: 'text/plain', value: message.text }, { type: 'text/html', value: html }] };
@@ -108,8 +108,16 @@ function diagnoseSmtpError(error) {
   if (code === 'ESOCKET' || code === 'CERT_HAS_EXPIRED' || code === 'ERR_TLS_CERT_ALTNAME_INVALID') {
     return { etapa: 'TLS/SSL', codigo: code, comando: command, mensagem: 'A conexão segura falhou. Use porta 465 com SSL ativado ou porta 587 com SSL desativado para STARTTLS.' };
   }
-  if (code === 'SENDGRID_API_ERROR' && responseCode === 401) return { etapa: 'autenticação', codigo: String(responseCode), comando: null, mensagem: 'A chave do SendGrid foi rejeitada. Confira se ela está ativa e possui a permissão Mail Send.' };
-  if (code === 'SENDGRID_API_ERROR' && responseCode === 403) return { etapa: 'remetente', codigo: String(responseCode), comando: null, mensagem: 'O SendGrid recusou o remetente. Verifique a autenticação do domínio ou a autorização do endereço de envio.' };
+  if (code === 'SENDGRID_CONFIG_ERROR') return { etapa: 'configuração', codigo: code, comando: null, mensagem: 'Configure a URL pública HTTPS do site antes de usar o logo nos e-mails do SendGrid.' };
+  if (code === 'SENDGRID_API_ERROR') {
+    let details = '';
+    try { const parsed = JSON.parse(String(error?.response || '{}')); details = Array.isArray(parsed.errors) ? parsed.errors.map(item => [item.field, item.message].filter(Boolean).join(': ')).join(' | ') : ''; } catch (_) { details = ''; }
+    if (responseCode === 401) return { etapa: 'autenticação', codigo: String(responseCode), comando: null, mensagem: 'A chave do SendGrid foi rejeitada. Confira se ela está ativa e possui a permissão Mail Send.' };
+    if (responseCode === 403) return { etapa: 'remetente', codigo: String(responseCode), comando: null, mensagem: 'O SendGrid recusou o remetente. Verifique a autenticação do domínio ou a autorização do endereço de envio.' };
+    if (responseCode === 400) return { etapa: 'requisição', codigo: String(responseCode), comando: null, mensagem: details ? `O SendGrid rejeitou os dados do envio: ${details}` : 'O SendGrid rejeitou os dados do envio. Confira o remetente autorizado, o destinatário e o conteúdo da mensagem.' };
+    if (responseCode === 429) return { etapa: 'limite', codigo: String(responseCode), comando: null, mensagem: 'O SendGrid atingiu um limite temporário de envio. Aguarde alguns instantes e tente novamente.' };
+    if (responseCode >= 500) return { etapa: 'serviço', codigo: String(responseCode), comando: null, mensagem: 'O SendGrid apresentou uma indisponibilidade temporária. Tente novamente em alguns minutos.' };
+  }
   if (code === 'EENVELOPE' || responseCode === 550 || responseCode === 553) {
     return { etapa: 'remetente', codigo: code || String(responseCode), comando: command, mensagem: 'O provedor rejeitou o remetente ou destinatário. Use um remetente autorizado e com o mesmo domínio da conta SMTP.' };
   }

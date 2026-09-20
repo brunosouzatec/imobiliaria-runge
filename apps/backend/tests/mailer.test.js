@@ -61,6 +61,13 @@ test('diagnóstico SendGrid identifica chave inválida e remetente não autoriza
   assert.equal(diagnoseSmtpError({ code: 'SENDGRID_API_ERROR', responseCode: 403 }).etapa, 'remetente');
 });
 
+test('diagnóstico SendGrid informa detalhes seguros de requisição inválida', () => {
+  const diagnostic = diagnoseSmtpError({ code: 'SENDGRID_API_ERROR', responseCode: 400, response: JSON.stringify({ errors: [{ field: 'from.email', message: 'The from address does not match a verified Sender Identity.' }] }) });
+  assert.equal(diagnostic.etapa, 'requisição');
+  assert.match(diagnostic.mensagem, /from\.email/);
+  assert.doesNotMatch(diagnostic.mensagem, /SG\.secret/);
+});
+
 test('mailer encerra conexões SMTP que não respondem', () => {
   const transporter = createMailer({
     SMTP_HOST: 'smtp.example.com', SMTP_PORT: 465, SMTP_SECURE: true,

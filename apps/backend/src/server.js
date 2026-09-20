@@ -493,7 +493,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, { success: true, message: 'E-mail de teste enviado. Verifique a caixa de entrada e o spam.', messageId: result.messageId || null });
       } catch (error) {
         const diagnostic = diagnoseSmtpError(error);
-        console.error('Falha no teste SMTP:', { host: smtp.SMTP_HOST, port: smtp.SMTP_PORT, secure: smtp.SMTP_SECURE, codigo: diagnostic.codigo, etapa: diagnostic.etapa, comando: diagnostic.comando });
+        console.error('Falha no teste de e-mail:', { provedor: emailProvider(smtp), host: smtp.SMTP_HOST, port: smtp.SMTP_PORT, secure: smtp.SMTP_SECURE, codigo: diagnostic.codigo, etapa: diagnostic.etapa, comando: diagnostic.comando, mensagem: diagnostic.mensagem });
         await audit(admin.id, 'falha_teste', 'smtp', null, { destinatario: email, etapa: diagnostic.etapa, codigo: diagnostic.codigo });
         return sendJson(res, 502, { error: diagnostic.mensagem, diagnostico: diagnostic });
       }
