@@ -44,7 +44,52 @@
     }
     return [...new Set([...local, ...remotos])].filter(value => !termo || semAcentos(value).includes(semAcentos(termo))).sort((a, b) => a.localeCompare(b, 'pt-BR')).slice(0, 30);
   }
-  function montarDatalist(id, values) { const list = document.querySelector('#' + id); if (list) list.innerHTML = values.map(value => `<option value="${esc(value)}"></option>`).join(''); }
+  function montarAutocomplete(input, getOptions, { onSelect, inline = false } = {}) {
+    const wrapper = document.createElement('div');
+    wrapper.className = `admin-autocomplete${inline ? ' admin-autocomplete-inline' : ''}`;
+    input.replaceWith(wrapper);
+    wrapper.appendChild(input);
+    input.removeAttribute('list');
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-expanded', 'false');
+    const menu = document.createElement('div');
+    menu.className = 'admin-autocomplete-menu';
+    menu.setAttribute('role', 'listbox');
+    menu.hidden = true;
+    wrapper.appendChild(menu);
+    let options = [];
+    let activeIndex = -1;
+    let requestId = 0;
+    let isOpen = false;
+    const close = () => { isOpen = false; menu.hidden = true; input.setAttribute('aria-expanded', 'false'); activeIndex = -1; };
+    const select = option => { input.value = option.label; close(); onSelect?.(option); };
+    const paint = () => {
+      menu.innerHTML = options.map((option, index) => `<button type="button" role="option" aria-selected="${index === activeIndex}" class="admin-autocomplete-option${index === activeIndex ? ' is-active' : ''}" data-autocomplete-index="${index}">${esc(option.label)}</button>`).join('');
+      menu.hidden = !isOpen || !options.length;
+      input.setAttribute('aria-expanded', String(!menu.hidden));
+    };
+    const search = async (query = '') => {
+      const currentRequest = ++requestId;
+      const result = await getOptions(query);
+      if (currentRequest !== requestId) return;
+      options = result.slice(0, 30);
+      activeIndex = -1;
+      paint();
+    };
+    input.addEventListener('focus', () => { isOpen = true; search(input.value); });
+    input.addEventListener('input', () => { isOpen = true; search(input.value); });
+    input.addEventListener('keydown', event => {
+      if (menu.hidden || !options.length) return;
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); activeIndex = (activeIndex + (event.key === 'ArrowDown' ? 1 : options.length - 1)) % options.length; paint(); }
+      if (event.key === 'Enter' && activeIndex >= 0) { event.preventDefault(); select(options[activeIndex]); }
+      if (event.key === 'Escape') close();
+    });
+    menu.addEventListener('mousedown', event => { const option = event.target.closest('[data-autocomplete-index]'); if (option) { event.preventDefault(); select(options[Number(option.dataset.autocompleteIndex)]); } });
+    document.addEventListener('mousedown', event => { if (!wrapper.contains(event.target)) close(); });
+    return { refresh: () => search(input.value), close };
+  }
   function configurarFormularioOportunidade() {
     const typeSelect = document.querySelector('#op-type');
     if (typeSelect) typeSelect.closest('label').outerHTML = `<fieldset class="admin-opportunity-types admin-field-wide"><legend>Tipos de imóvel <small>(selecione um ou mais)</small></legend><div class="admin-opportunity-type-options" id="op-type-options">${state.opportunityTypes.map(type => `<label><input type="checkbox" name="op-property-type" value="${esc(type)}"> <span>${esc(type)}</span></label>`).join('')}</div><div class="admin-add-type"><input id="op-new-type" maxlength="80" placeholder="Ex.: Galpão"><button class="admin-secondary-action" type="button" id="add-opportunity-type">Adicionar tipo</button></div><small class="admin-field-help">Inclua um novo tipo quando uma oportunidade não se encaixar nas opções existentes.</small></fieldset>`;
@@ -57,21 +102,36 @@
     const city = document.querySelector('#op-city');
     if (!city) return;
     const cityLabel = city.closest('label');
-    city.setAttribute('list', 'op-city-options');
-    city.insertAdjacentHTML('afterend', '<datalist id="op-city-options"></datalist>');
-    cityLabel.insertAdjacentHTML('beforebegin', '<label>Estado<input id="op-state" list="op-state-options" placeholder="Digite UF ou estado" autocomplete="address-level1"><datalist id="op-state-options"></datalist></label>');
-    cityLabel.insertAdjacentHTML('afterend', '<label class="admin-field-wide">Bairros de interesse<div class="admin-autocomplete-row"><input id="op-neighborhood" list="op-neighborhood-options" maxlength="120" placeholder="Pesquise e adicione um bairro"><button class="admin-secondary-action" type="button" id="add-opportunity-neighborhood">Adicionar</button></div><datalist id="op-neighborhood-options"></datalist><div class="admin-opportunity-tags" id="op-neighborhood-tags"></div><input type="hidden" id="op-bairros-json" value="[]"><small class="admin-field-help">Opcional. Você pode adicionar mais de um bairro.</small></label><label>Área mínima (m²)<input id="op-area-min" type="number" min="0" step="0.01" placeholder="Ex.: 250"></label><label>Área máxima (m²)<input id="op-area-max" type="number" min="0" step="0.01" placeholder="Ex.: 500"></label>');
+    cityLabel.insertAdjacentHTML('beforebegin', '<label>Estado<input id="op-state" placeholder="Digite UF ou estado"></label>');
+    cityLabel.insertAdjacentHTML('afterend', '<label class="admin-field-wide">Bairros de interesse<div class="admin-autocomplete-row"><input id="op-neighborhood" maxlength="120" placeholder="Pesquise e adicione um bairro"><button class="admin-secondary-action" type="button" id="add-opportunity-neighborhood">Adicionar</button></div><div class="admin-opportunity-tags" id="op-neighborhood-tags"></div><input type="hidden" id="op-bairros-json" value="[]"><small class="admin-field-help">Opcional. Você pode adicionar mais de um bairro.</small></label><label>Área mínima (m²)<input id="op-area-min" type="number" min="0" step="0.01" placeholder="Ex.: 250"></label><label>Área máxima (m²)<input id="op-area-max" type="number" min="0" step="0.01" placeholder="Ex.: 500"></label>');
     const stateInput = document.querySelector('#op-state');
     const neighborhoods = [];
+    let stateRows = BR_STATES;
+    let cityOptions = [];
     const renderNeighborhoods = () => { document.querySelector('#op-neighborhood-tags').innerHTML = neighborhoods.map((item, index) => `<button type="button" class="admin-opportunity-tag" data-neighborhood-index="${index}">${esc(item)} <span aria-hidden="true">×</span></button>`).join(''); document.querySelector('#op-bairros-json').value = JSON.stringify(neighborhoods); };
-    document.querySelector('#add-opportunity-neighborhood').onclick = () => { const input = document.querySelector('#op-neighborhood'); const value = input.value.trim(); if (!value || neighborhoods.some(item => semAcentos(item) === semAcentos(value))) return; neighborhoods.push(value); input.value = ''; renderNeighborhoods(); };
+    const cityAutocomplete = montarAutocomplete(city, async query => cityOptions.filter(value => !query || semAcentos(value).includes(semAcentos(query))).map(value => ({ value, label: value })), { onSelect: option => { city.value = option.value; neighborhoodAutocomplete?.refresh(); } });
+    const neighborhoodInput = document.querySelector('#op-neighborhood');
+    const neighborhoodAutocomplete = montarAutocomplete(neighborhoodInput, async query => { const uf = stateInput.dataset.uf; if (!uf || !city.value.trim()) return []; return (await carregarBairros(uf, city.value, query)).map(value => ({ value, label: value })); }, { inline: true, onSelect: option => { neighborhoodInput.value = option.value; } });
+    document.querySelector('#add-opportunity-neighborhood').onclick = () => { const value = neighborhoodInput.value.trim(); if (!value || neighborhoods.some(item => semAcentos(item) === semAcentos(value))) return; neighborhoods.push(value); neighborhoodInput.value = ''; neighborhoodAutocomplete.close(); renderNeighborhoods(); };
     document.querySelector('#op-neighborhood-tags').onclick = event => { const button = event.target.closest('[data-neighborhood-index]'); if (!button) return; neighborhoods.splice(Number(button.dataset.neighborhoodIndex), 1); renderNeighborhoods(); };
-    document.querySelector('#op-neighborhood').addEventListener('input', async event => { const uf = stateInput.dataset.uf; if (uf && city.value.trim()) montarDatalist('op-neighborhood-options', await carregarBairros(uf, city.value, event.target.value)); });
-    const estados = carregarEstados();
-    estados.then(rows => { stateInput._states = rows; montarDatalist('op-state-options', rows.map(row => `${row.sigla} — ${row.nome}`)); });
-    stateInput.addEventListener('input', async () => { const value = stateInput.value.trim(); const rows = stateInput._states || BR_STATES; const selected = rows.find(row => value === row.sigla || value === row.nome || value === `${row.sigla} — ${row.nome}`); delete stateInput.dataset.uf; city.value = ''; montarDatalist('op-city-options', []); montarDatalist('op-neighborhood-options', []); if (!selected) return; stateInput.dataset.uf = selected.sigla; city.disabled = true; const cities = await carregarCidades(selected.sigla); montarDatalist('op-city-options', cities); city.disabled = false; });
-    city.addEventListener('input', async () => { const uf = stateInput.dataset.uf; if (uf && city.value.trim()) montarDatalist('op-neighborhood-options', await carregarBairros(uf, city.value)); });
-    stateInput.value = 'SP — São Paulo'; stateInput.dataset.uf = 'SP'; stateInput.dispatchEvent(new Event('input'));
+    const selectState = async selected => {
+      delete stateInput.dataset.uf;
+      city.value = '';
+      cityOptions = [];
+      city.disabled = true;
+      neighborhoodInput.value = '';
+      neighborhoodAutocomplete.close();
+      if (!selected) { city.disabled = false; return; }
+      stateInput.dataset.uf = selected.sigla;
+      cityOptions = await carregarCidades(selected.sigla);
+      city.disabled = false;
+      cityAutocomplete.refresh();
+    };
+    const stateAutocomplete = montarAutocomplete(stateInput, async query => stateRows.filter(row => !query || semAcentos(`${row.sigla} ${row.nome}`).includes(semAcentos(query))).map(row => ({ value: row.sigla, label: row.nome, state: row })), { onSelect: option => { stateInput.value = option.label; selectState(option.state); } });
+    carregarEstados().then(rows => { stateRows = rows; stateAutocomplete.refresh(); });
+    stateInput.value = 'São Paulo';
+    stateInput.dataset.uf = 'SP';
+    selectState({ sigla: 'SP', nome: 'São Paulo' });
   }
   document.addEventListener('click', async event => {
     const button = event.target.closest('#create-opportunity');

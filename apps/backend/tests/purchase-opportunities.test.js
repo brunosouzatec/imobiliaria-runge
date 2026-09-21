@@ -31,8 +31,8 @@ test('oportunidades suportam localização hierárquica, múltiplos tipos e faix
   assert.match(server, /url\.pathname === '\/api\/admin\/oportunidades\/tipos' && req\.method === 'POST'/);
   assert.match(admin, /op-property-type/);
   assert.match(admin, /id="op-state"/);
-  assert.match(admin, /op-city-options/);
-  assert.match(admin, /op-neighborhood-options/);
+  assert.match(admin, /montarAutocomplete/);
+  assert.match(admin, /admin-autocomplete-menu/);
   assert.match(admin, /id="op-area-min"/);
   assert.match(admin, /id="op-area-max"/);
   assert.match(admin, /add-opportunity-type/);
