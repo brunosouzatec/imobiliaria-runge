@@ -74,12 +74,12 @@
     const token = typeof MAPBOX_TOKEN !== 'undefined' ? MAPBOX_TOKEN : (window.MAPBOX_TOKEN || '');
     const estado = nomeEstadoPorUf(uf);
     if (token && cidade && (termo.length >= 2 || !local.length)) {
-      const query = [termo, cidade, estado, 'Brasil'].filter(Boolean).join(', ');
-      const cacheKey = query.toLowerCase();
       try {
+        const contexto = await carregarContextoCidade(token, uf, cidade, estado);
+        const query = contexto && termo ? termo : [termo, cidade, estado, 'Brasil'].filter(Boolean).join(', ');
+        const cacheKey = `${uf}|${semAcentos(cidade)}|${query.toLowerCase()}`;
         if (mapboxBairrosCache.has(cacheKey)) remotos = mapboxBairrosCache.get(cacheKey);
         else {
-          const contexto = await carregarContextoCidade(token, uf, cidade, estado);
           const params = `access_token=${encodeURIComponent(token)}&language=pt-BR&country=br&limit=10&autocomplete=true&types=neighborhood,locality,district${contexto ? `&bbox=${contexto.bbox}&proximity=${contexto.proximity}` : ''}`;
           const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${params}`);
           if (!response.ok) throw new Error('Mapbox indisponível');
