@@ -26,6 +26,13 @@
   document.addEventListener('change', event => { if (event.target?.id === 'email-provider') { state.emailProvider = event.target.value; render(); } }, true);
   const BR_STATES = [['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']].map(([sigla, nome]) => ({ sigla, nome }));
   const semAcentos = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const termosLocaisIgnorados = new Set(['a', 'as', 'da', 'das', 'de', 'do', 'dos', 'e']);
+  const abreviacoesLocais = { dr: 'doutor', dra: 'doutora', jd: 'jardim', vl: 'vila', sta: 'santa', sto: 'santo' };
+  function nomeLocalCorresponde(nome, termo) {
+    const tokens = semAcentos(termo).replace(/[^a-z0-9]+/g, ' ').split(' ').filter(token => token && !termosLocaisIgnorados.has(token)).map(token => abreviacoesLocais[token] || token);
+    const palavras = semAcentos(nome).replace(/[^a-z0-9]+/g, ' ').split(' ').filter(Boolean);
+    return !tokens.length || tokens.every(token => palavras.some(palavra => palavra === token || palavra.startsWith(token)));
+  }
   async function ibge(url) { const response = await fetch(url); if (!response.ok) throw new Error('Não foi possível carregar as localidades.'); return response.json(); }
   async function carregarEstados() {
     try { const rows = await ibge('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome'); return rows.map(row => ({ sigla: row.sigla, nome: row.nome })); }
@@ -36,10 +43,27 @@
     catch (_) { return [...new Set(state.properties.filter(item => String(item.estado || '').toUpperCase() === uf).map(item => item.cidade).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')); }
   }
   const mapboxBairrosCache = new Map();
-  function mapboxResultadoPertenceAoLocal(feature, cidade, uf) {
+  const mapboxLocalidadeCache = new Map();
+  function mapboxResultadoPertenceAoLocal(feature, cidade) {
     const contexto = [feature.place_name, ...(feature.context || []).map(item => `${item.text || ''} ${item.place_name || ''}`)].join(' ');
     const texto = semAcentos(contexto);
-    return texto.includes(semAcentos(cidade)) && (texto.includes(semAcentos(uf)) || texto.includes('sao paulo') || texto.includes('brasil'));
+    return texto.includes(semAcentos(cidade)) && texto.includes('brasil');
+  }
+  async function carregarContextoCidade(token, uf, cidade) {
+    const cacheKey = `${uf}|${semAcentos(cidade)}`;
+    if (mapboxLocalidadeCache.has(cacheKey)) return mapboxLocalidadeCache.get(cacheKey);
+    try {
+      const query = [cidade, uf, 'Brasil'].join(', ');
+      const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${encodeURIComponent(token)}&language=pt-BR&country=br&limit=1&types=place,locality`);
+      if (!response.ok) throw new Error('Mapbox indisponível');
+      const feature = (await response.json()).features?.[0];
+      const contexto = feature?.bbox && feature?.center ? { bbox: feature.bbox.join(','), proximity: feature.center.join(',') } : null;
+      mapboxLocalidadeCache.set(cacheKey, contexto);
+      return contexto;
+    } catch (_) {
+      mapboxLocalidadeCache.set(cacheKey, null);
+      return null;
+    }
   }
   async function carregarBairros(uf, cidade, termo = '') {
     const local = state.properties.filter(item => String(item.estado || '').toUpperCase() === uf && semAcentos(item.cidade) === semAcentos(cidade)).map(item => item.bairro).filter(Boolean);
@@ -51,15 +75,17 @@
       try {
         if (mapboxBairrosCache.has(cacheKey)) remotos = mapboxBairrosCache.get(cacheKey);
         else {
-          const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${encodeURIComponent(token)}&language=pt-BR&country=br&limit=10&autocomplete=true&types=neighborhood,locality,district`);
+          const contexto = await carregarContextoCidade(token, uf, cidade);
+          const params = `access_token=${encodeURIComponent(token)}&language=pt-BR&country=br&limit=10&autocomplete=true&types=neighborhood,locality,district${contexto ? `&bbox=${contexto.bbox}&proximity=${contexto.proximity}` : ''}`;
+          const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${params}`);
           if (!response.ok) throw new Error('Mapbox indisponível');
           const data = await response.json();
-          remotos = (data.features || []).filter(item => mapboxResultadoPertenceAoLocal(item, cidade, uf)).map(item => item.text || item.place_name?.split(',')[0]).filter(Boolean);
+          remotos = (data.features || []).filter(item => mapboxResultadoPertenceAoLocal(item, cidade)).map(item => item.text || item.place_name?.split(',')[0]).filter(Boolean);
           mapboxBairrosCache.set(cacheKey, remotos);
         }
       } catch (_) {}
     }
-    return [...new Set([...remotos, ...local])].filter(value => !termo || semAcentos(value).includes(semAcentos(termo))).sort((a, b) => a.localeCompare(b, 'pt-BR')).slice(0, 30);
+    return [...new Set([...remotos, ...local])].filter(value => nomeLocalCorresponde(value, termo)).sort((a, b) => a.localeCompare(b, 'pt-BR')).slice(0, 30);
   }
   function montarAutocomplete(input, getOptions, { onSelect, inline = false } = {}) {
     const wrapper = document.createElement('div');
