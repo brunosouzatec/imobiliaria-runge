@@ -182,13 +182,19 @@ function imovelJson(row) { let caracteristicas = row.caracteristicas || {}; if (
 const opportunityTypes = ['Casa', 'Apartamento', 'Terreno', 'Chácara / Sítio', 'Comercial'];
 const opportunityStatuses = ['rascunho', 'publicada', 'atendida', 'expirada', 'cancelada'];
 function jsonValue(value, fallback = []) { if (value == null || value === '') return fallback; if (typeof value === 'object') return value; try { return JSON.parse(value); } catch (_) { return fallback; } }
-function opportunityJson(row) { return { ...row, transacoes: jsonValue(row.transacoes), bairros: jsonValue(row.bairros), caracteristicas: jsonValue(row.caracteristicas), descricao: descricaoSegura(row.descricao) }; }
-function opportunityInput(data, { partial = false } = {}) {
+function opportunityJson(row) { const tipos = jsonValue(row.tipos_imovel, row.tipo_imovel ? [row.tipo_imovel] : []); return { ...row, tipo_imovel: tipos[0] || row.tipo_imovel || '', tipos_imovel: tipos, transacoes: jsonValue(row.transacoes), estado: row.estado || 'SP', bairros: jsonValue(row.bairros), caracteristicas: jsonValue(row.caracteristicas), descricao: descricaoSegura(row.descricao) }; }
+async function configuredOpportunityTypes() { try { const [rows] = await pool.query('SELECT nome FROM oportunidade_tipos_imovel WHERE ativo=TRUE ORDER BY nome'); return rows.map(row => row.nome); } catch (_) { return opportunityTypes; } }
+function opportunityInput(data, { partial = false, availableTypes = opportunityTypes } = {}) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw httpError('Dados da oportunidade inválidos.', 400);
+  const tiposImovel = Array.isArray(data.tipos_imovel)
+    ? [...new Set(data.tipos_imovel.filter(item => typeof item === 'string').map(item => item.trim()).filter(Boolean))]
+    : (typeof data.tipo_imovel === 'string' && data.tipo_imovel.trim() ? [data.tipo_imovel.trim()] : []);
   const input = {
     titulo: typeof data.titulo === 'string' ? data.titulo.trim() : '',
-    tipo_imovel: typeof data.tipo_imovel === 'string' ? data.tipo_imovel.trim() : '',
+    tipo_imovel: tiposImovel[0] || '',
+    tipos_imovel: tiposImovel,
     transacoes: Array.isArray(data.transacoes) ? [...new Set(data.transacoes.filter(item => ['Venda', 'Aluguel', 'Permuta'].includes(item)))] : [],
+    estado: typeof data.estado === 'string' ? data.estado.trim().toUpperCase() : 'SP',
     cidade: typeof data.cidade === 'string' ? data.cidade.trim() : 'Tatuí',
     bairros: Array.isArray(data.bairros) ? data.bairros.filter(item => typeof item === 'string').map(item => item.trim()).filter(Boolean).slice(0, 30) : [],
     valor_minimo: data.valor_minimo === '' || data.valor_minimo == null ? null : Number(data.valor_minimo),
@@ -203,7 +209,7 @@ function opportunityInput(data, { partial = false } = {}) {
     status: typeof data.status === 'string' ? data.status : 'rascunho',
     expira_em: data.expira_em ? String(data.expira_em).slice(0, 10) : null
   };
-  if (!partial && (!input.titulo || input.titulo.length > 180 || !opportunityTypes.includes(input.tipo_imovel) || !input.transacoes.length || !input.cidade || input.cidade.length > 120 || !input.descricao || input.descricao.length > 5000)) throw httpError('Preencha título, tipo, transação, cidade e descrição da oportunidade.', 400);
+  if (!partial && (!input.titulo || input.titulo.length > 180 || !input.tipos_imovel.length || !input.tipos_imovel.every(tipo => availableTypes.includes(tipo)) || !input.transacoes.length || !/^[A-Z]{2}$/.test(input.estado) || !input.cidade || input.cidade.length > 120 || !input.descricao || input.descricao.length > 5000)) throw httpError('Preencha título, tipo, transação, estado, cidade e descrição da oportunidade.', 400);
   if (input.status && !opportunityStatuses.includes(input.status)) throw httpError('Status da oportunidade inválido.', 400);
   for (const key of ['valor_minimo', 'valor_maximo', 'area_total_minima', 'area_total_maxima', 'quartos_minimos', 'suites_minimas', 'vagas_minimas']) if (input[key] != null && (!Number.isFinite(input[key]) || input[key] < 0)) throw httpError('Os valores numéricos da oportunidade são inválidos.', 400);
   if (input.valor_minimo != null && input.valor_maximo != null && input.valor_minimo > input.valor_maximo) throw httpError('O valor mínimo não pode ser maior que o máximo.', 400);
@@ -212,11 +218,11 @@ function opportunityInput(data, { partial = false } = {}) {
 }
 async function opportunityPayload(id) { const [[row]] = await pool.query('SELECT * FROM oportunidades_compra WHERE id=?', [id]); return row ? opportunityJson(row) : null; }
 async function saveOpportunity(req, res, id = null, adminId) {
-  const data = opportunityInput(await bodyJson(req, 128 * 1024));
+  const data = opportunityInput(await bodyJson(req, 128 * 1024), { availableTypes: await configuredOpportunityTypes() });
   const publishedAt = data.status === 'publicada' ? new Date() : null;
   const updating = Boolean(id);
-  if (updating) { const [result] = await pool.query(`UPDATE oportunidades_compra SET titulo=?,tipo_imovel=?,transacoes=?,cidade=?,bairros=?,valor_minimo=?,valor_maximo=?,area_total_minima=?,area_total_maxima=?,quartos_minimos=?,suites_minimas=?,vagas_minimas=?,caracteristicas=?,descricao=?,status=?,publicada_em=COALESCE(publicada_em,?),expira_em=? WHERE id=?`, [data.titulo, data.tipo_imovel, JSON.stringify(data.transacoes), data.cidade, JSON.stringify(data.bairros), data.valor_minimo, data.valor_maximo, data.area_total_minima, data.area_total_maxima, data.quartos_minimos, data.suites_minimas, data.vagas_minimas, JSON.stringify(data.caracteristicas), data.descricao, data.status, publishedAt, data.expira_em, id]); if (!result.affectedRows) return sendJson(res, 404, { error: 'Oportunidade não encontrada.' }); }
-  else { const [result] = await pool.query(`INSERT INTO oportunidades_compra (titulo,tipo_imovel,transacoes,cidade,bairros,valor_minimo,valor_maximo,area_total_minima,area_total_maxima,quartos_minimos,suites_minimas,vagas_minimas,caracteristicas,descricao,status,publicada_em,expira_em,criada_por_admin) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [data.titulo, data.tipo_imovel, JSON.stringify(data.transacoes), data.cidade, JSON.stringify(data.bairros), data.valor_minimo, data.valor_maximo, data.area_total_minima, data.area_total_maxima, data.quartos_minimos, data.suites_minimas, data.vagas_minimas, JSON.stringify(data.caracteristicas), data.descricao, data.status, publishedAt, data.expira_em, adminId]); id = result.insertId; }
+  if (updating) { const [result] = await pool.query(`UPDATE oportunidades_compra SET titulo=?,tipo_imovel=?,tipos_imovel=?,transacoes=?,estado=?,cidade=?,bairros=?,valor_minimo=?,valor_maximo=?,area_total_minima=?,area_total_maxima=?,quartos_minimos=?,suites_minimas=?,vagas_minimas=?,caracteristicas=?,descricao=?,status=?,publicada_em=COALESCE(publicada_em,?),expira_em=? WHERE id=?`, [data.titulo, data.tipo_imovel, JSON.stringify(data.tipos_imovel), JSON.stringify(data.transacoes), data.estado, data.cidade, JSON.stringify(data.bairros), data.valor_minimo, data.valor_maximo, data.area_total_minima, data.area_total_maxima, data.quartos_minimos, data.suites_minimas, data.vagas_minimas, JSON.stringify(data.caracteristicas), data.descricao, data.status, publishedAt, data.expira_em, id]); if (!result.affectedRows) return sendJson(res, 404, { error: 'Oportunidade não encontrada.' }); }
+  else { const [result] = await pool.query(`INSERT INTO oportunidades_compra (titulo,tipo_imovel,tipos_imovel,transacoes,estado,cidade,bairros,valor_minimo,valor_maximo,area_total_minima,area_total_maxima,quartos_minimos,suites_minimas,vagas_minimas,caracteristicas,descricao,status,publicada_em,expira_em,criada_por_admin) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [data.titulo, data.tipo_imovel, JSON.stringify(data.tipos_imovel), JSON.stringify(data.transacoes), data.estado, data.cidade, JSON.stringify(data.bairros), data.valor_minimo, data.valor_maximo, data.area_total_minima, data.area_total_maxima, data.quartos_minimos, data.suites_minimas, data.vagas_minimas, JSON.stringify(data.caracteristicas), data.descricao, data.status, publishedAt, data.expira_em, adminId]); id = result.insertId; }
   await audit(adminId, updating ? 'editar' : 'criar', 'oportunidade', id, { titulo: data.titulo, status: data.status });
   return sendJson(res, updating ? 200 : 201, await opportunityPayload(id));
 }
@@ -425,9 +431,13 @@ const server = http.createServer(async (req, res) => {
       const q = String(url.searchParams.get('q') || '').trim().slice(0, 120);
       const tipo = String(url.searchParams.get('tipo') || '').trim();
       if (q) { filters.push('(titulo LIKE ? OR cidade LIKE ? OR descricao LIKE ? OR CAST(bairros AS CHAR) LIKE ? OR CAST(caracteristicas AS CHAR) LIKE ?)'); values.push(...Array(5).fill(`%${q}%`)); }
-      if (opportunityTypes.includes(tipo)) { filters.push('tipo_imovel=?'); values.push(tipo); }
+      if (tipo.length <= 80 && tipo) { filters.push('(tipo_imovel=? OR JSON_CONTAINS(COALESCE(tipos_imovel, JSON_ARRAY()), JSON_QUOTE(?)))'); values.push(tipo, tipo); }
       const [rows] = await pool.query(`SELECT * FROM oportunidades_compra WHERE ${filters.join(' AND ')} ORDER BY publicada_em DESC, id DESC LIMIT 100`, values);
       return sendJson(res, 200, rows.map(opportunityJson));
+    }
+    if (url.pathname === '/api/oportunidade-tipos' && req.method === 'GET') {
+      if (!rateLimit(req, res, 'opportunity-types', 120, 60 * 1000)) return;
+      return sendJson(res, 200, await configuredOpportunityTypes());
     }
     const opportunityPublic = url.pathname.match(/^\/api\/oportunidades\/(\d+)$/);
     if (opportunityPublic && req.method === 'GET') {
@@ -498,9 +508,17 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { usuario: admin, metricas: { usuarios: Number(users.total), imoveis: Number(properties.total), acessosMes: Number(views.total), contatosMes: Number(contacts.total) }, ultimos: latest, populares: popular });
     }
     if (url.pathname === '/api/admin/oportunidades' && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [rows] = await pool.query('SELECT * FROM oportunidades_compra ORDER BY created_at DESC,id DESC'); return sendJson(res, 200, rows.map(opportunityJson)); }
-    if (url.pathname === '/api/admin/oportunidades' && req.method === 'POST') { const admin = await adminUser(req, res); if (!admin) return; return saveOpportunity(req, res, null, admin.id); }
+    if (url.pathname === '/api/admin/oportunidades/tipos' && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [rows] = await pool.query('SELECT id,nome,ativo,created_at FROM oportunidade_tipos_imovel WHERE ativo=TRUE ORDER BY nome'); return sendJson(res, 200, rows); }
+    if (url.pathname === '/api/admin/oportunidades/tipos' && req.method === 'POST') {
+      const admin = await adminUser(req, res); if (!admin) return;
+      const data = await bodyJson(req, 16 * 1024); const nome = typeof data?.nome === 'string' ? data.nome.trim() : '';
+      if (!nome || nome.length > 80) return sendJson(res, 400, { error: 'Informe um tipo de imóvel com até 80 caracteres.' });
+      try { const [result] = await pool.query('INSERT INTO oportunidade_tipos_imovel (nome,criado_por_admin) VALUES (?,?)', [nome, admin.id]); await audit(admin.id, 'criar', 'tipo_oportunidade', result.insertId, { nome }); return sendJson(res, 201, { id: result.insertId, nome, ativo: true }); }
+      catch (error) { if (error.code === 'ER_DUP_ENTRY') return sendJson(res, 409, { error: 'Esse tipo de imóvel já está cadastrado.' }); throw error; }
+    }
+    if (url.pathname === '/api/admin/oportunidades' && req.method === 'POST') { const admin = await adminUser(req, res); if (!admin) return; return await saveOpportunity(req, res, null, admin.id); }
     const adminOpportunity = url.pathname.match(/^\/api\/admin\/oportunidades\/(\d+)$/);
-    if (adminOpportunity && req.method === 'PATCH') { const admin = await adminUser(req, res); if (!admin) return; return saveOpportunity(req, res, adminOpportunity[1], admin.id); }
+    if (adminOpportunity && req.method === 'PATCH') { const admin = await adminUser(req, res); if (!admin) return; return await saveOpportunity(req, res, adminOpportunity[1], admin.id); }
     if (adminOpportunity && req.method === 'DELETE') { const admin = await adminUser(req, res); if (!admin) return; const [result] = await pool.query('DELETE FROM oportunidades_compra WHERE id=?', [adminOpportunity[1]]); if (!result.affectedRows) return sendJson(res, 404, { error: 'Oportunidade não encontrada.' }); await audit(admin.id, 'excluir', 'oportunidade', adminOpportunity[1]); return sendJson(res, 200, { success: true }); }
     if (url.pathname === '/api/admin/imoveis' && req.method === 'GET') {
       const admin = await adminUser(req, res); if (!admin) return;

@@ -6,6 +6,7 @@ const test = require('node:test');
 const root = path.resolve(__dirname, '../../..');
 const server = fs.readFileSync(path.join(root, 'apps/backend/src/server.js'), 'utf8');
 const migration = fs.readFileSync(path.join(root, 'apps/backend/migrations/011_purchase_opportunities.js'), 'utf8');
+const locationMigration = fs.readFileSync(path.join(root, 'apps/backend/migrations/012_opportunity_location_types.js'), 'utf8');
 const admin = fs.readFileSync(path.join(root, 'apps/frontend/public/admin.js'), 'utf8');
 
 test('oportunidades possuem migration própria e status controlado', () => {
@@ -19,6 +20,22 @@ test('API pública publica somente oportunidades vigentes e oferece filtro por t
   assert.match(server, /status=\?'.*expira_em IS NULL OR expira_em>=CURRENT_DATE/);
   assert.match(server, /tipo_imovel=\?/);
   assert.match(server, /descricao LIKE \?/);
+});
+
+test('oportunidades suportam localização hierárquica, múltiplos tipos e faixas de área', () => {
+  assert.match(locationMigration, /ADD COLUMN estado VARCHAR\(2\)/);
+  assert.match(locationMigration, /ADD COLUMN tipos_imovel JSON/);
+  assert.match(locationMigration, /CREATE TABLE IF NOT EXISTS oportunidade_tipos_imovel/);
+  assert.match(server, /configuredOpportunityTypes/);
+  assert.match(server, /JSON_CONTAINS\(COALESCE\(tipos_imovel/);
+  assert.match(server, /url\.pathname === '\/api\/admin\/oportunidades\/tipos' && req\.method === 'POST'/);
+  assert.match(admin, /op-property-type/);
+  assert.match(admin, /id="op-state"/);
+  assert.match(admin, /op-city-options/);
+  assert.match(admin, /op-neighborhood-options/);
+  assert.match(admin, /id="op-area-min"/);
+  assert.match(admin, /id="op-area-max"/);
+  assert.match(admin, /add-opportunity-type/);
 });
 
 test('administração oferece criação, alteração de status, exclusão e auditoria', () => {
