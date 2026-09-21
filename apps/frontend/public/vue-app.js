@@ -505,6 +505,7 @@ const MeusImoveis = { components: { Layout, PropertyCard }, setup() { const data
 MeusImoveis.template = MeusImoveis.template.replace('<div class="react-account-head">', '<div class="owner-properties-notice"><strong>Você está visualizando os imóveis cadastrados por você.</strong><span>Aqui você pode acompanhar seus anúncios, consultar os detalhes e editar cada imóvel.</span></div><div class="react-account-head">');
 MeusImoveis.template = MeusImoveis.template.replace('<PropertyCard v-for="item in data.imoveis"', '<PropertyCard :show-edit="true" v-for="item in data.imoveis"');
 Header.template = Header.template.replace('href="perfil.html#seus-imoveis">Meus imóveis', 'href="meus-imoveis.html">Meus imóveis');
+Header.template = Header.template.replace('<a href="imoveis.html"', '<a href="oportunidades.html">Oportunidades</a><a href="imoveis.html"');
 Header.template = Header.template.replace('href="cadastro.html">Anunciar</a>', ':href="usuario ? \'cadastro.html?modo=imovel\' : \'login.html?fluxo=anunciar\'">Anunciar</a>');
 Home.template = Home.template.replace('href="cadastro.html">Anunciar agora grátis', ':href="usuario ? \'cadastro.html?modo=imovel\' : \'login.html?fluxo=anunciar\'">Anunciar agora grátis');
 Listing.template = Listing.template.replace('href="cadastro.html">Anunciar imóvel', ':href="usuario ? \'cadastro.html?modo=imovel\' : \'login.html?fluxo=anunciar\'">Anunciar imóvel');
