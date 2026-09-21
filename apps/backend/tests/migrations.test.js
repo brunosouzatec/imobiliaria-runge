@@ -6,6 +6,7 @@ const privacyConsent = require('../migrations/004_privacy_consent');
 const removeAdvertiserFields = require('../migrations/005_remove_advertiser_fields');
 const passwordResetTokens = require('../migrations/008_password_reset_tokens');
 const adminSettings = require('../migrations/009_admin_settings');
+const propertyPerimeter = require('../migrations/010_property_perimeter');
 
 test('title removal migration drops the legacy column only when it exists', async () => {
   const statements = [];
@@ -70,4 +71,18 @@ test('password recovery migrations create token and encrypted admin settings tab
   assert.match(statements[0], /token_hash CHAR\(64\) NOT NULL UNIQUE/);
   assert.match(statements[1], /CREATE TABLE IF NOT EXISTS admin_configuracoes/);
   assert.match(statements[1], /atualizado_por INT NULL/);
+});
+
+test('perimeter migration adds the optional GeoJSON column only once', async () => {
+  const statements = [];
+  const connection = {
+    query: async sql => { statements.push(sql); return [[{ total: statements.length === 1 ? 0 : 1 }]]; }
+  };
+  await propertyPerimeter.up(connection);
+  await propertyPerimeter.up(connection);
+  assert.deepEqual(statements, [
+    "SELECT COUNT(*) AS total FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='imoveis' AND column_name='perimetro'",
+    'ALTER TABLE imoveis ADD COLUMN perimetro JSON NULL AFTER longitude',
+    "SELECT COUNT(*) AS total FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='imoveis' AND column_name='perimetro'"
+  ]);
 });

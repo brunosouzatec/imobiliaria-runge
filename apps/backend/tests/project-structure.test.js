@@ -33,6 +33,7 @@ test('backend, migrations, shared browser modules and infrastructure entrypoints
   assert.ok(fs.existsSync(path.join(sharedRoot, 'property-offers.js')));
   assert.ok(fs.existsSync(path.join(sharedRoot, 'property-search.js')));
   assert.ok(fs.existsSync(path.join(sharedRoot, 'property-contact.js')));
+  assert.ok(fs.existsSync(path.join(sharedRoot, 'map-layers.js')));
   assert.ok(fs.existsSync(path.join(sharedRoot, 'property-security.js')));
   assert.match(fs.readFileSync(path.join(projectRoot, 'apps/backend/src/server.js'), 'utf8'), /url\.pathname\.startsWith\('\/shared\/'\)/);
   assert.match(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'), /apps\/backend\/src\/server\.js/);
@@ -40,9 +41,10 @@ test('backend, migrations, shared browser modules and infrastructure entrypoints
   assert.match(fs.readFileSync(path.join(publicRoot, 'imoveis.html'), 'utf8'), /shared\/property-contact\.js/);
   assert.match(fs.readFileSync(path.join(publicRoot, 'imoveis.html'), 'utf8'), /shared\/property-search\.js"><\/script>[\s\S]*vue-app\.js/);
   assert.match(fs.readFileSync(path.join(publicRoot, 'imovel.html'), 'utf8'), /shared\/property-contact\.js/);
-  for (const page of ['imoveis.html', 'meus-imoveis.html']) {
+  for (const page of ['imoveis.html', 'meus-imoveis.html', 'perfil.html']) {
     const html = fs.readFileSync(path.join(publicRoot, page), 'utf8');
     assert.match(html, /<script src="\/shared\/property-characteristics\.js"><\/script>\s*<script src="\/shared\/property-offers\.js"><\/script>/, `${page} must load card dependencies before vue-app.js`);
+    assert.match(html, /<script src="\/shared\/property-contact\.js"><\/script>\s*<script src="\/shared\/property-share\.js"><\/script>/, `${page} must load contact/share dependencies before vue-app.js`);
     assert.ok(html.indexOf('property-characteristics.js') < html.indexOf('vue-app.js'), `${page} loads characteristics before Vue components`);
   }
   assert.match(fs.readFileSync(path.join(projectRoot, 'docker-compose.yml'), 'utf8'), /dockerfile: infra\/Dockerfile/);

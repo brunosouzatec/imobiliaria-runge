@@ -35,6 +35,12 @@ test('card usa o SVG da marca WhatsApp e preserva os links de contato e detalhes
   assert.match(contactStyles, /\.listing-whatsapp-icon\s*\{[^}]*height:\s*18px;[^}]*width:\s*18px/);
 });
 
+test('meus imóveis usa a mesma lista horizontal da listagem pública', () => {
+  assert.match(app, /account-property-results[^`]*<div class="react-property-grid"><PropertyCard v-for="item in data\.imoveis"/);
+  assert.match(pageStyles, /\.account-property-results \.react-property-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(app, /MeusImoveis\.template = MeusImoveis\.template\.replace\('<PropertyCard v-for="item in data\.imoveis"'/);
+});
+
 test('listagem e detalhes oferecem compartilhar com estado acessível', () => {
   assert.match(app, /class="listing-share-button"[^>]*@click="compartilhar"/);
   assert.match(app, /property-share-detail-button[^>]*@click="compartilhar"/);
@@ -56,6 +62,12 @@ test('listagem oferece ordenação por recência e preço, aplicada aos resultad
   assert.match(app, /value="maior-valor">Maior valor/);
   assert.match(app, /value="antigos">Mais antigos/);
   assert.match(app, /v-for="item in ordered"/);
+});
+
+test('home e listagem oferecem filtro de transação por permuta', () => {
+  assert.equal((app.match(/<option value="Permuta">Permuta<\/option>/g) || []).length, 2);
+  assert.match(app, /filters\.value\.tipo === 'Permuta' \? 'Imóveis que aceitam permuta em Tatuí'/);
+  assert.match(app, /filters\.tipo === 'Aluguel' \? 'Alugar' : 'Permuta'/);
 });
 
 test('filtros avançados acompanham as características cadastráveis por categoria', () => {

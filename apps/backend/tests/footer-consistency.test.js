@@ -16,6 +16,12 @@ const footerLinks = [
 
 test('home e páginas Vue usam o rodapé público compartilhado', () => {
   assert.match(vueApp, /Home\.components = \{ Header, Footer \}/);
+  assert.match(vueApp, /aria-haspopup="menu"/);
+  assert.match(vueApp, /role="menu"/);
+  assert.match(vueApp, /fecharAoClicarFora/);
+  assert.match(vueApp, /<circle cx="12" cy="8" r="3\.25"><\/circle>/);
+  assert.match(vueApp, /Meus imóveis<\/strong>/);
+  assert.match(vueApp, /<path d="M4 21V5\.5L12 3l8 2\.5V21"><\/path>/);
   assert.match(vueApp, /Home\.template = Home\.template\.replace/);
   for (const link of footerLinks) assert.match(vueApp, new RegExp(link.replace(/[.?]/g, '\\$&')));
 });

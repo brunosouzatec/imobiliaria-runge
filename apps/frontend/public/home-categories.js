@@ -11,7 +11,7 @@
 
   const panel = document.createElement('div');
   panel.className = 'home-map-categories';
-  panel.innerHTML = '<div class="home-map-filter-heading"><h3>Explore por categoria</h3><p class="home-map-category-help" role="status">Selecione um ícone para filtrar o mapa.</p></div>';
+  panel.innerHTML = '<div class="home-map-filter-heading"><h3>Explore por categoria</h3></div>';
   const grid = document.createElement('div');
   grid.className = 'home-category-grid';
   grid.setAttribute('role', 'group');
@@ -28,8 +28,6 @@
       button.setAttribute('aria-pressed', String(active));
     });
     window.__homeSetCategory?.(selected);
-    panel.querySelector('.home-map-category-help').textContent = selected
-      ? `Categoria selecionada: ${selected}.` : 'Selecione um ícone para filtrar o mapa.';
     clear.disabled = !selected;
   };
   clear.addEventListener('click', () => selectCategory(''));
@@ -51,7 +49,10 @@
     });
     grid.append(button);
   });
-  panel.append(grid, clear);
+  const controls = document.createElement('div');
+  controls.className = 'home-map-category-controls';
+  controls.append(grid, clear);
+  panel.append(controls);
   const map = mapColumn.querySelector('.home-map');
   const search = document.querySelector('.home-search');
   const explorer = document.createElement('div');
