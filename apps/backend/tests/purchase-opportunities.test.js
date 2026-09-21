@@ -37,3 +37,12 @@ test('listagem e detalhe públicos existem e usam contato contextual', () => {
   assert.match(fs.readFileSync(path.join(root, 'apps/frontend/public/oportunidade.js'), 'utf8'), /Tenho um imóvel compatível/);
   assert.match(fs.readFileSync(path.join(root, 'apps/backend/src/server.js'), 'utf8'), /\['\/oportunidades\.html', '\/oportunidades'\]/);
 });
+
+test('área de oportunidades reutiliza o cabeçalho e rodapé visuais do portal', () => {
+  for (const file of ['oportunidades.js', 'oportunidade.js']) {
+    const source = fs.readFileSync(path.join(root, 'apps/frontend/public', file), 'utf8');
+    assert.match(source, /class="react-header"/);
+    assert.match(source, /class="site-footer"/);
+    assert.match(source, /Política de Privacidade/);
+  }
+});
