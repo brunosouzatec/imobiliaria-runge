@@ -35,14 +35,31 @@
     try { const rows = await ibge(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${encodeURIComponent(uf)}/municipios?orderBy=nome`); return rows.map(row => row.nome); }
     catch (_) { return [...new Set(state.properties.filter(item => String(item.estado || '').toUpperCase() === uf).map(item => item.cidade).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')); }
   }
+  const mapboxBairrosCache = new Map();
+  function mapboxResultadoPertenceAoLocal(feature, cidade, uf) {
+    const contexto = [feature.place_name, ...(feature.context || []).map(item => `${item.text || ''} ${item.place_name || ''}`)].join(' ');
+    const texto = semAcentos(contexto);
+    return texto.includes(semAcentos(cidade)) && (texto.includes(semAcentos(uf)) || texto.includes('sao paulo') || texto.includes('brasil'));
+  }
   async function carregarBairros(uf, cidade, termo = '') {
     const local = state.properties.filter(item => String(item.estado || '').toUpperCase() === uf && semAcentos(item.cidade) === semAcentos(cidade)).map(item => item.bairro).filter(Boolean);
     let remotos = [];
     const token = typeof MAPBOX_TOKEN !== 'undefined' ? MAPBOX_TOKEN : (window.MAPBOX_TOKEN || '');
-    if (token && cidade) {
-      try { const query = `${termo || ''} ${cidade}, ${uf}, Brasil`.trim(); const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${encodeURIComponent(token)}&language=pt-BR&country=br&limit=10&autocomplete=true&types=neighborhood,locality,district`); const data = await response.json(); remotos = (data.features || []).map(item => item.text || item.place_name?.split(',')[0]).filter(Boolean); } catch (_) {}
+    if (token && cidade && (termo.length >= 2 || !local.length)) {
+      const query = `${termo || ''} ${cidade}, ${uf}, Brasil`.trim();
+      const cacheKey = query.toLowerCase();
+      try {
+        if (mapboxBairrosCache.has(cacheKey)) remotos = mapboxBairrosCache.get(cacheKey);
+        else {
+          const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${encodeURIComponent(token)}&language=pt-BR&country=br&limit=10&autocomplete=true&types=neighborhood,locality,district`);
+          if (!response.ok) throw new Error('Mapbox indisponível');
+          const data = await response.json();
+          remotos = (data.features || []).filter(item => mapboxResultadoPertenceAoLocal(item, cidade, uf)).map(item => item.text || item.place_name?.split(',')[0]).filter(Boolean);
+          mapboxBairrosCache.set(cacheKey, remotos);
+        }
+      } catch (_) {}
     }
-    return [...new Set([...local, ...remotos])].filter(value => !termo || semAcentos(value).includes(semAcentos(termo))).sort((a, b) => a.localeCompare(b, 'pt-BR')).slice(0, 30);
+    return [...new Set([...remotos, ...local])].filter(value => !termo || semAcentos(value).includes(semAcentos(termo))).sort((a, b) => a.localeCompare(b, 'pt-BR')).slice(0, 30);
   }
   function montarAutocomplete(input, getOptions, { onSelect, inline = false } = {}) {
     const wrapper = document.createElement('div');
