@@ -6,6 +6,7 @@ const path = require('node:path');
 const publicRoot = path.resolve(__dirname, '../../frontend/public');
 const vueApp = fs.readFileSync(path.join(publicRoot, 'vue-app.js'), 'utf8');
 const privacy = fs.readFileSync(path.join(publicRoot, 'privacidade.html'), 'utf8');
+const siteChrome = fs.readFileSync(path.join(publicRoot, 'site-chrome.js'), 'utf8');
 
 const footerLinks = [
   'imoveis.html',
@@ -27,6 +28,8 @@ test('home e páginas Vue usam o rodapé público compartilhado', () => {
 });
 
 test('política de privacidade mantém os mesmos destinos do rodapé público', () => {
-  for (const link of footerLinks) assert.match(privacy, new RegExp(link.replace(/[.?]/g, '\\$&')));
-  assert.match(privacy, /class="site-footer" id="contato"/);
+  for (const link of footerLinks) assert.match(siteChrome, new RegExp(link.replace(/[.?]/g, '\\$&')));
+  assert.match(privacy, /data-site-header/);
+  assert.match(privacy, /data-site-footer/);
+  assert.match(privacy, /SiteChrome\.mount/);
 });

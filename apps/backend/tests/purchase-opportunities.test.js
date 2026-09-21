@@ -38,11 +38,23 @@ test('listagem e detalhe públicos existem e usam contato contextual', () => {
   assert.match(fs.readFileSync(path.join(root, 'apps/backend/src/server.js'), 'utf8'), /\['\/oportunidades\.html', '\/oportunidades'\]/);
 });
 
-test('área de oportunidades reutiliza o cabeçalho e rodapé visuais do portal', () => {
-  for (const file of ['oportunidades.js', 'oportunidade.js']) {
+test('páginas públicas reutilizam o chrome compartilhado do portal', () => {
+  const chrome = fs.readFileSync(path.join(root, 'apps/frontend/public/site-chrome.js'), 'utf8');
+  assert.match(chrome, /function header/);
+  assert.match(chrome, /function footer/);
+  assert.match(chrome, /Política de Privacidade/);
+  for (const file of ['oportunidades.html', 'oportunidade.html', 'privacidade.html', 'manutencao.html']) {
     const source = fs.readFileSync(path.join(root, 'apps/frontend/public', file), 'utf8');
-    assert.match(source, /class="react-header"/);
-    assert.match(source, /class="site-footer"/);
-    assert.match(source, /Política de Privacidade/);
+    assert.match(source, /site-chrome\.js/);
+    assert.match(source, /data-site-header/);
+    assert.match(source, /data-site-footer/);
   }
+  const opportunities = fs.readFileSync(path.join(root, 'apps/frontend/public/oportunidades.js'), 'utf8');
+  const detail = fs.readFileSync(path.join(root, 'apps/frontend/public/oportunidade.js'), 'utf8');
+  assert.doesNotMatch(opportunities, /class="op-header"/);
+  assert.doesNotMatch(detail, /class="op-header"/);
+  const vue = fs.readFileSync(path.join(root, 'apps/frontend/public/vue-app.js'), 'utf8');
+  assert.match(vue, /const Footer/);
+  assert.match(vue, /<Footer\/>/);
+  assert.match(vue, /href="oportunidades\.html">Oportunidades/);
 });

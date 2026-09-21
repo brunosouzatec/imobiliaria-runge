@@ -15,9 +15,13 @@
     h1 { margin: 0; font-family: Georgia, serif; font-size: clamp(38px, 6vw, 64px); font-weight: 400; line-height: 1.05; }
     p { margin: 24px auto 0; max-width: 480px; color: #536b6c; font-size: 17px; line-height: 1.7; }
     small { display: block; margin-top: 32px; color: #8a9692; font-size: 13px; }
+    body { display: grid; grid-template-rows: auto 1fr auto; place-items: stretch; padding: 0; }
+    body > main { align-self: center; justify-self: center; margin: 32px; }
   </style>
+  <link rel="stylesheet" href="react.css">
 </head>
 <body>
+  <div data-site-header></div>
   <main>
     <svg class="brand" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 124" role="img" aria-labelledby="brand-title brand-desc">
       <title id="brand-title">Tatuí Imóveis</title>
@@ -39,5 +43,8 @@
     <p>Nosso portal está temporariamente em manutenção. Em breve estaremos de volta com tudo funcionando.</p>
     <small>Agradecemos a compreensão.</small>
   </main>
+  <div data-site-footer></div>
+  <script src="site-chrome.js"></script>
+  <script>SiteChrome.mount(document);</script>
 </body>
 </html>
