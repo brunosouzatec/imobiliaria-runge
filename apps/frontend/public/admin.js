@@ -63,7 +63,7 @@
     let activeIndex = -1;
     let requestId = 0;
     let isOpen = false;
-    const close = () => { isOpen = false; menu.hidden = true; input.setAttribute('aria-expanded', 'false'); activeIndex = -1; };
+    const close = () => { isOpen = false; wrapper.classList.remove('is-open'); menu.hidden = true; input.setAttribute('aria-expanded', 'false'); activeIndex = -1; };
     const select = option => { input.value = option.label; close(); onSelect?.(option); };
     const paint = () => {
       menu.innerHTML = options.map((option, index) => `<button type="button" role="option" aria-selected="${index === activeIndex}" class="admin-autocomplete-option${index === activeIndex ? ' is-active' : ''}" data-autocomplete-index="${index}">${esc(option.label)}</button>`).join('');
@@ -78,8 +78,8 @@
       activeIndex = -1;
       paint();
     };
-    input.addEventListener('focus', () => { isOpen = true; search(input.value); });
-    input.addEventListener('input', () => { isOpen = true; search(input.value); });
+    input.addEventListener('focus', () => { isOpen = true; wrapper.classList.add('is-open'); search(input.value); });
+    input.addEventListener('input', () => { isOpen = true; wrapper.classList.add('is-open'); search(input.value); });
     input.addEventListener('keydown', event => {
       if (menu.hidden || !options.length) return;
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); activeIndex = (activeIndex + (event.key === 'ArrowDown' ? 1 : options.length - 1)) % options.length; paint(); }
@@ -103,7 +103,7 @@
     if (!city) return;
     const cityLabel = city.closest('label');
     cityLabel.insertAdjacentHTML('beforebegin', '<label>Estado<input id="op-state" placeholder="Digite UF ou estado"></label>');
-    cityLabel.insertAdjacentHTML('afterend', '<label class="admin-field-wide">Bairros de interesse<div class="admin-autocomplete-row"><input id="op-neighborhood" maxlength="120" placeholder="Pesquise e adicione um bairro"><button class="admin-secondary-action" type="button" id="add-opportunity-neighborhood">Adicionar</button></div><div class="admin-opportunity-tags" id="op-neighborhood-tags"></div><input type="hidden" id="op-bairros-json" value="[]"><small class="admin-field-help">Opcional. Você pode adicionar mais de um bairro.</small></label><label>Área mínima (m²)<input id="op-area-min" type="number" min="0" step="0.01" placeholder="Ex.: 250"></label><label>Área máxima (m²)<input id="op-area-max" type="number" min="0" step="0.01" placeholder="Ex.: 500"></label>');
+    cityLabel.insertAdjacentHTML('afterend', '<label>Bairros de interesse<div class="admin-autocomplete-row"><input id="op-neighborhood" maxlength="120" placeholder="Pesquise e adicione um bairro"><button class="admin-secondary-action" type="button" id="add-opportunity-neighborhood">Adicionar</button></div><div class="admin-opportunity-tags" id="op-neighborhood-tags"></div><input type="hidden" id="op-bairros-json" value="[]"><small class="admin-field-help">Opcional. Você pode adicionar mais de um bairro.</small></label><label>Área mínima (m²)<input id="op-area-min" type="number" min="0" step="0.01" placeholder="Ex.: 250"></label><label>Área máxima (m²)<input id="op-area-max" type="number" min="0" step="0.01" placeholder="Ex.: 500"></label>');
     const stateInput = document.querySelector('#op-state');
     const neighborhoods = [];
     let stateRows = BR_STATES;
