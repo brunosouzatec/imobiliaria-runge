@@ -44,16 +44,19 @@
   }
   const mapboxBairrosCache = new Map();
   const mapboxLocalidadeCache = new Map();
-  function mapboxResultadoPertenceAoLocal(feature, cidade) {
+  function nomeEstadoPorUf(uf) {
+    return BR_STATES.find(item => item.sigla === String(uf || '').toUpperCase())?.nome || uf;
+  }
+  function mapboxResultadoPertenceAoLocal(feature, cidade, estado) {
     const contexto = [feature.place_name, ...(feature.context || []).map(item => `${item.text || ''} ${item.place_name || ''}`)].join(' ');
     const texto = semAcentos(contexto);
-    return texto.includes(semAcentos(cidade)) && texto.includes('brasil');
+    return texto.includes(semAcentos(cidade)) && texto.includes(semAcentos(estado)) && texto.includes('brasil');
   }
-  async function carregarContextoCidade(token, uf, cidade) {
+  async function carregarContextoCidade(token, uf, cidade, estado) {
     const cacheKey = `${uf}|${semAcentos(cidade)}`;
     if (mapboxLocalidadeCache.has(cacheKey)) return mapboxLocalidadeCache.get(cacheKey);
     try {
-      const query = [cidade, uf, 'Brasil'].join(', ');
+      const query = [cidade, estado, 'Brasil'].join(', ');
       const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${encodeURIComponent(token)}&language=pt-BR&country=br&limit=1&types=place,locality`);
       if (!response.ok) throw new Error('Mapbox indisponível');
       const feature = (await response.json()).features?.[0];
@@ -69,18 +72,19 @@
     const local = state.properties.filter(item => String(item.estado || '').toUpperCase() === uf && semAcentos(item.cidade) === semAcentos(cidade)).map(item => item.bairro).filter(Boolean);
     let remotos = [];
     const token = typeof MAPBOX_TOKEN !== 'undefined' ? MAPBOX_TOKEN : (window.MAPBOX_TOKEN || '');
+    const estado = nomeEstadoPorUf(uf);
     if (token && cidade && (termo.length >= 2 || !local.length)) {
-      const query = `${termo || ''} ${cidade}, ${uf}, Brasil`.trim();
+      const query = [termo, cidade, estado, 'Brasil'].filter(Boolean).join(', ');
       const cacheKey = query.toLowerCase();
       try {
         if (mapboxBairrosCache.has(cacheKey)) remotos = mapboxBairrosCache.get(cacheKey);
         else {
-          const contexto = await carregarContextoCidade(token, uf, cidade);
+          const contexto = await carregarContextoCidade(token, uf, cidade, estado);
           const params = `access_token=${encodeURIComponent(token)}&language=pt-BR&country=br&limit=10&autocomplete=true&types=neighborhood,locality,district${contexto ? `&bbox=${contexto.bbox}&proximity=${contexto.proximity}` : ''}`;
           const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${params}`);
           if (!response.ok) throw new Error('Mapbox indisponível');
           const data = await response.json();
-          remotos = (data.features || []).filter(item => mapboxResultadoPertenceAoLocal(item, cidade)).map(item => item.text || item.place_name?.split(',')[0]).filter(Boolean);
+          remotos = (data.features || []).filter(item => mapboxResultadoPertenceAoLocal(item, cidade, estado)).map(item => item.text || item.place_name?.split(',')[0]).filter(Boolean);
           mapboxBairrosCache.set(cacheKey, remotos);
         }
       } catch (_) {}
