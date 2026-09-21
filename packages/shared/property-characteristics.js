@@ -4,7 +4,7 @@
   root.PropertyCharacteristics = api;
 })(typeof globalThis !== 'undefined' ? globalThis : window, function () {
   const labels = {
-    area: 'Área', quartos: 'Quartos', banheiros: 'Banheiros', vagas: 'Vagas de garagem',
+    area: 'Área', area_total: 'Área total', area_construida: 'Área construída', quartos: 'Quartos', banheiros: 'Banheiros', vagas: 'Vagas de garagem',
     suite: 'Suítes', quintal: 'Quintal', piscina: 'Piscina', churrasqueira: 'Churrasqueira',
     sacada: 'Sacada', elevador: 'Elevador', condominio: 'Condomínio fechado',
     frente: 'Frente do terreno', topografia: 'Topografia', agua: 'Água encanada',
@@ -14,6 +14,8 @@
   };
   const iconPaths = {
     area: ['M4 7V4h3M20 17v3h-3M4 4l6 6m4 4 6 6M14 4h6v6M4 14v6h6'],
+    area_total: ['M4 7V4h3M20 17v3h-3M4 4l6 6m4 4 6 6M14 4h6v6M4 14v6h6'],
+    area_construida: ['M4 7V4h3M20 17v3h-3M4 4l6 6m4 4 6 6M14 4h6v6M4 14v6h6'],
     quartos: ['M3 4v16M3 11h18v9M5 11V7h5a4 4 0 0 1 4 4M21 11v9'],
     suite: ['M3 4v16M3 11h18v9M5 11V7h5a4 4 0 0 1 4 4M21 11v9', 'M17 4.5c-1.2 1.5-1.8 2.4-1.8 3.2a1.8 1.8 0 0 0 3.6 0c0-.8-.6-1.7-1.8-3.2z'],
     banheiros: ['M4 12h16v3a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5v-3zM7 12V6a3 3 0 0 1 6 0v1M7 17v1M17 17v1'],
@@ -52,7 +54,7 @@
         const numeric = Number.isFinite(Number(item)) && String(item).trim() !== '';
         const number = numeric ? Number(item).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : item;
         let display = item === true ? 'Sim' : String(item);
-        if (numeric && key === 'area') display = `${number} m²`;
+        if (numeric && ['area', 'area_total', 'area_construida'].includes(key)) display = `${number} m²`;
         else if (numeric && key === 'frente') display = `${number} m`;
         else if (numeric && key === 'quartos') display = count(number, 'quarto', 'quartos');
         else if (numeric && key === 'banheiros') display = count(number, 'banheiro', 'banheiros');
@@ -63,7 +65,7 @@
       });
   };
 
-  const summaryOrder = ['area', 'quartos', 'suite', 'banheiros', 'vagas'];
+  const summaryOrder = ['area_total', 'area_construida', 'area', 'quartos', 'suite', 'banheiros', 'vagas'];
   const summary = features => features
     .filter(feature => summaryOrder.includes(feature.key))
     .sort((a, b) => summaryOrder.indexOf(a.key) - summaryOrder.indexOf(b.key));

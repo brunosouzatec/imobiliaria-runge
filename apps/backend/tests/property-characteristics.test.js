@@ -19,6 +19,15 @@ test('monta o resumo com área, quartos, banheiros e vagas disponíveis', () => 
   assert.equal(characteristics.list({ area: 74.5 })[0].display, '74,5 m²');
 });
 
+test('formata área total e área construída separadamente', () => {
+  const features = characteristics.list({ area_total: 300, area_construida: 120 });
+  assert.deepEqual(features.map(feature => ({ key: feature.key, label: feature.label, display: feature.display })), [
+    { key: 'area_total', label: 'Área total', display: '300 m²' },
+    { key: 'area_construida', label: 'Área construída', display: '120 m²' }
+  ]);
+  assert.deepEqual(characteristics.summary(features).map(feature => feature.key), ['area_total', 'area_construida']);
+});
+
 test('inclui suítes no resumo em ordem útil para leitura do card', () => {
   const features = characteristics.list({ vagas: 2, banheiros: 2, suite: 1, quartos: 3, area: 120 });
   assert.deepEqual(characteristics.summary(features).map(feature => feature.key), ['area', 'quartos', 'suite', 'banheiros', 'vagas']);

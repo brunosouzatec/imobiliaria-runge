@@ -21,7 +21,7 @@ test('property detail groups gallery and description beside a single value/conta
 });
 
 test('headline metrics are excluded from the detailed characteristics list', () => {
-  assert.match(detail[1], /caracteristicasDetalhadas = computed\(\(\) => caracteristicas\.value\.filter\(feature => !\['area', 'quartos', 'banheiros', 'vagas'\]\.includes\(feature\.key\)\)\)/);
+  assert.match(detail[1], /caracteristicasDetalhadas = computed\(\(\) => caracteristicas\.value\.filter\(feature => !\['area', 'area_total', 'area_construida', 'quartos', 'banheiros', 'vagas'\]\.includes\(feature\.key\)\)\)/);
   assert.match(detail[1], /v-for="feature in caracteristicasDetalhadas"/);
   assert.match(detail[1], /v-for="fact in resumoCaracteristicas"/);
 });
