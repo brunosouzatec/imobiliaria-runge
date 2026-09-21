@@ -188,7 +188,7 @@ function opportunityInput(data, { partial = false } = {}) {
   const input = {
     titulo: typeof data.titulo === 'string' ? data.titulo.trim() : '',
     tipo_imovel: typeof data.tipo_imovel === 'string' ? data.tipo_imovel.trim() : '',
-    transacoes: Array.isArray(data.transacoes) ? [...new Set(data.transacoes.filter(item => ['Venda', 'Permuta'].includes(item)))] : [],
+    transacoes: Array.isArray(data.transacoes) ? [...new Set(data.transacoes.filter(item => ['Venda', 'Aluguel', 'Permuta'].includes(item)))] : [],
     cidade: typeof data.cidade === 'string' ? data.cidade.trim() : 'Tatuí',
     bairros: Array.isArray(data.bairros) ? data.bairros.filter(item => typeof item === 'string').map(item => item.trim()).filter(Boolean).slice(0, 30) : [],
     valor_minimo: data.valor_minimo === '' || data.valor_minimo == null ? null : Number(data.valor_minimo),

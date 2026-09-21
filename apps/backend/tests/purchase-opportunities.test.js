@@ -28,6 +28,10 @@ test('administração oferece criação, alteração de status, exclusão e audi
   assert.match(server, /audit\(adminId, updating \? 'editar' : 'criar', 'oportunidade'/);
   assert.match(admin, /data-tab="opportunities"/);
   assert.match(admin, /Oportunidades de compra/);
+  assert.match(admin, /name="op-transaction" value="Venda"/);
+  assert.match(admin, /name="op-transaction" value="Aluguel"/);
+  assert.match(admin, /name="op-transaction" value="Permuta"/);
+  assert.match(server, /\['Venda', 'Aluguel', 'Permuta'\]/);
 });
 
 test('listagem e detalhe públicos existem e usam contato contextual', () => {
