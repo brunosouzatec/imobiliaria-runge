@@ -462,7 +462,7 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
   res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
