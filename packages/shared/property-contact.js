@@ -7,7 +7,7 @@
 
   function detailsUrl(property, baseUrl) {
     const origin = baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
-    return new URL(`/imovel.html?id=${encodeURIComponent(String(property?.id || ''))}`, origin).toString();
+    return new URL(`/imovel?id=${encodeURIComponent(String(property?.id || ''))}`, origin).toString();
   }
 
   function messageForProperty(property, url) {
@@ -16,7 +16,6 @@
     return [
       `Olá! Tenho interesse no imóvel ${title}, anunciado no Tatuí Imóveis.`,
       address ? `Endereço: ${address}` : '',
-      property?.fotos?.[0]?.url ? `Foto principal: ${property.fotos[0].url}` : '',
       `Link do imóvel: ${url}`
     ].filter(Boolean).join('\n');
   }
