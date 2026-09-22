@@ -196,8 +196,26 @@ const Detail = {
   setup() {
     const usuario = ref(null); const item = ref(null); const error = ref(''); const contact = ref(false); const message = ref(''); const lightboxIndex = ref(null); const shareStatus = ref(''); const perimetroMapEl = ref(null); let perimetroMap;
     const caracteristicas = computed(() => PropertyCharacteristics.list(item.value?.caracteristicas));
-    const resumoCaracteristicas = computed(() => PropertyCharacteristics.summary(caracteristicas.value));
-    const caracteristicasDetalhadas = computed(() => caracteristicas.value.filter(feature => !['area', 'area_total', 'area_construida', 'quartos', 'banheiros', 'vagas'].includes(feature.key)));
+    const caracteristicasUnificadas = computed(() => {
+      const possuiAreasSeparadas = caracteristicas.value.some(feature => ['area_total', 'area_construida'].includes(feature.key));
+      const ordem = ['area_total', 'area_construida', 'area', 'frente', 'quartos', 'suite', 'banheiros', 'salas'];
+      return caracteristicas.value
+        .filter(feature => !(feature.key === 'area' && possuiAreasSeparadas))
+        .sort((a, b) => {
+          const indiceA = ordem.indexOf(a.key);
+          const indiceB = ordem.indexOf(b.key);
+          if (indiceA === -1 && indiceB === -1) return 0;
+          if (indiceA === -1) return 1;
+          if (indiceB === -1) return -1;
+          return indiceA - indiceB;
+        });
+    });
+    const caracteristicaNumerica = feature => ['area', 'area_total', 'area_construida', 'quartos', 'suite', 'banheiros', 'vagas', 'frente', 'salas'].includes(feature.key);
+    const exibirCaracteristica = feature => {
+      if (feature.boolean) return feature.label;
+      if (!caracteristicaNumerica(feature)) return feature.display;
+      return String(feature.display || '').replace(/\b(quarto|quartos|suíte|suítes|banheiro|banheiros|vaga|vagas|ambiente|ambientes)\b/giu, word => word.charAt(0).toUpperCase() + word.slice(1));
+    };
     const oferta = computed(() => PropertyOffers.parse(item.value || {}));
     const ofertaResumo = computed(() => PropertyOffers.summary(item.value || {}));
     const valores = computed(() => {
@@ -239,7 +257,26 @@ const Detail = {
       window.setTimeout(() => { shareStatus.value = ''; }, 2800);
     };
     const normalizarPerimetroDetalhe = value => { if (!value) return null; let data = value; if (typeof data === 'string') { try { data = JSON.parse(data); } catch (_) { return null; } } if (data?.type === 'Feature' && data.geometry?.type === 'Polygon') return data; if (data?.type === 'Polygon') return { type: 'Feature', properties: {}, geometry: data }; return null; };
-    const iniciarMapaPerimetro = () => { if (!perimetroMapEl.value || perimetroMap || !item.value?.perimetro || !item.value?.coordenadas) return; const c = item.value.coordenadas; perimetroMap = L.map(perimetroMapEl.value, { scrollWheelZoom: false }).setView([Number(c.latitude), Number(c.longitude)], 17); PropertyMapLayers.addControl(perimetroMap, MAPBOX_TOKEN); L.marker([Number(c.latitude), Number(c.longitude)]).addTo(perimetroMap); const layer = L.geoJSON(normalizarPerimetroDetalhe(item.value.perimetro), { style: { color: '#e5651c', weight: 3, fillColor: '#e5651c', fillOpacity: .18 } }).addTo(perimetroMap); if (layer.getBounds().isValid()) perimetroMap.fitBounds(layer.getBounds(), { padding: [28, 28] }); setTimeout(() => perimetroMap?.invalidateSize(), 100); };
+    const iniciarMapaPerimetro = () => {
+      if (!perimetroMapEl.value || perimetroMap || !item.value?.coordenadas) return;
+      const latitude = Number(item.value.coordenadas.latitude);
+      const longitude = Number(item.value.coordenadas.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+      perimetroMap = L.map(perimetroMapEl.value, {
+        scrollWheelZoom: true,
+        touchZoom: true,
+        doubleClickZoom: true,
+        zoomControl: true
+      }).setView([latitude, longitude], 18);
+      PropertyMapLayers.addControl(perimetroMap, MAPBOX_TOKEN, { collapsed: true, initial: 'satellite' });
+      L.marker([latitude, longitude]).addTo(perimetroMap);
+      const perimetro = normalizarPerimetroDetalhe(item.value.perimetro);
+      if (perimetro) {
+        const layer = L.geoJSON(perimetro, { style: { color: '#e5651c', weight: 3, fillColor: '#e5651c', fillOpacity: .18 } }).addTo(perimetroMap);
+        if (layer.getBounds().isValid()) perimetroMap.fitBounds(layer.getBounds(), { padding: [28, 28] });
+      }
+      setTimeout(() => perimetroMap?.invalidateSize(), 100);
+    };
     const abrirGaleria = index => { lightboxIndex.value = index; };
     const fecharGaleria = () => { lightboxIndex.value = null; };
     const proximaFoto = () => { if (item.value?.fotos?.length) lightboxIndex.value = (lightboxIndex.value + 1) % item.value.fotos.length; };
@@ -248,7 +285,7 @@ const Detail = {
     const logout = async () => { await fetch('/api/logout', { method: 'POST' }); usuario.value = null; };
     onMounted(() => { carregar(); window.addEventListener('keydown', atalhosGaleria); });
     onBeforeUnmount(() => { window.removeEventListener('keydown', atalhosGaleria); if (perimetroMap) perimetroMap.remove(); });
-    return { usuario, item, error, contact, message, lightboxIndex, shareStatus, perimetroMapEl, caracteristicasDetalhadas, resumoCaracteristicas, valores, oferta, ofertaResumo, enviar, compartilhar, abrirGaleria, fecharGaleria, proximaFoto, fotoAnterior, logout, money, PropertyOffers };
+    return { usuario, item, error, contact, message, lightboxIndex, shareStatus, perimetroMapEl, caracteristicasUnificadas, caracteristicaNumerica, exibirCaracteristica, valores, oferta, ofertaResumo, enviar, compartilhar, abrirGaleria, fecharGaleria, proximaFoto, fotoAnterior, logout, money, PropertyOffers };
   },
   template: `<Layout :usuario="usuario" eyebrow="Detalhes do imóvel" @logout="logout">
     <p v-if="item === null" class="property-detail-loading">Carregando imóvel…</p>
@@ -256,8 +293,8 @@ const Detail = {
     <section v-else-if="!item" class="property-detail-not-found"><h1>Imóvel não encontrado.</h1><a href="imoveis.html">Voltar para a lista</a></section>
     <article v-else class="property-detail">
       <header class="property-detail-heading">
-        <div><p class="property-detail-transaction">{{ oferta.types.join(' · ') }}</p><h1>{{ item.categoria }}</h1><p class="property-detail-address"><span aria-hidden="true">⌖</span>{{ item.endereco }}</p><p class="property-detail-reference">Anúncio #{{ item.id }} · Publicado no Tatuí Imóveis</p></div>
-        <a href="imoveis.html" class="property-detail-back">← Voltar aos imóveis</a>
+        <div><p class="property-detail-transaction">{{ oferta.types.join(' · ') }}</p><h1>{{ item.categoria }}</h1><p class="property-detail-reference">Anúncio #{{ item.id }} · Publicado no Tatuí Imóveis</p></div>
+        <a href="imoveis.html" class="property-detail-back"><span class="property-detail-back-icon" aria-hidden="true">←</span><span>Voltar aos imóveis</span></a>
       </header>
       <div class="property-detail-layout">
         <div class="property-detail-main">
@@ -266,21 +303,43 @@ const Detail = {
             <div v-if="item.fotos.length > 1" class="property-detail-thumbnails"><button v-for="(foto, index) in item.fotos.slice(1, 5)" :key="foto.id" type="button" @click="abrirGaleria(index + 1)" :aria-label="'Ampliar foto ' + (index + 2)"><img :src="foto.url" :alt="foto.nome || item.categoria"><span v-if="index === 3 && item.fotos.length > 5">+{{ item.fotos.length - 5 }} fotos</span></button></div>
           </section>
           <div v-else class="property-detail-no-photo">Imóvel sem fotos cadastradas</div>
-          <section class="property-detail-section" aria-labelledby="property-description-title"><h2 id="property-description-title">Sobre o imóvel</h2><div v-if="item.descricao" class="property-detail-description" v-html="item.descricao"></div><p v-else class="property-detail-muted">O anunciante não adicionou uma descrição.</p></section>
-          <section v-if="item.perimetro" class="property-detail-section property-detail-perimeter" aria-labelledby="property-perimeter-title"><h2 id="property-perimeter-title">Perímetro do imóvel</h2><p class="property-detail-muted">Área aproximada indicada no anúncio. O marcador central identifica a localização principal.</p><div ref="perimetroMapEl" class="property-detail-map" aria-label="Mapa do perímetro do imóvel"></div></section>
-          <section class="property-detail-section property-detail-characteristics" aria-labelledby="property-characteristics-title"><h2 id="property-characteristics-title">Características</h2><p v-if="!caracteristicasDetalhadas.length" class="property-detail-muted">Não há outras características informadas.</p><ul v-else><li v-for="feature in caracteristicasDetalhadas" :key="feature.key"><span class="property-feature-icon" :class="{ 'is-available': feature.boolean }"><PropertyFeatureIcon :name="feature.key" /></span><span><strong>{{ feature.label }}</strong><small>{{ feature.boolean ? 'Disponível' : feature.display }}</small></span></li></ul></section>
+            <section class="property-detail-section" aria-labelledby="property-description-title"><h2 id="property-description-title">Sobre o imóvel</h2><div v-if="item.descricao" class="property-detail-description" v-html="item.descricao"></div><p v-else class="property-detail-muted">O anunciante não adicionou uma descrição.</p></section>
         </div>
         <aside class="property-detail-sidebar">
           <section class="property-detail-card" aria-label="Valores e contato">
             <h2 class="property-detail-card-title">Valores</h2>
             <dl class="property-detail-prices"><div v-for="row in valores" :key="row.label"><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div><div v-if="!valores.length"><dt>Valor</dt><dd>{{ money(item.preco, item.tipo) }}</dd></div></dl>
-            <p v-if="ofertaResumo.included.length" class="property-detail-included"><strong>Incluso:</strong> {{ ofertaResumo.included.join(', ') }}</p>
-            <div v-if="resumoCaracteristicas.length" class="property-detail-summary" aria-label="Resumo das características"><div v-for="fact in resumoCaracteristicas" :key="fact.key"><strong>{{ fact.display }}</strong><span>{{ fact.label }}</span></div></div>
+            <div v-if="ofertaResumo.included.length" class="property-detail-included"><div class="property-detail-included-heading"><span aria-hidden="true">✓</span><strong>Incluso no valor</strong></div><div class="property-detail-included-list"><span v-for="item in ofertaResumo.included" :key="item">{{ item }}</span></div></div>
             <div class="property-detail-actions"><button class="react-button" type="button" @click="contact = true">Tenho interesse</button><button class="react-button secondary property-share-detail-button" type="button" @click="compartilhar"><svg class="property-share-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"></path></svg>Compartilhar</button><span v-if="shareStatus" class="property-share-status property-share-detail-status" role="status" aria-live="polite">{{ shareStatus }}</span><a v-if="usuario?.usuario?.id === item.usuario_id" class="react-button secondary" :href="'cadastro.html?modo=editar&id=' + item.id">Editar imóvel</a></div>
           </section>
         </aside>
-      </div>
-      <div v-if="lightboxIndex !== null" class="property-lightbox" role="presentation" @click.self="fecharGaleria"><section class="lightbox-dialog" role="dialog" aria-modal="true" aria-label="Galeria de fotos" @click.stop><div class="lightbox-photo-stage"><div class="lightbox-photo-frame"><img class="lightbox-photo" :src="item.fotos[lightboxIndex].url" :alt="item.fotos[lightboxIndex].nome || item.categoria"></div></div><button type="button" class="lightbox-close" aria-label="Fechar galeria" @click="fecharGaleria">×</button><button v-if="item.fotos.length > 1" type="button" class="lightbox-nav lightbox-prev" aria-label="Foto anterior" @click="fotoAnterior"><span aria-hidden="true">‹</span></button><button v-if="item.fotos.length > 1" type="button" class="lightbox-nav lightbox-next" aria-label="Próxima foto" @click="proximaFoto"><span aria-hidden="true">›</span></button><p class="lightbox-caption">{{ lightboxIndex + 1 }} de {{ item.fotos.length }}</p></section></div>
+       </div>
+       <section class="property-detail-features-card" aria-labelledby="property-characteristics-title">
+         <header class="property-detail-features-header">
+           <div><p class="property-detail-location-eyebrow">Detalhes do anúncio</p><h2 id="property-characteristics-title">Características do imóvel</h2><p class="property-detail-muted">Tudo o que foi informado pelo anunciante em um só lugar.</p></div>
+           <span class="property-detail-features-count">{{ caracteristicasUnificadas.length }} {{ caracteristicasUnificadas.length === 1 ? 'item' : 'itens' }}</span>
+         </header>
+         <ul v-if="caracteristicasUnificadas.length" class="property-detail-feature-grid">
+           <li v-for="feature in caracteristicasUnificadas" :key="feature.key" class="property-detail-feature-item"><span class="property-feature-icon" :class="{ 'is-available': feature.boolean }"><PropertyFeatureIcon :name="feature.key" /></span><span><strong>{{ exibirCaracteristica(feature) }}</strong><small v-if="!feature.boolean && (!caracteristicaNumerica(feature) || ['area', 'area_total', 'area_construida', 'frente'].includes(feature.key))">{{ feature.label }}</small></span></li>
+         </ul>
+         <p v-else class="property-detail-muted property-detail-features-empty">O anunciante ainda não informou características adicionais.</p>
+       </section>
+       <section class="property-detail-location-card" aria-labelledby="property-location-title">
+         <div class="property-detail-location-map-wrap">
+           <div v-if="item.coordenadas?.latitude && item.coordenadas?.longitude" ref="perimetroMapEl" class="property-detail-map property-detail-location-map" aria-label="Mapa da localização do imóvel"></div>
+           <div v-else class="property-detail-map property-detail-location-map property-detail-location-map-empty" role="status">Localização no mapa não informada</div>
+           <span class="property-detail-location-badge"><span aria-hidden="true">⌖</span> Localização do anúncio</span>
+         </div>
+         <div class="property-detail-location-content">
+           <p class="property-detail-location-eyebrow">Localização</p>
+           <h2 id="property-location-title">Onde fica este imóvel</h2>
+           <p class="property-detail-location-address">{{ item.endereco || 'Endereço não informado' }}</p>
+           <p class="property-detail-muted">O marcador indica a localização informada pelo anunciante. Para preservar a privacidade, o ponto pode representar uma área aproximada.</p>
+           <p class="property-detail-map-help"><strong>Visualização:</strong> use o seletor no canto do mapa para alternar entre Ruas, Satélite, Terreno, Claro e Escuro.</p>
+           <p v-if="item.perimetro" class="property-detail-location-perimeter"><strong>Área destacada no mapa:</strong> o perímetro informado pelo anunciante aparece em laranja.</p>
+         </div>
+       </section>
+       <div v-if="lightboxIndex !== null" class="property-lightbox" role="presentation" @click.self="fecharGaleria"><section class="lightbox-dialog" role="dialog" aria-modal="true" aria-label="Galeria de fotos" @click.stop><div class="lightbox-photo-stage"><div class="lightbox-photo-frame"><img class="lightbox-photo" :src="item.fotos[lightboxIndex].url" :alt="item.fotos[lightboxIndex].nome || item.categoria"></div></div><button type="button" class="lightbox-close" aria-label="Fechar galeria" @click="fecharGaleria">×</button><button v-if="item.fotos.length > 1" type="button" class="lightbox-nav lightbox-prev" aria-label="Foto anterior" @click="fotoAnterior"><span aria-hidden="true">‹</span></button><button v-if="item.fotos.length > 1" type="button" class="lightbox-nav lightbox-next" aria-label="Próxima foto" @click="proximaFoto"><span aria-hidden="true">›</span></button><p class="lightbox-caption">{{ lightboxIndex + 1 }} de {{ item.fotos.length }}</p></section></div>
       <div v-if="contact" class="react-modal" @click.self="contact = false"><div class="react-modal-card"><button class="modal-close" type="button" aria-label="Fechar contato" @click="contact = false">×</button><h2>Tenho interesse neste imóvel</h2><form class="react-form" @submit.prevent="enviar"><label>Nome<input name="nome" autocomplete="name" required></label><label>Telefone<input name="telefone" type="tel" autocomplete="tel" required></label><label>E-mail<input name="email" type="email" autocomplete="email" required></label><label class="privacy-consent"><input name="aceite_privacidade" value="true" type="checkbox" required><span>Li e aceito a <a href="privacidade.html" target="_blank" rel="noopener noreferrer">Política de Privacidade</a>.</span></label><p class="whatsapp-form-note">Seus dados irão na mensagem para o anunciante. Você poderá revisar antes de enviar pelo WhatsApp.</p><p v-if="message" class="whatsapp-form-status" role="status">{{ message }}</p><button class="react-button whatsapp-contact-button">Continuar pelo WhatsApp</button></form></div></div>
     </article>
   </Layout>`
@@ -675,3 +734,4 @@ app.config.errorHandler = (error, instance, info) => {
 };
 app.mount('#app');
 if (location.search.includes('admin=1')) setTimeout(() => document.addEventListener('click', event => { if (event.target.closest('.admin-edit-banner button')) document.querySelector('.admin-history-modal')?.classList.add('is-open'); if (event.target.closest('.admin-history-modal') === event.target || event.target.closest('.modal-close')) document.querySelector('.admin-history-modal')?.classList.remove('is-open'); }), 0);
+

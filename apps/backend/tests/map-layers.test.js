@@ -18,9 +18,15 @@ test('camadas do mapa oferecem ruas, satélite e estilos alternativos', () => {
 
 test('home, cadastro e detalhe usam o controle compartilhado de camadas', () => {
   assert.equal((vueApp.match(/PropertyMapLayers\.addControl\(/g) || []).length, 3);
+  assert.match(vueApp, /PropertyMapLayers\.addControl\(perimetroMap, MAPBOX_TOKEN, \{ collapsed: true, initial: 'satellite' \}\)/);
+  assert.match(vueApp, /scrollWheelZoom: true/);
+  assert.match(vueApp, /touchZoom: true/);
+  assert.match(vueApp, /\}\)\.setView\(\[latitude, longitude\], 18\)/);
   for (const page of ['index.html', 'cadastro.html', 'imovel.html']) {
     const html = fs.readFileSync(path.join(root, 'apps/frontend/public', page), 'utf8');
     assert.match(html, /shared\/map-layers\.js/);
     assert.ok(html.indexOf('map-layers.js') < html.indexOf('vue-app.js'), `${page} loads map layers before Vue components`);
   }
 });
+
+
