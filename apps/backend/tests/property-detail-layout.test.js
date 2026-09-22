@@ -23,6 +23,7 @@ test('property detail groups gallery and description beside a single value/conta
   assert.doesNotMatch(detail[1], /item\.titulo/);
   assert.match(detailStyles, /\.property-detail-gallery \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[^}]*max-width: 730px/);
   assert.match(detailStyles, /\.property-detail-cover \{[^}]*aspect-ratio: 1;[^}]*height: auto/);
+  assert.doesNotMatch(detailStyles, /@media \(min-width: 1101px\) \{[^}]*\.property-detail-gallery \{ min-height: 520px; \}[^}]*\.property-detail-cover \{ min-height: 520px; \}/);
   assert.match(detailStyles, /\.property-detail-thumbnails \{[^}]*aspect-ratio: 1;[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(detailStyles, /\.property-detail-section \{[^}]*background: var\(--surface\);[^}]*border-radius: 14px/);
   assert.match(detailStyles, /\.property-detail-section h2::before \{[^}]*background: #e8f2ee url\('\/assets\/phosphor\/file-text\.svg'\)/);
