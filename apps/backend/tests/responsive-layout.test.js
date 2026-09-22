@@ -13,7 +13,8 @@ test('layout desktop usa contêineres amplos sem perder limites de leitura', () 
   assert.match(reactPages, /@media \(min-width: 1101px\)/);
   assert.match(reactPages, /\.react-page \{[^}]*max-width: 1680px/);
   assert.match(reactPages, /\.listing-property-card \{[^}]*height: 320px/);
-  assert.match(reactPages, /\.property-detail-layout \{[^}]*grid-template-columns: minmax\(0, 1fr\) 380px/);
+  assert.match(reactPages, /\.property-detail-layout \{[^}]*grid-template-columns: minmax\(0, 1fr\) 400px/);
+  assert.match(reactPages, /\.property-detail-gallery \{ max-width: none; width: 100%; \}/);
   assert.match(cadastro, /@media \(min-width:1101px\) \{ \.form-page \{ max-width:1320px/);
   assert.match(admin, /@media\(min-width:1101px\)\{\.admin-shell\{max-width:1640px/);
 });

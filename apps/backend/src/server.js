@@ -8,6 +8,7 @@ const mysql = require('mysql2/promise');
 const PropertyOffers = require('../../../packages/shared/property-offers');
 const PropertyDescription = require('../../../packages/shared/property-description');
 const PropertySecurity = require('../../../packages/shared/property-security');
+const PropertyOpenGraph = require('../../../packages/shared/property-open-graph');
 const Maintenance = require('../../../packages/shared/maintenance');
 const { runMigrations } = require('./migrate');
 const { sendPasswordResetEmail, sendTestEmail, diagnoseSmtpError, emailConfigured, emailProvider } = require('./mailer');
@@ -515,6 +516,26 @@ const server = http.createServer(async (req, res) => {
     if (contentRoute && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [[row]] = await pool.query('SELECT * FROM site_conteudos WHERE chave=?', [contentRoute[1]]); return row ? sendJson(res, 200, row) : sendJson(res, 404, { error: 'Conteúdo não encontrado.' }); }
     if (contentRoute && req.method === 'PATCH') { const admin = await adminUser(req, res); if (!admin) return; const data = await bodyJson(req, 256 * 1024); if (!data || typeof data.conteudo !== 'string' || !data.conteudo.trim() || data.conteudo.length > 200000) return sendJson(res,400,{error:'O conteúdo é obrigatório e deve ter até 200 mil caracteres.'}); await pool.query('UPDATE site_conteudos SET conteudo=?,versao=versao+1,atualizado_por=? WHERE chave=?',[data.conteudo.trim(),admin.id,contentRoute[1]]); await audit(admin.id,'editar','conteudo',contentRoute[1]); const [[row]] = await pool.query('SELECT * FROM site_conteudos WHERE chave=?',[contentRoute[1]]); return sendJson(res,200,row); }
     const contact = url.pathname.match(/^\/api\/imoveis\/(\d+)\/contatos$/); if (contact && req.method === 'POST') { if (!rateLimit(req, res, 'contact', 5, 15 * 60 * 1000)) return; const d=await bodyJson(req, 64 * 1024); if (!d || typeof d.nome !== 'string' || !d.nome.trim() || d.nome.length > 180 || typeof d.telefone !== 'string' || !d.telefone.trim() || d.telefone.length > 40 || typeof d.email !== 'string' || d.email.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email) || !(d.aceite_privacidade === true || d.aceite_privacidade === 'true')) return sendJson(res,400,{error:'Preencha os dados corretamente e aceite a Política de Privacidade.'}); const [[property]]=await pool.query('SELECT id FROM imoveis WHERE id=?',[contact[1]]); if(!property) return sendJson(res,404,{error:'Imóvel não encontrado.'}); const [result]=await pool.query('INSERT INTO contatos (imovel_id,nome,telefone,email,privacidade_versao,privacidade_aceita_em) VALUES (?,?,?, ?, ?, NOW())',[contact[1],d.nome.trim(),d.telefone.trim(),d.email.trim().toLowerCase(),PRIVACY_POLICY_VERSION]); return sendJson(res,201,{id:result.insertId,message:'Contato registrado com sucesso.'}); }
+    if (url.pathname === '/imovel' && ['GET', 'HEAD'].includes(req.method)) {
+      const propertyId = url.searchParams.get('id') || '';
+      if (/^\d+$/.test(propertyId) && Number.isSafeInteger(Number(propertyId)) && Number(propertyId) > 0) {
+        const [[property]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]);
+        if (property) {
+          const [[photo]] = await pool.query('SELECT caminho FROM imovel_fotos WHERE imovel_id=? ORDER BY ordem,id LIMIT 1', [propertyId]);
+          const tags = PropertyOpenGraph.criarTags(property, photo?.caminho || '', process.env.APP_PUBLIC_URL || '', PropertyDescription.resumo(property.descricao));
+          if (tags) {
+            const pageFile = path.join(webRoot, 'imovel.html');
+            const titleTag = tags.match(/^<title>[\s\S]*?<\/title>/)?.[0] || '';
+            const metadata = tags.slice(titleTag.length);
+            const html = fs.readFileSync(pageFile, 'utf8')
+              .replace(/<title>[\s\S]*?<\/title>/i, titleTag)
+              .replace('</head>', `${metadata}</head>`);
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=60' });
+            return req.method === 'HEAD' ? res.end() : res.end(html);
+          }
+        }
+      }
+    }
     if (url.pathname === '/api/imoveis' && req.method === 'POST') return criarImovelJson(req, res);
     const cleanRoute = url.pathname === '/' ? '/index.html' : url.pathname;
     const relative = cleanRoute.endsWith('.html') || path.extname(cleanRoute) ? cleanRoute : `${cleanRoute}.html`;
