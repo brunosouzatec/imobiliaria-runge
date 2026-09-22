@@ -2,8 +2,38 @@
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
   justify-content: flex-end;
+}
+
+.listing-property-footer-actions > a:not(.listing-edit-link) {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #d5e1da;
+  border-radius: 7px;
+  color: #17635b;
+  display: inline-flex;
+  font-size: .82rem;
+  font-weight: 650;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  text-decoration: none;
+  transition: background .2s, border-color .2s, color .2s;
+  white-space: nowrap;
+}
+
+.listing-property-footer-actions > a:not(.listing-edit-link):hover,
+.listing-property-footer-actions > a:not(.listing-edit-link):focus-visible {
+  background: #edf7f3;
+  border-color: #8db9aa;
+  color: #104f48;
+}
+
+.listing-property-footer-actions > a:not(.listing-edit-link):focus-visible,
+.listing-property-footer .listing-whatsapp-link:focus-visible {
+  outline: 3px solid #0b77704d;
+  outline-offset: 2px;
 }
 
 .listing-property-footer .listing-whatsapp-link {
@@ -14,10 +44,12 @@
   color: #fff;
   cursor: pointer;
   display: inline-flex;
-  font-size: .78rem;
+  font-size: .82rem;
   font-family: inherit;
+  font-weight: 650;
   gap: 6px;
-  padding: 9px 12px;
+  min-height: 38px;
+  padding: 8px 12px;
   transition: background .2s, transform .2s;
 }
 

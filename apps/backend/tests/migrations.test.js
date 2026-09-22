@@ -7,6 +7,7 @@ const removeAdvertiserFields = require('../migrations/005_remove_advertiser_fiel
 const passwordResetTokens = require('../migrations/008_password_reset_tokens');
 const adminSettings = require('../migrations/009_admin_settings');
 const propertyPerimeter = require('../migrations/010_property_perimeter');
+const accountChangeTokens = require('../migrations/011_account_change_tokens');
 
 test('title removal migration drops the legacy column only when it exists', async () => {
   const statements = [];
@@ -85,4 +86,16 @@ test('perimeter migration adds the optional GeoJSON column only once', async () 
     'ALTER TABLE imoveis ADD COLUMN perimetro JSON NULL AFTER longitude',
     "SELECT COUNT(*) AS total FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='imoveis' AND column_name='perimetro'"
   ]);
+});
+
+test('account change migration creates separate one-time email and password token stores', async () => {
+  const statements = [];
+  await accountChangeTokens.up({ query: async sql => { statements.push(sql); } });
+  assert.equal(statements.length, 2);
+  assert.match(statements[0], /CREATE TABLE IF NOT EXISTS alteracao_email_tokens/);
+  assert.match(statements[0], /novo_email VARCHAR\(180\) NOT NULL/);
+  assert.match(statements[0], /token_hash CHAR\(64\) NOT NULL UNIQUE/);
+  assert.match(statements[1], /CREATE TABLE IF NOT EXISTS alteracao_senha_tokens/);
+  assert.match(statements[1], /senha_hash TEXT NOT NULL/);
+  assert.match(statements[1], /expires_at DATETIME NOT NULL/);
 });
