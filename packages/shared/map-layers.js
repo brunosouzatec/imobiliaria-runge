@@ -16,13 +16,17 @@
     });
   }
 
-  function addControl(map, token) {
+  function addControl(map, token, options = {}) {
     const layers = {};
-    styles.forEach(({ label, style }, index) => {
+    const initialLayer = options.initial || 'ruas';
+    styles.forEach(({ id, label, style }) => {
       layers[label] = tileLayer(style, token);
-      if (index === 0) layers[label].addTo(map);
+      if (id === initialLayer) layers[label].addTo(map);
     });
-    const control = L.control.layers(layers, null, { collapsed: true, position: 'topright' }).addTo(map);
+    const control = L.control.layers(layers, null, {
+      collapsed: options.collapsed !== undefined ? options.collapsed : true,
+      position: options.position || 'topright'
+    }).addTo(map);
     return { control, layers };
   }
 

@@ -11,24 +11,45 @@ const detail = source.match(/const Detail = \{([\s\S]*?)\n\};\s*const Login/);
 test('property detail groups gallery and description beside a single value/contact panel', () => {
   assert.ok(detail, 'Detail component exists');
   assert.match(detail[1], /property-detail-gallery/);
+  assert.match(detail[1], /class="property-detail-section"[^>]*aria-labelledby="property-description-title"/);
   assert.match(detail[1], /property-description-title/);
   assert.match(detail[1], /property-detail-sidebar/);
   assert.match(detail[1], /property-detail-prices/);
   assert.match(detail[1], /property-detail-actions/);
-  assert.equal((detail[1].match(/property-detail-address/g) || []).length, 1);
-  assert.equal((detail[1].match(/property-detail-summary/g) || []).length, 1);
+  assert.match(detail[1], /class="property-detail-back"[^>]*><span class="property-detail-back-icon"/);
+  assert.equal((detail[1].match(/property-detail-address/g) || []).length, 0);
+  assert.equal((detail[1].match(/property-detail-location-address/g) || []).length, 1);
+  assert.equal((detail[1].match(/property-detail-features-card/g) || []).length, 1);
   assert.doesNotMatch(detail[1], /item\.titulo/);
+  assert.match(detailStyles, /\.property-detail-gallery \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[^}]*max-width: 730px/);
+  assert.match(detailStyles, /\.property-detail-cover \{[^}]*aspect-ratio: 1;[^}]*height: auto/);
+  assert.match(detailStyles, /\.property-detail-thumbnails \{[^}]*aspect-ratio: 1;[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(detailStyles, /\.property-detail-section \{[^}]*background: var\(--surface\);[^}]*border-radius: 14px/);
+  assert.match(detailStyles, /\.property-detail-section h2::before \{[^}]*background: #e8f2ee url\('\/assets\/phosphor\/file-text\.svg'\)/);
+  assert.match(detailStyles, /@media \(min-width: 721px\) \{[\s\S]*?\.property-detail-main \{ display: contents; \}[\s\S]*?\.property-detail-section \{ grid-column: 1 \/ -1; grid-row: 2; \}/);
 });
 
-test('headline metrics are excluded from the detailed characteristics list', () => {
-  assert.match(detail[1], /caracteristicasDetalhadas = computed\(\(\) => caracteristicas\.value\.filter\(feature => !\['area', 'area_total', 'area_construida', 'quartos', 'banheiros', 'vagas'\]\.includes\(feature\.key\)\)\)/);
-  assert.match(detail[1], /v-for="feature in caracteristicasDetalhadas"/);
-  assert.match(detail[1], /v-for="fact in resumoCaracteristicas"/);
+test('características ficam consolidadas em um único card sem duplicar área antiga', () => {
+  assert.match(detail[1], /caracteristicasUnificadas = computed\(\(\) =>/);
+  assert.match(detail[1], /feature\.key === 'area' && possuiAreasSeparadas/);
+  assert.match(detail[1], /const ordem = \['area_total', 'area_construida', 'area', 'frente', 'quartos', 'suite', 'banheiros', 'salas'\]/);
+  assert.match(detail[1], /\.sort\(\(a, b\) =>/);
+  assert.match(detail[1], /class="property-detail-features-card"/);
+  assert.match(detail[1], /v-for="feature in caracteristicasUnificadas"/);
+  assert.match(detail[1], /exibirCaracteristica\(feature\)/);
+  assert.match(detail[1], /\['area', 'area_total', 'area_construida', 'frente'\]\.includes\(feature\.key\)/);
+  assert.match(detail[1], /v-if="!feature\.boolean && \(!caracteristicaNumerica\(feature\) \|\|/);
+  assert.doesNotMatch(detail[1], /feature\.boolean \? 'Disponível'/);
+  assert.doesNotMatch(detail[1], /resumoCaracteristicas/);
+  assert.doesNotMatch(detail[1], /caracteristicasDetalhadas/);
+  assert.doesNotMatch(detail[1], /class="property-detail-summary"/);
 });
 
 test('inclusões usam o contrato de resumo do PropertyOffers e não uma propriedade inexistente', () => {
   assert.match(detail[1], /ofertaResumo = computed\(\(\) => PropertyOffers\.summary\(item\.value \|\| \{\}\)\)/);
   assert.match(detail[1], /ofertaResumo\.included\.length/);
+  assert.match(detail[1], /class="property-detail-included-heading"/);
+  assert.match(detail[1], /v-for="item in ofertaResumo\.included"/);
   assert.doesNotMatch(detail[1], /oferta\.included/);
 });
 
@@ -79,3 +100,5 @@ test('fundo da modal cobre toda a tela e fica acima do cabeçalho', () => {
   assert.match(detailStyles, /\.property-lightbox\s*\{[^}]*inset:\s*0/);
   assert.match(detailStyles, /\.property-lightbox\s*\{[^}]*background:\s*#0b0b0bf2/);
 });
+
+
