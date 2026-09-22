@@ -339,6 +339,21 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .login-password-toggle input { accent-color: #08716d; margin: 0; padding: 0; width: auto; }
 .react-form button:disabled { cursor: wait; opacity: .7; }
 .home-suggestions button { min-height: 46px; }
+.home-map-nearby { align-items:flex-start; bottom:12px; display:flex; flex-wrap:wrap; gap:8px; left:12px; max-width:calc(100% - 24px); position:absolute; z-index:600; }
+.home-nearby-button { align-items:center; border:0; border-radius:8px; cursor:pointer; display:inline-flex; font:600 13px/1.2 Inter,ui-sans-serif,system-ui,sans-serif; gap:8px; justify-content:center; min-height:38px; padding:8px 12px; }
+.home-nearby-button { background:#123f3d; color:#fff; }
+.home-nearby-button:hover:not(:disabled) { background:#0b615c; }
+.home-nearby-button:disabled { cursor:wait; opacity:.72; }
+.home-nearby-button svg { fill:none; height:18px; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; stroke-width:1.8; width:18px; }
+.home-nearby-status { background:#123f3d; border-radius:7px; color:#fff; flex:1 0 100%; font:500 12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif; padding:8px 10px; }
+.home-nearby-button:focus-visible { outline:2px solid #1769d2; outline-offset:2px; }
+.home-user-location-wrapper { background:transparent; border:0; }
+.home-user-location-marker { display:block; height:40px; position:relative; width:40px; }
+.home-user-location-pulse,.home-user-location-dot { border-radius:50%; left:50%; position:absolute; top:50%; transform:translate(-50%,-50%); }
+.home-user-location-pulse { animation:home-user-location-pulse 1.8s ease-out infinite; background:rgba(23,105,210,.3); height:18px; width:18px; }
+.home-user-location-dot { background:#1769d2; border:3px solid #fff; box-shadow:0 1px 5px #102c4b88; height:16px; width:16px; }
+@keyframes home-user-location-pulse { 0% { opacity:.8; transform:translate(-50%,-50%) scale(.65); } 75%,100% { opacity:0; transform:translate(-50%,-50%) scale(2.2); } }
+@media(max-width:520px) { .home-map-nearby { bottom:10px; gap:6px; left:10px; max-width:calc(100% - 20px); }.home-nearby-button { flex:1 1 auto; }.home-nearby-status { font-size:11px; }.home-map > span { bottom:72px; right:10px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
 
 /* Mantém os destinos principais acessíveis em telas estreitas. */
