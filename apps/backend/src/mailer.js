@@ -53,6 +53,24 @@ function passwordResetContent({ email, name, token }, config) {
   return { to: email, subject: 'Recuperação de senha | Tatuí Imóveis', text, html };
 }
 
+function accountChangeContent({ email, name, token, type }, config) {
+  const baseUrl = String(config.APP_PUBLIC_URL || process.env.APP_PUBLIC_URL || '').replace(/\/$/, '');
+  if (!baseUrl) throw new Error('APP_PUBLIC_URL não configurada.');
+  const isEmail = type === 'email';
+  const link = `${baseUrl}/confirmar-alteracao?tipo=${isEmail ? 'email' : 'senha'}&token=${encodeURIComponent(token)}`;
+  const safeName = escapeHtml(name);
+  const safeLink = escapeHtml(link);
+  const title = isEmail ? 'Confirme seu novo e-mail' : 'Confirme a alteração de senha';
+  const description = isEmail
+    ? 'Recebemos uma solicitação para trocar o e-mail de acesso da sua conta. O endereço só será atualizado depois da confirmação.'
+    : 'Recebemos uma solicitação para alterar a senha da sua conta. A nova senha só será aplicada depois da confirmação.';
+  const action = isEmail ? 'Confirmar novo e-mail' : 'Confirmar nova senha';
+  const text = `Olá${name ? `, ${name}` : ''}!\n\n${description}\n\nConfirme em até 30 minutos: ${link}\n\nSe você não solicitou essa alteração, ignore este e-mail.`;
+  const logoCid = 'tatui-imoveis-logo@tatuiimoveis.com.br';
+  const html = `<!doctype html><html lang="pt-BR"><body style="background:#f6f5f1;margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:#173c3d"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f6f5f1;padding:32px 12px"><tr><td align="center"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background:#fff;border:1px solid #dfe6e2;border-radius:12px;overflow:hidden"><tr><td style="padding:36px 40px 32px"><p style="font-size:16px;line-height:1.6;margin:0 0 18px">Olá${name ? `, ${safeName}` : ''}!</p><h1 style="font-size:25px;line-height:1.25;font-weight:600;margin:0 0 18px;color:#173c3d">${title}</h1><p style="font-size:15px;line-height:1.7;color:#607674;margin:0 0 24px">${description}</p><table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 24px"><tr><td align="center" bgcolor="#e5651c" style="border-radius:7px"><a href="${safeLink}" style="display:inline-block;color:#fff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 22px">${action}</a></td></tr></table><p style="font-size:13px;line-height:1.6;color:#607674;margin:0">Este link expira em 30 minutos. Se você não solicitou essa alteração, ignore este e-mail.</p></td></tr><tr><td align="center" bgcolor="#173c3d" style="padding:10px 20px"><img src="cid:${logoCid}" width="240" alt="Tatuí Imóveis — O portal de imóveis de Tatuí" style="display:block;margin:0 auto;height:auto;border:0"></td></tr></table></td></tr></table></body></html>`;
+  return { to: email, subject: `${title} | Tatuí Imóveis`, text, html };
+}
+
 function testEmailContent({ email, timestamp }) {
   const logoCid = 'tatui-imoveis-logo@tatuiimoveis.com.br';
   const text = `Olá!\n\nEste é um e-mail de teste da Tatuí Imóveis. A configuração foi validada com sucesso em ${timestamp}.\n\nSe você recebeu esta mensagem, o serviço de envio está pronto para enviar e-mails de recuperação de senha.`;
@@ -91,6 +109,15 @@ async function sendPasswordResetEmail({ email, name, token }, config = process.e
     to: message.to, subject: message.subject, text: message.text, html: message.html,
     attachments: [logoAttachment()].filter(Boolean)
   });
+}
+
+async function sendAccountChangeEmail({ email, name, token, type }, config = process.env) {
+  if (!emailConfigured(config)) throw new Error('Serviço de e-mail não configurado.');
+  const message = accountChangeContent({ email, name, token, type }, config);
+  if (emailProvider(config) === 'sendgrid') return sendWithSendGrid(message, config);
+  const transporter = createMailer(config);
+  if (!transporter) throw new Error('SMTP não configurado.');
+  return transporter.sendMail({ from: config.SMTP_FROM, ...message, attachments: [logoAttachment()].filter(Boolean) });
 }
 
 function diagnoseSmtpError(error) {
@@ -135,4 +162,4 @@ async function sendTestEmail({ email }, config = process.env) {
   return transporter.sendMail({ from: config.SMTP_FROM, ...message, attachments: [logoAttachment()].filter(Boolean) });
 }
 
-module.exports = { createMailer, sendPasswordResetEmail, sendTestEmail, diagnoseSmtpError, smtpConfigured, sendGridConfigured, emailConfigured, emailProvider, sendWithSendGrid };
+module.exports = { createMailer, sendPasswordResetEmail, sendAccountChangeEmail, accountChangeContent, sendTestEmail, diagnoseSmtpError, smtpConfigured, sendGridConfigured, emailConfigured, emailProvider, sendWithSendGrid };
