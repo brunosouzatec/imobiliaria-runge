@@ -414,8 +414,6 @@ async function addPropertyPhotos(req, res, propertyId, adminId = null) {
   if (!rateLimit(req, res, 'photo-upload', 20, 15 * 60 * 1000, String(owned.userId))) return;
   const parsed = await parseMultipart(req);
   const displayTitle = PropertyOffers.displayTitle(owned.property);
-  const folderName = `imovel-${propertyId}-${folderSlug(displayTitle)}`;
-  const folder = path.join(photosDir, folderName); fs.mkdirSync(folder, { recursive: true });
   const [[last]] = await pool.query('SELECT COALESCE(MAX(ordem), -1) AS ordem FROM imovel_fotos WHERE imovel_id=?', [propertyId]);
   const fotos = parsed.files.filter((file) => file.name === 'fotos');
   if (fotos.length > 10) return sendJson(res, 400, { error: 'Envie no máximo 10 fotos por vez.' });
@@ -514,7 +512,7 @@ const server = http.createServer(async (req, res) => {
     const detailFixed = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (detailFixed && req.method === 'GET') { if (!rateLimit(req, res, 'public-detail', 120, 60 * 1000)) return; const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [detailFixed[1]]); if (!row) return sendJson(res, 404, { error: 'Imóvel não encontrado.' }); const viewToken = cookies(req).runge_session; const viewSession = sessions.get(viewToken); const viewerId = viewSession?.expiresAt > Date.now() ? viewSession.userId : null; if (viewerId == null || Number(viewerId) !== Number(row.usuario_id)) await pool.query('INSERT INTO imovel_visualizacoes (imovel_id,usuario_id) VALUES (?,?)', [detailFixed[1], viewerId]); return sendJson(res, 200, (await comFotos([row]))[0]); }
     if (detailFixed && req.method === 'DELETE') { const id=await authenticatedUser(req,res); if (!id) return; if (!rateLimit(req,res,'property-delete',5,60*60*1000,String(id))) return; return deleteOwnedProperty(id,detailFixed[1],res); }
     const editRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (editRoute && req.method === 'PATCH') return updateProperty(req, res, editRoute[1]);
-    const photoRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)\/fotos$/); if (photoRoute && req.method === 'POST') return addPropertyPhotos(req, res, photoRoute[1]);
+    const photoRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)\/fotos$/); if (photoRoute && req.method === 'POST') return await addPropertyPhotos(req, res, photoRoute[1]);
     const deletePhotoRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)\/fotos\/(\d+)$/); if (deletePhotoRoute && req.method === 'DELETE') return deletePropertyPhotoStored(req, res, deletePhotoRoute[1], deletePhotoRoute[2]);
     if (url.pathname === '/api/imoveis' && req.method === 'POST' && (req.headers['content-type'] || '').startsWith('multipart/form-data')) { if (!rateLimit(req, res, 'property-create', 10, 60 * 60 * 1000)) return; return criarImovelComFotos(req, res); }
     if (url.pathname === '/api/login' && req.method === 'POST') {
@@ -574,7 +572,7 @@ const server = http.createServer(async (req, res) => {
     if (adminProperty && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [adminProperty[1]]); if (!row) return sendJson(res, 404, { error: 'Imóvel não encontrado.' }); const [historico] = await pool.query("SELECT a.id,a.acao,a.detalhes,a.created_at,u.email AS administrador FROM admin_auditoria a LEFT JOIN admin_usuarios u ON u.id=a.usuario_id WHERE a.entidade='imovel' AND a.entidade_id=? ORDER BY a.created_at DESC,a.id DESC", [adminProperty[1]]); return sendJson(res, 200, { ...(await comFotos([row]))[0], historico }); }
     if (adminProperty && req.method === 'PATCH') { const admin = await adminUser(req, res); if (!admin) return; return updateProperty(req, res, adminProperty[1], admin.id); }
     const adminPhotoRoute = url.pathname.match(/^\/api\/admin\/imoveis\/(\d+)\/fotos(?:\/(\d+))?$/);
-    if (adminPhotoRoute && req.method === 'POST' && !adminPhotoRoute[2]) { const admin = await adminUser(req, res); if (!admin) return; return addPropertyPhotos(req, res, adminPhotoRoute[1], admin.id); }
+    if (adminPhotoRoute && req.method === 'POST' && !adminPhotoRoute[2]) { const admin = await adminUser(req, res); if (!admin) return; return await addPropertyPhotos(req, res, adminPhotoRoute[1], admin.id); }
     if (adminPhotoRoute && adminPhotoRoute[2] && req.method === 'DELETE') { const admin = await adminUser(req, res); if (!admin) return; return deletePropertyPhotoStored(req, res, adminPhotoRoute[1], adminPhotoRoute[2], admin.id); }
     if (adminProperty && req.method === 'DELETE') {
       const admin = await adminUser(req, res); if (!admin) return;
