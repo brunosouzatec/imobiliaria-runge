@@ -6,7 +6,7 @@
   const urlFor = (property, origin) => {
     if (!property?.id) return '';
     const base = origin || (typeof location !== 'undefined' ? location.origin : 'http://localhost');
-    const url = new URL('imovel.html', `${String(base).replace(/\/?$/, '/')}`);
+    const url = new URL('/imovel', base);
     url.searchParams.set('id', String(property.id));
     return url.href;
   };

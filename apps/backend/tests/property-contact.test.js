@@ -19,7 +19,7 @@ test('listing WhatsApp link targets the configured number and includes the absol
   assert.equal(link.pathname, '/5515998134885');
   assert.match(message, /Casa - Venda/);
   assert.match(message, /Rua das Flores, 87/);
-  assert.match(message, /https:\/\/imoveis\.example\/imovel\.html\?id=42/);
+  assert.match(message, /https:\/\/imoveis\.example\/imovel\?id=42/);
 });
 
 test('property contact form adds submitted contact fields to a reviewable WhatsApp message', () => {
@@ -34,7 +34,7 @@ test('property contact form adds submitted contact fields to a reviewable WhatsA
   assert.match(message, /Nome: Ana Souza/);
   assert.match(message, /Telefone: \(15\) 98888-7777/);
   assert.match(message, /E-mail: ana@example\.com/);
-  assert.match(message, /http:\/\/localhost:3000\/imovel\.html\?id=42/);
+  assert.match(message, /http:\/\/localhost:3000\/imovel\?id=42/);
 });
 
 test('form contact link omits empty personal fields and safely encodes text', () => {
@@ -46,9 +46,12 @@ test('form contact link omits empty personal fields and safely encodes text', ()
   assert.equal(link.searchParams.has('text'), true);
 });
 
-test('mensagem do WhatsApp inclui link da primeira foto quando disponível', () => {
+test('mensagem do WhatsApp usa o link canônico do anúncio para gerar a prévia da primeira foto', () => {
   const link = new URL(contact.listingLink({ ...property, fotos: [{ url: 'https://cdn.example/fachada.jpg' }] }, 'https://imoveis.example'));
-  assert.match(link.searchParams.get('text'), /Foto principal: https:\/\/cdn\.example\/fachada\.jpg/);
+  const message = link.searchParams.get('text');
+  assert.match(message, /Link do imóvel: https:\/\/imoveis\.example\/imovel\?id=42/);
+  assert.doesNotMatch(message, /Foto principal:/);
+  assert.doesNotMatch(message, /https:\/\/cdn\.example\/fachada\.jpg/);
 });
 
 test('listing keeps direct WhatsApp sharing and detail contact requires consent before WhatsApp', () => {

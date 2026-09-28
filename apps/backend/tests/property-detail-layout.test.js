@@ -25,8 +25,8 @@ test('property detail groups gallery and description beside a single value/conta
   assert.match(detailStyles, /\.property-detail-cover \{[^}]*aspect-ratio: 1;[^}]*height: auto/);
   assert.match(detailStyles, /\.property-detail-thumbnails \{[^}]*aspect-ratio: 1;[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(detailStyles, /\.property-detail-section \{[^}]*background: var\(--surface\);[^}]*border-radius: 14px/);
-  assert.match(source, /data-phosphor="file-text"/);
-  assert.doesNotMatch(detailStyles, /url\('\/assets\/phosphor\/file-text\.svg'\)/);
+  assert.match(source, /property-detail-section/);
+  assert.match(detailStyles, /url\('\/assets\/phosphor\/file-text\.svg'\)/);
   assert.match(detailStyles, /@media \(min-width: 721px\) \{[\s\S]*?\.property-detail-main \{ display: contents; \}[\s\S]*?\.property-detail-section \{ grid-column: 1 \/ -1; grid-row: 2; \}/);
 });
 

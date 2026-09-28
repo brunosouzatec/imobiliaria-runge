@@ -33,12 +33,15 @@ test('card usa o SVG da marca WhatsApp e preserva os links de contato e detalhes
   assert.match(app, /PropertyCard\.methods\.whatsappLink = item => PropertyContact\.listingLink\(item, window\.location\.origin\)/);
   assert.match(card[1], /Ver detalhes →/);
   assert.match(contactStyles, /\.listing-whatsapp-icon\s*\{[^}]*height:\s*18px;[^}]*width:\s*18px/);
+  assert.match(contactStyles, /\.listing-property-footer-actions > a:not\(\.listing-edit-link\)[\s\S]*?min-height: 38px/);
+  assert.match(contactStyles, /\.listing-property-footer \.listing-whatsapp-link[\s\S]*?min-height: 38px/);
 });
 
 test('meus imóveis usa a mesma lista horizontal da listagem pública', () => {
-  assert.match(app, /account-property-results[^`]*<div class="react-property-grid"><PropertyCard v-for="item in data\.imoveis"/);
+  assert.match(app, /account-property-results[^`]*<div class="react-property-grid"><PropertyCard :show-edit="true" v-for="item in data\.imoveis"/);
   assert.match(pageStyles, /\.account-property-results \.react-property-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-  assert.match(app, /MeusImoveis\.template = MeusImoveis\.template\.replace\('<PropertyCard v-for="item in data\.imoveis"'/);
+  assert.match(app, /@delete="prepararExclusao"/);
+  assert.match(app, /class="listing-delete-button"/);
 });
 
 test('listagem e detalhes oferecem compartilhar com estado acessível', () => {

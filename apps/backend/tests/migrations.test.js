@@ -7,7 +7,9 @@ const removeAdvertiserFields = require('../migrations/005_remove_advertiser_fiel
 const passwordResetTokens = require('../migrations/008_password_reset_tokens');
 const adminSettings = require('../migrations/009_admin_settings');
 const propertyPerimeter = require('../migrations/010_property_perimeter');
+const accountChangeTokens = require('../migrations/011_account_change_tokens');
 const purchaseLocationCatalog = require('../migrations/013_purchase_location_catalog');
+const removeNeighborhoodSearchCache = require('../migrations/014_remove_neighborhood_search_cache');
 
 test('title removal migration drops the legacy column only when it exists', async () => {
   const statements = [];
@@ -97,4 +99,22 @@ test('purchase location catalog persists only states and cities', async () => {
   assert.match(statements[1], /CREATE TABLE IF NOT EXISTS localidades_cidades/);
   assert.match(statements[1], /UNIQUE KEY uq_localidade_cidade \(estado_sigla, nome_normalizado\)/);
   assert.doesNotMatch(statements.join('\n'), /localidades_bairros|fonte_id/);
+});
+
+test('migration removes the persisted neighborhood search cache', async () => {
+  const statements = [];
+  await removeNeighborhoodSearchCache.up({ query: async sql => { statements.push(sql); } });
+  assert.deepEqual(statements, ['DROP TABLE IF EXISTS localidades_bairros']);
+});
+
+test('account change migration creates separate one-time email and password token stores', async () => {
+  const statements = [];
+  await accountChangeTokens.up({ query: async sql => { statements.push(sql); } });
+  assert.equal(statements.length, 2);
+  assert.match(statements[0], /CREATE TABLE IF NOT EXISTS alteracao_email_tokens/);
+  assert.match(statements[0], /novo_email VARCHAR\(180\) NOT NULL/);
+  assert.match(statements[0], /token_hash CHAR\(64\) NOT NULL UNIQUE/);
+  assert.match(statements[1], /CREATE TABLE IF NOT EXISTS alteracao_senha_tokens/);
+  assert.match(statements[1], /senha_hash TEXT NOT NULL/);
+  assert.match(statements[1], /expires_at DATETIME NOT NULL/);
 });

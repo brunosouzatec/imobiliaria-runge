@@ -19,7 +19,7 @@ test('home integra categorias ao mapa e aplica cores aos marcadores', () => {
   assert.doesNotMatch(vue.match(/const buscar = \(\) =>[\s\S]*?location\.href/)?.[0] || '', /await geocodificar/);
   assert.match(vue, /item\.bairro/);
   assert.match(vue, /\(jd\|jard\)/);
-  assert.match(vue, /makeUrl\(value, 'place', 5\)/);
+  assert.match(vue, /makeUrl\(query, 'place', 5\)/);
   assert.match(vue, /Cidade/);
   assert.match(vue, /feature\.place_type\?\.includes\('place'\) \? 12 : 15/);
   assert.match(vue, /Home\.template = Home\.template\.replace\('<p class="home-kicker">Explore Tatuí<\/p><h2>Imóveis no mapa<\/h2>', '<h2>Explore Tatuí<\/h2>'\)/);

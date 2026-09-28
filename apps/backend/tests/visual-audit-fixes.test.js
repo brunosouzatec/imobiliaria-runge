@@ -32,8 +32,8 @@ test('detalhes aproveitam Full HD, mostram fotos antes dos valores no celular e 
   const app = read('apps/frontend/public/vue-app.js');
   assert.match(css, /@media \(min-width: 1101px\)\s*\{\s*\.property-detail \{ max-width: 100%/);
   assert.match(css, /@media \(max-width: 720px\)\s*\{\s*\.property-detail-main \{ order: 0; \}\s*\.property-detail-sidebar \{ order: 1; \}/);
-  assert.match(app, /data-phosphor="file-text"/);
-  assert.doesNotMatch(css, /url\('\/assets\/phosphor\/file-text\.svg'\)/);
+  assert.match(css, /url\('\/assets\/phosphor\/file-text\.svg'\)/);
+  assert.ok(fs.existsSync(path.join(root, 'apps/frontend/public/assets/phosphor/file-text.svg')));
 });
 
 test('cadastro de imóvel usa texto correto e oportunidades formatam áreas no padrão brasileiro', () => {

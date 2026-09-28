@@ -8,9 +8,10 @@ const mysql = require('mysql2/promise');
 const PropertyOffers = require('../../../packages/shared/property-offers');
 const PropertyDescription = require('../../../packages/shared/property-description');
 const PropertySecurity = require('../../../packages/shared/property-security');
+const PropertyOpenGraph = require('../../../packages/shared/property-open-graph');
 const Maintenance = require('../../../packages/shared/maintenance');
 const { runMigrations } = require('./migrate');
-const { sendPasswordResetEmail, sendTestEmail, diagnoseSmtpError, emailConfigured, emailProvider } = require('./mailer');
+const { sendPasswordResetEmail, sendAccountChangeEmail, sendTestEmail, diagnoseSmtpError, emailConfigured, emailProvider } = require('./mailer');
 const PRIVACY_POLICY_VERSION = '2026-09-18';
 
 const projectRoot = path.resolve(__dirname, '../../..');
@@ -51,6 +52,7 @@ const cleanPageRoutes = new Map([
   ['/imovel.html', '/imovel'],
   ['/login.html', '/login'],
   ['/recuperar-senha.html', '/recuperar-senha'],
+  ['/confirmar-alteracao.html', '/confirmar-alteracao'],
   ['/perfil.html', '/perfil'],
   ['/cadastro.html', '/cadastro'],
   ['/meus-imoveis.html', '/meus-imoveis'],
@@ -180,6 +182,88 @@ async function resetPassword(data, res) {
     for (const [sessionToken, session] of sessions) if (session.userId === reset.usuario_id) sessions.delete(sessionToken);
     return sendJson(res, 200, { message: 'Senha alterada com sucesso. Você já pode entrar com a nova senha.' });
   } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
+}
+
+function validAccountChangeEmail(email) { return typeof email === 'string' && email.length <= 180 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
+async function requestEmailChange(data, userId, res) {
+  const email = typeof data?.email === 'string' ? data.email.trim().toLowerCase() : '';
+  const confirmation = typeof data?.email_confirmacao === 'string' ? data.email_confirmacao.trim().toLowerCase() : '';
+  if (!validAccountChangeEmail(email) || email !== confirmation) return sendJson(res, 400, { error: 'Informe um e-mail válido e confirme-o corretamente.' });
+  const [[user]] = await pool.query('SELECT id,nome,email FROM usuarios WHERE id=? AND ativo=TRUE LIMIT 1', [userId]);
+  if (!user) return sendJson(res, 404, { error: 'Conta não encontrada.' });
+  if (email === String(user.email).toLowerCase()) return sendJson(res, 400, { error: 'Este já é o e-mail de acesso atual.' });
+  const [[existing]] = await pool.query('SELECT id FROM usuarios WHERE LOWER(email)=? LIMIT 1', [email]);
+  if (existing) return sendJson(res, 409, { error: 'Este e-mail já está associado a outra conta.' });
+  const smtp = await loadSmtpSettings();
+  if (!emailConfigured(smtp || {})) return sendJson(res, 503, { error: 'O serviço de e-mail ainda não está configurado.' });
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = passwordResetHash(token);
+  await pool.query('DELETE FROM alteracao_email_tokens WHERE usuario_id=? OR expires_at<=NOW()', [user.id]);
+  await pool.query('INSERT INTO alteracao_email_tokens (usuario_id,novo_email,token_hash,expires_at) VALUES (?,?,?,?)', [user.id, email, tokenHash, new Date(Date.now() + PASSWORD_RESET_TTL_MS)]);
+  try {
+    await sendAccountChangeEmail({ email, name: user.nome, token, type: 'email' }, smtp);
+    return sendJson(res, 200, { message: 'Enviamos um link de confirmação para o novo endereço. O e-mail de acesso só mudará depois que você confirmar.' });
+  } catch (error) {
+    await pool.query('DELETE FROM alteracao_email_tokens WHERE usuario_id=? AND token_hash=?', [user.id, tokenHash]);
+    console.error('Falha ao enviar confirmação de troca de e-mail:', error.message);
+    return sendJson(res, 502, { error: 'Não foi possível enviar o e-mail de confirmação. Tente novamente mais tarde.' });
+  }
+}
+async function requestPasswordChange(data, userId, res) {
+  if (!PropertySecurity.validPassword(data?.senha_atual) || !PropertySecurity.validPassword(data?.senha_nova) || data.senha_nova !== data.senha_confirmacao) return sendJson(res, 400, { error: 'Confira a senha atual, os requisitos da nova senha e a confirmação.' });
+  const [[user]] = await pool.query('SELECT id,nome,email,senha_hash FROM usuarios WHERE id=? AND ativo=TRUE LIMIT 1', [userId]);
+  if (!user) return sendJson(res, 404, { error: 'Conta não encontrada.' });
+  if (!(await verifyPassword(data.senha_atual, user.senha_hash))) return sendJson(res, 400, { error: 'A senha atual está incorreta.' });
+  if (await verifyPassword(data.senha_nova, user.senha_hash)) return sendJson(res, 400, { error: 'A nova senha deve ser diferente da senha atual.' });
+  const smtp = await loadSmtpSettings();
+  if (!emailConfigured(smtp || {})) return sendJson(res, 503, { error: 'O serviço de e-mail ainda não está configurado.' });
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = passwordResetHash(token);
+  const pendingHash = await hashPassword(data.senha_nova);
+  await pool.query('DELETE FROM alteracao_senha_tokens WHERE usuario_id=? OR expires_at<=NOW()', [user.id]);
+  await pool.query('INSERT INTO alteracao_senha_tokens (usuario_id,senha_hash,token_hash,expires_at) VALUES (?,?,?,?)', [user.id, pendingHash, tokenHash, new Date(Date.now() + PASSWORD_RESET_TTL_MS)]);
+  try {
+    await sendAccountChangeEmail({ email: user.email, name: user.nome, token, type: 'senha' }, smtp);
+    return sendJson(res, 200, { message: 'Enviamos um link de confirmação para o e-mail cadastrado. A nova senha só será aplicada depois da confirmação.' });
+  } catch (error) {
+    await pool.query('DELETE FROM alteracao_senha_tokens WHERE usuario_id=? AND token_hash=?', [user.id, tokenHash]);
+    console.error('Falha ao enviar confirmação de troca de senha:', error.message);
+    return sendJson(res, 502, { error: 'Não foi possível enviar o e-mail de confirmação. Tente novamente mais tarde.' });
+  }
+}
+async function confirmAccountChange(data, req, res) {
+  const token = typeof data?.token === 'string' ? data.token.trim().toLowerCase() : '';
+  const type = data?.tipo;
+  if (!/^[a-f0-9]{64}$/.test(token) || !['email', 'senha'].includes(type)) return sendJson(res, 400, { error: 'O link é inválido ou expirou. Solicite uma nova confirmação.' });
+  const connection = await pool.getConnection();
+  let userId;
+  try {
+    await connection.beginTransaction();
+    if (type === 'email') {
+      const [[change]] = await connection.query('SELECT id,usuario_id,novo_email FROM alteracao_email_tokens WHERE token_hash=? AND used_at IS NULL AND expires_at>NOW() FOR UPDATE', [passwordResetHash(token)]);
+      if (!change) { await connection.rollback(); return sendJson(res, 400, { error: 'O link é inválido, já foi utilizado ou expirou.' }); }
+      userId = change.usuario_id;
+      const [result] = await connection.query('UPDATE usuarios SET email=? WHERE id=? AND ativo=TRUE', [change.novo_email, userId]);
+      if (!result.affectedRows) { await connection.rollback(); return sendJson(res, 400, { error: 'Não foi possível atualizar a conta. Entre novamente e solicite outra confirmação.' }); }
+      await connection.query('UPDATE alteracao_email_tokens SET used_at=NOW() WHERE id=?', [change.id]);
+      await connection.query('DELETE FROM alteracao_email_tokens WHERE usuario_id=? AND id<>?', [userId, change.id]);
+    } else {
+      const [[change]] = await connection.query('SELECT id,usuario_id,senha_hash FROM alteracao_senha_tokens WHERE token_hash=? AND used_at IS NULL AND expires_at>NOW() FOR UPDATE', [passwordResetHash(token)]);
+      if (!change) { await connection.rollback(); return sendJson(res, 400, { error: 'O link é inválido, já foi utilizado ou expirou.' }); }
+      userId = change.usuario_id;
+      const [result] = await connection.query('UPDATE usuarios SET senha_hash=? WHERE id=? AND ativo=TRUE', [change.senha_hash, userId]);
+      if (!result.affectedRows) { await connection.rollback(); return sendJson(res, 400, { error: 'Não foi possível atualizar a conta. Entre novamente e solicite outra confirmação.' }); }
+      await connection.query('UPDATE alteracao_senha_tokens SET used_at=NOW() WHERE id=?', [change.id]);
+      await connection.query('DELETE FROM alteracao_senha_tokens WHERE usuario_id=? AND id<>?', [userId, change.id]);
+    }
+    await connection.commit();
+    for (const [sessionToken, session] of sessions) if (session.userId === userId) sessions.delete(sessionToken);
+    return sendJson(res, 200, { message: type === 'email' ? 'E-mail alterado com sucesso. Entre novamente usando o novo endereço.' : 'Senha alterada com sucesso. Entre novamente usando a nova senha.' }, { 'Set-Cookie': sessionCookie(req, '', 0) });
+  } catch (error) {
+    await connection.rollback();
+    if (error.code === 'ER_DUP_ENTRY') return sendJson(res, 409, { error: 'Este e-mail já está associado a outra conta. Solicite a alteração com outro endereço.' });
+    throw error;
+  } finally { connection.release(); }
 }
 
 function descricaoSegura(value) { return PropertyDescription.sanitizar(value); }
@@ -375,7 +459,28 @@ async function removePhoto(caminho) {
 }
 function folderSlug(value) { return String(value || 'imovel').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'imovel'; }
 function cookies(req) { const result = {}; for (const item of String(req.headers.cookie || '').split(';')) { const separator = item.indexOf('='); if (separator < 1) continue; try { result[item.slice(0, separator).trim()] = decodeURIComponent(item.slice(separator + 1).trim()); } catch (_) { /* Ignore malformed cookies. */ } } return result; }
-async function userPayload(id) { const [[usuario]] = await pool.query('SELECT id,nome,email,telefone,tipo_usuario,papel FROM usuarios WHERE id=?', [id]); const [rows] = await pool.query('SELECT * FROM imoveis WHERE usuario_id=? ORDER BY id DESC', [id]); return { usuario, imoveis: await comFotos(rows) }; }
+async function userPayload(id) {
+  const [[usuario]] = await pool.query('SELECT id,nome,email,telefone,tipo_usuario,papel FROM usuarios WHERE id=?', [id]);
+  const [rows] = await pool.query('SELECT * FROM imoveis WHERE usuario_id=? ORDER BY id DESC', [id]);
+  return { usuario, imoveis: await comFotos(rows) };
+}
+async function userPropertiesWithMetrics(id) {
+  const [[usuario]] = await pool.query('SELECT id,nome,email,telefone,tipo_usuario,papel FROM usuarios WHERE id=?', [id]);
+  const [rows] = await pool.query(`SELECT i.*,
+    (SELECT COUNT(*) FROM imovel_visualizacoes v WHERE v.imovel_id=i.id) AS total_visualizacoes,
+    (SELECT COUNT(*) FROM imovel_compartilhamentos s WHERE s.imovel_id=i.id) AS total_compartilhamentos,
+    (SELECT COUNT(*) FROM contatos c WHERE c.imovel_id=i.id) AS total_interesses
+    FROM imoveis i WHERE i.usuario_id=? ORDER BY i.id DESC`, [id]);
+  const imoveis = await comFotos(rows);
+  for (let index = 0; index < imoveis.length; index += 1) {
+    imoveis[index].metricas = {
+      visualizacoes: Number(rows[index].total_visualizacoes || 0),
+      compartilhamentos: Number(rows[index].total_compartilhamentos || 0),
+      interesses: Number(rows[index].total_interesses || 0)
+    };
+  }
+  return { usuario, imoveis };
+}
 async function authenticatedUser(req, res) { const token = cookies(req).runge_session; const session = sessions.get(token); if (!session || session.expiresAt < Date.now()) { if (token) sessions.delete(token); sendJson(res, 401, { error:'Sessão expirada.' }); return null; } session.expiresAt = Date.now() + SESSION_TIMEOUT; res.setHeader('Set-Cookie', sessionCookie(req, token)); return session.userId; }
 async function adminUser(req, res) {
   const token = cookies(req).admin_session; const session = adminSessions.get(token);
@@ -397,6 +502,14 @@ function adminCookie(token, maxAge = SESSION_COOKIE_MAX_AGE) { return 'admin_ses
 async function ensureAdminAccount() { if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) return; const hash = await hashPassword(process.env.ADMIN_PASSWORD); await pool.query('INSERT INTO admin_usuarios (email,senha_hash) VALUES (?,?) ON DUPLICATE KEY UPDATE senha_hash=VALUES(senha_hash),ativo=TRUE', [process.env.ADMIN_EMAIL.trim().toLowerCase(), hash]); }
 
 async function ownedProperty(req, res, propertyId) { const userId = await authenticatedUser(req, res); if (!userId) return null; const [[property]] = await pool.query('SELECT * FROM imoveis WHERE id=? AND usuario_id=?', [propertyId, userId]); if (!property) { sendJson(res, 404, { error: 'ImÃ³vel nÃ£o encontrado.' }); return null; } return { userId, property }; }
+async function deleteOwnedProperty(userId, propertyId, res) {
+  const [[property]] = await pool.query('SELECT id FROM imoveis WHERE id=? AND usuario_id=?', [propertyId, userId]);
+  if (!property) return sendJson(res, 404, { error: 'Imóvel não encontrado.' });
+  const [photos] = await pool.query('SELECT caminho FROM imovel_fotos WHERE imovel_id=?', [propertyId]);
+  for (const photo of photos) await removePhoto(photo.caminho);
+  await pool.query('DELETE FROM imoveis WHERE id=? AND usuario_id=?', [propertyId, userId]);
+  return sendJson(res, 200, { success: true });
+}
 function parsePropertyOffer(data) {
   return PropertyOffers.parse(data);
 }
@@ -441,8 +554,6 @@ async function addPropertyPhotos(req, res, propertyId, adminId = null) {
   if (!rateLimit(req, res, 'photo-upload', 20, 15 * 60 * 1000, String(owned.userId))) return;
   const parsed = await parseMultipart(req);
   const displayTitle = PropertyOffers.displayTitle(owned.property);
-  const folderName = `imovel-${propertyId}-${folderSlug(displayTitle)}`;
-  const folder = path.join(photosDir, folderName); fs.mkdirSync(folder, { recursive: true });
   const [[last]] = await pool.query('SELECT COALESCE(MAX(ordem), -1) AS ordem FROM imovel_fotos WHERE imovel_id=?', [propertyId]);
   const fotos = parsed.files.filter((file) => file.name === 'fotos');
   if (fotos.length > 10) return sendJson(res, 400, { error: 'Envie no máximo 10 fotos por vez.' });
@@ -489,7 +600,7 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
   res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -584,9 +695,18 @@ const server = http.createServer(async (req, res) => {
         LIMIT ${limit}`);
       return sendJson(res, 200, await comFotos(rows));
     }
-    const detailFixed = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (detailFixed && req.method === 'GET') { if (!rateLimit(req, res, 'public-detail', 120, 60 * 1000)) return; const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [detailFixed[1]]); if (!row) return sendJson(res, 404, { error: 'Imóvel não encontrado.' }); const viewToken = cookies(req).runge_session; const viewSession = sessions.get(viewToken); await pool.query('INSERT INTO imovel_visualizacoes (imovel_id,usuario_id) VALUES (?,?)', [detailFixed[1], viewSession?.expiresAt > Date.now() ? viewSession.userId : null]); return sendJson(res, 200, (await comFotos([row]))[0]); }
+    const propertyShare = url.pathname.match(/^\/api\/imoveis\/(\d+)\/compartilhamentos$/);
+    if (propertyShare && req.method === 'POST') {
+      if (!rateLimit(req, res, 'property-share', 30, 10 * 60 * 1000)) return;
+      const [[property]] = await pool.query('SELECT id FROM imoveis WHERE id=?', [propertyShare[1]]);
+      if (!property) return sendJson(res, 404, { error: 'Imóvel não encontrado.' });
+      await pool.query('INSERT INTO imovel_compartilhamentos (imovel_id) VALUES (?)', [property.id]);
+      return sendJson(res, 201, { success: true });
+    }
+    const detailFixed = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (detailFixed && req.method === 'GET') { if (!rateLimit(req, res, 'public-detail', 120, 60 * 1000)) return; const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [detailFixed[1]]); if (!row) return sendJson(res, 404, { error: 'Imóvel não encontrado.' }); const viewToken = cookies(req).runge_session; const viewSession = sessions.get(viewToken); const viewerId = viewSession?.expiresAt > Date.now() ? viewSession.userId : null; if (viewerId == null || Number(viewerId) !== Number(row.usuario_id)) await pool.query('INSERT INTO imovel_visualizacoes (imovel_id,usuario_id) VALUES (?,?)', [detailFixed[1], viewerId]); return sendJson(res, 200, (await comFotos([row]))[0]); }
+    if (detailFixed && req.method === 'DELETE') { const id=await authenticatedUser(req,res); if (!id) return; if (!rateLimit(req,res,'property-delete',5,60*60*1000,String(id))) return; return deleteOwnedProperty(id,detailFixed[1],res); }
     const editRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)$/); if (editRoute && req.method === 'PATCH') return updateProperty(req, res, editRoute[1]);
-    const photoRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)\/fotos$/); if (photoRoute && req.method === 'POST') return addPropertyPhotos(req, res, photoRoute[1]);
+    const photoRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)\/fotos$/); if (photoRoute && req.method === 'POST') return await addPropertyPhotos(req, res, photoRoute[1]);
     const deletePhotoRoute = url.pathname.match(/^\/api\/imoveis\/(\d+)\/fotos\/(\d+)$/); if (deletePhotoRoute && req.method === 'DELETE') return deletePropertyPhotoStored(req, res, deletePhotoRoute[1], deletePhotoRoute[2]);
     if (url.pathname === '/api/imoveis' && req.method === 'POST' && (req.headers['content-type'] || '').startsWith('multipart/form-data')) { if (!rateLimit(req, res, 'property-create', 10, 60 * 60 * 1000)) return; return criarImovelComFotos(req, res); }
     if (url.pathname === '/api/login' && req.method === 'POST') {
@@ -617,9 +737,14 @@ const server = http.createServer(async (req, res) => {
       } catch (error) { if (error.code === 'ER_DUP_ENTRY') return sendJson(res, 409, { error: 'Este e-mail já está cadastrado.' }); throw error; }
     }
     if (url.pathname === '/api/minha-conta' && req.method === 'GET') { const id=await authenticatedUser(req,res); return id ? sendJson(res,200,await userPayload(id)) : undefined; }
+    if (url.pathname === '/api/minha-conta/imoveis' && req.method === 'GET') { const id=await authenticatedUser(req,res); return id ? sendJson(res,200,await userPropertiesWithMetrics(id), { 'Cache-Control': 'private, no-store' }) : undefined; }
+    if (url.pathname === '/api/perfil/alterar-email' && req.method === 'POST') { const id=await authenticatedUser(req,res); if (!id) return; if (!rateLimit(req,res,'profile-email-change',5,60*60*1000,String(id))) return; return requestEmailChange(await bodyJson(req),id,res); }
+    if (url.pathname === '/api/perfil/alterar-senha' && req.method === 'POST') { const id=await authenticatedUser(req,res); if (!id) return; if (!rateLimit(req,res,'profile-password-change',5,60*60*1000,String(id))) return; return requestPasswordChange(await bodyJson(req),id,res); }
+    if (url.pathname === '/api/perfil/confirmar-alteracao' && req.method === 'POST') { if (!rateLimit(req,res,'profile-change-confirm',10,60*60*1000)) return; return confirmAccountChange(await bodyJson(req),req,res); }
     if (url.pathname === '/api/logout' && req.method === 'POST') { const requestCookies = cookies(req); sessions.delete(requestCookies.runge_session); adminSessions.delete(requestCookies.admin_session); return sendJson(res,200,{success:true},{'Set-Cookie':sessionCookie(req, '', 0)}); }
     if (url.pathname === '/api/conteudos/politica_privacidade' && req.method === 'GET') { const [[row]] = await pool.query('SELECT chave,titulo,conteudo,versao,updated_at FROM site_conteudos WHERE chave=?',['politica_privacidade']); return row ? sendJson(res,200,row) : sendJson(res,404,{error:'Conteúdo não encontrado.'}); }
-    if (url.pathname === '/api/perfil' && req.method === 'PATCH') { const id=await authenticatedUser(req,res); if (!id) return; const d=await bodyJson(req); const fields = ['nome','telefone']; const max = { nome:180, telefone:40 }; if (!d || typeof d !== 'object' || Array.isArray(d) || !fields.every(key => typeof d[key] === 'string' && d[key].trim() && d[key].length <= max[key])) return sendJson(res,400,{error:'Confira os campos obrigatórios e seus limites.'}); await pool.query('UPDATE usuarios SET nome=?,telefone=? WHERE id=?',[d.nome.trim(),d.telefone.trim(),id]); return sendJson(res,200,await userPayload(id)); }
+    if (url.pathname === '/api/perfil' && req.method === 'GET') { const id=await authenticatedUser(req,res); if (!id) return; const [[usuario]] = await pool.query('SELECT id,nome,email,telefone,tipo_usuario,papel FROM usuarios WHERE id=? AND ativo=TRUE', [id]); return usuario ? sendJson(res,200,{usuario}) : sendJson(res,404,{error:'Conta não encontrada.'}); }
+    if (url.pathname === '/api/perfil' && req.method === 'PATCH') { const id=await authenticatedUser(req,res); if (!id) return; const d=await bodyJson(req); const fields = ['nome','telefone']; const max = { nome:180, telefone:40 }; if (!d || typeof d !== 'object' || Array.isArray(d) || !fields.every(key => typeof d[key] === 'string' && d[key].trim() && d[key].length <= max[key])) return sendJson(res,400,{error:'Confira os campos obrigatórios e seus limites.'}); await pool.query('UPDATE usuarios SET nome=?,telefone=? WHERE id=?',[d.nome.trim(),d.telefone.trim(),id]); const [[usuario]] = await pool.query('SELECT id,nome,email,telefone,tipo_usuario,papel FROM usuarios WHERE id=? AND ativo=TRUE', [id]); return sendJson(res,200,{usuario}); }
     if (url.pathname === '/api/admin/login' && req.method === 'POST') { if (!rateLimit(req, res, 'admin-login', 10, 15 * 60 * 1000)) return; const data = await bodyJson(req); const [[user]] = await pool.query('SELECT * FROM admin_usuarios WHERE LOWER(email)=LOWER(?) AND ativo=TRUE LIMIT 1', [data?.email || '']); const ok = await verifyPassword(data?.senha, user?.senha_hash); if (!user || !ok) return sendJson(res,401,{error:'Usuário ou senha administrativos inválidos.'}); const token = crypto.randomBytes(32).toString('hex'); adminSessions.set(token,{userId:user.id,expiresAt:Date.now()+SESSION_TIMEOUT}); return sendJson(res,200,{usuario:{id:user.id,email:user.email}},{'Set-Cookie':adminCookie(token)}); }
     if (url.pathname === '/api/admin/logout' && req.method === 'POST') { adminSessions.delete(cookies(req).admin_session); return sendJson(res,200,{success:true},{'Set-Cookie':adminCookie('',0)}); }
     if (url.pathname === '/api/admin/dashboard' && req.method === 'GET') {
@@ -654,7 +779,7 @@ const server = http.createServer(async (req, res) => {
     if (adminProperty && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [[row]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [adminProperty[1]]); if (!row) return sendJson(res, 404, { error: 'Imóvel não encontrado.' }); const [historico] = await pool.query("SELECT a.id,a.acao,a.detalhes,a.created_at,u.email AS administrador FROM admin_auditoria a LEFT JOIN admin_usuarios u ON u.id=a.usuario_id WHERE a.entidade='imovel' AND a.entidade_id=? ORDER BY a.created_at DESC,a.id DESC", [adminProperty[1]]); return sendJson(res, 200, { ...(await comFotos([row]))[0], historico }); }
     if (adminProperty && req.method === 'PATCH') { const admin = await adminUser(req, res); if (!admin) return; return updateProperty(req, res, adminProperty[1], admin.id); }
     const adminPhotoRoute = url.pathname.match(/^\/api\/admin\/imoveis\/(\d+)\/fotos(?:\/(\d+))?$/);
-    if (adminPhotoRoute && req.method === 'POST' && !adminPhotoRoute[2]) { const admin = await adminUser(req, res); if (!admin) return; return addPropertyPhotos(req, res, adminPhotoRoute[1], admin.id); }
+    if (adminPhotoRoute && req.method === 'POST' && !adminPhotoRoute[2]) { const admin = await adminUser(req, res); if (!admin) return; return await addPropertyPhotos(req, res, adminPhotoRoute[1], admin.id); }
     if (adminPhotoRoute && adminPhotoRoute[2] && req.method === 'DELETE') { const admin = await adminUser(req, res); if (!admin) return; return deletePropertyPhotoStored(req, res, adminPhotoRoute[1], adminPhotoRoute[2], admin.id); }
     if (adminProperty && req.method === 'DELETE') {
       const admin = await adminUser(req, res); if (!admin) return;
@@ -722,6 +847,26 @@ const server = http.createServer(async (req, res) => {
     if (contentRoute && req.method === 'GET') { const admin = await adminUser(req, res); if (!admin) return; const [[row]] = await pool.query('SELECT * FROM site_conteudos WHERE chave=?', [contentRoute[1]]); return row ? sendJson(res, 200, row) : sendJson(res, 404, { error: 'Conteúdo não encontrado.' }); }
     if (contentRoute && req.method === 'PATCH') { const admin = await adminUser(req, res); if (!admin) return; const data = await bodyJson(req, 256 * 1024); if (!data || typeof data.conteudo !== 'string' || !data.conteudo.trim() || data.conteudo.length > 200000) return sendJson(res,400,{error:'O conteúdo é obrigatório e deve ter até 200 mil caracteres.'}); await pool.query('UPDATE site_conteudos SET conteudo=?,versao=versao+1,atualizado_por=? WHERE chave=?',[data.conteudo.trim(),admin.id,contentRoute[1]]); await audit(admin.id,'editar','conteudo',contentRoute[1]); const [[row]] = await pool.query('SELECT * FROM site_conteudos WHERE chave=?',[contentRoute[1]]); return sendJson(res,200,row); }
     const contact = url.pathname.match(/^\/api\/imoveis\/(\d+)\/contatos$/); if (contact && req.method === 'POST') { if (!rateLimit(req, res, 'contact', 5, 15 * 60 * 1000)) return; const d=await bodyJson(req, 64 * 1024); if (!d || typeof d.nome !== 'string' || !d.nome.trim() || d.nome.length > 180 || typeof d.telefone !== 'string' || !d.telefone.trim() || d.telefone.length > 40 || typeof d.email !== 'string' || d.email.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email) || !(d.aceite_privacidade === true || d.aceite_privacidade === 'true')) return sendJson(res,400,{error:'Preencha os dados corretamente e aceite a Política de Privacidade.'}); const [[property]]=await pool.query('SELECT id FROM imoveis WHERE id=?',[contact[1]]); if(!property) return sendJson(res,404,{error:'Imóvel não encontrado.'}); const [result]=await pool.query('INSERT INTO contatos (imovel_id,nome,telefone,email,privacidade_versao,privacidade_aceita_em) VALUES (?,?,?, ?, ?, NOW())',[contact[1],d.nome.trim(),d.telefone.trim(),d.email.trim().toLowerCase(),PRIVACY_POLICY_VERSION]); return sendJson(res,201,{id:result.insertId,message:'Contato registrado com sucesso.'}); }
+    if (url.pathname === '/imovel' && ['GET', 'HEAD'].includes(req.method)) {
+      const propertyId = url.searchParams.get('id') || '';
+      if (/^\d+$/.test(propertyId) && Number.isSafeInteger(Number(propertyId)) && Number(propertyId) > 0) {
+        const [[property]] = await pool.query('SELECT * FROM imoveis WHERE id=?', [propertyId]);
+        if (property) {
+          const [[photo]] = await pool.query('SELECT caminho FROM imovel_fotos WHERE imovel_id=? ORDER BY ordem,id LIMIT 1', [propertyId]);
+          const tags = PropertyOpenGraph.criarTags(property, photo?.caminho || '', process.env.APP_PUBLIC_URL || '', PropertyDescription.resumo(property.descricao));
+          if (tags) {
+            const pageFile = path.join(webRoot, 'imovel.html');
+            const titleTag = tags.match(/^<title>[\s\S]*?<\/title>/)?.[0] || '';
+            const metadata = tags.slice(titleTag.length);
+            const html = fs.readFileSync(pageFile, 'utf8')
+              .replace(/<title>[\s\S]*?<\/title>/i, titleTag)
+              .replace('</head>', `${metadata}</head>`);
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=60' });
+            return req.method === 'HEAD' ? res.end() : res.end(html);
+          }
+        }
+      }
+    }
     if (url.pathname === '/api/imoveis' && req.method === 'POST') return criarImovelJson(req, res);
     const cleanRoute = url.pathname === '/' ? '/index.html' : url.pathname;
     const relative = cleanRoute.endsWith('.html') || path.extname(cleanRoute) ? cleanRoute : `${cleanRoute}.html`;

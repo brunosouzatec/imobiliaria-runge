@@ -1,6 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createMailer, diagnoseSmtpError, smtpConfigured, sendGridConfigured, emailConfigured, emailProvider, sendWithSendGrid, sendTestEmail } = require('../src/mailer');
+const { createMailer, diagnoseSmtpError, smtpConfigured, sendGridConfigured, emailConfigured, emailProvider, sendWithSendGrid, sendTestEmail, accountChangeContent } = require('../src/mailer');
+
+test('e-mails para confirmar troca de e-mail e senha usam links expiráveis e identidade visual do site', () => {
+  const config = { APP_PUBLIC_URL: 'https://tatuiimoveis.com.br' };
+  const email = accountChangeContent({ email: 'novo@example.com', name: 'Bruno', token: 'token-seguro', type: 'email' }, config);
+  const senha = accountChangeContent({ email: 'bruno@example.com', name: 'Bruno', token: 'token-seguro', type: 'senha' }, config);
+  assert.equal(email.to, 'novo@example.com');
+  assert.match(email.text, /Confirme em até 30 minutos/i);
+  assert.match(email.html, /confirmar novo e-mail/i);
+  assert.match(email.html, /bgcolor="#173c3d"/);
+  assert.match(senha.to, /bruno@example\.com/);
+  assert.match(senha.subject, /Confirme a alteração de senha/);
+  assert.match(senha.html, /tatui-imoveis-logo@tatuiimoveis\.com\.br/);
+});
 
 test('SMTP é considerado configurado somente com os dados essenciais', () => {
   assert.equal(smtpConfigured({ SMTP_HOST: 'smtp.example.com', SMTP_USER: 'user@example.com', SMTP_PASS: 'secret', SMTP_FROM: 'user@example.com' }), true);

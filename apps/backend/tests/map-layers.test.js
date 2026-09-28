@@ -28,3 +28,5 @@ test('home, cadastro e detalhe usam o controle compartilhado de camadas', () => 
     assert.ok(html.indexOf('map-layers.js') < html.indexOf('vue-app.js'), `${page} loads map layers before Vue components`);
   }
 });
+
+

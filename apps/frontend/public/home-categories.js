@@ -5,7 +5,7 @@
 
   const labels = [...section.querySelectorAll('.home-category-grid a')].map((link, index) => ({
     label: link.querySelector('span')?.textContent?.trim() || '',
-    icon: link.querySelector('strong')?.dataset.phosphor || 'house',
+    icon: link.querySelector('strong')?.dataset.phosphor || ['house', 'buildings', 'mountains', 'tree', 'storefront'][index] || 'house',
     color: ['#00796b', '#2563eb', '#c2410c', '#15803d', '#9333ea'][index] || '#00796b'
   })).filter(item => item.label);
 

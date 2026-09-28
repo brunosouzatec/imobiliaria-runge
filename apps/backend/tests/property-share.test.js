@@ -5,7 +5,7 @@ const PropertyShare = require('../../../packages/shared/property-share');
 const property = { id: 42, titulo: 'Casa - Venda', endereco: 'Rua das Flores, 87, Centro, Tatuí - SP' };
 
 test('compartilhamento cria link absoluto direto para o imóvel', () => {
-  assert.equal(PropertyShare.urlFor(property, 'https://imoveis.example'), 'https://imoveis.example/imovel.html?id=42');
+  assert.equal(PropertyShare.urlFor(property, 'https://imoveis.example'), 'https://imoveis.example/imovel?id=42');
   assert.equal(PropertyShare.urlFor({}, 'https://imoveis.example'), '');
 });
 
@@ -18,7 +18,7 @@ test('usa compartilhamento nativo com título, endereço e URL direta', async ()
   assert.equal(result, 'shared');
   assert.equal(shared.title, property.titulo);
   assert.match(shared.text, /Rua das Flores, 87/);
-  assert.equal(shared.url, 'https://imoveis.example/imovel.html?id=42');
+  assert.equal(shared.url, 'https://imoveis.example/imovel?id=42');
 });
 
 test('anexa a primeira foto quando o compartilhamento nativo aceita arquivos', async () => {
@@ -65,7 +65,7 @@ test('copia o link quando compartilhamento nativo não está disponível', async
     navigator: { clipboard: { writeText: async value => { copied = value; } } }
   });
   assert.equal(result, 'copied');
-  assert.equal(copied, 'https://imoveis.example/imovel.html?id=42');
+  assert.equal(copied, 'https://imoveis.example/imovel?id=42');
 });
 
 test('não copia link quando usuário fecha a janela de compartilhamento nativo', async () => {
