@@ -1,14 +1,73 @@
 (() => {
+  const phosphorStyles = document.createElement('link');
+  phosphorStyles.rel = 'stylesheet';
+  phosphorStyles.href = '/phosphor-icons.css';
+  document.head.appendChild(phosphorStyles);
   const app = document.querySelector('#admin-app');
-  const state = { tab: 'dashboard', dashboard: null, properties: [], users: [], audit: [], policy: null, smtp: null, emailProvider: null };
+  const adminIconByText = [
+    [/visão geral|dashboard/i, 'chart-line'], [/imóveis|imóvel/i, 'house'], [/usuários|usuário/i, 'users'],
+    [/auditoria|histórico/i, 'file-text'], [/conteúdo|política/i, 'file-text'], [/e-mail|email/i, 'envelope'],
+    [/oportunidade/i, 'sparkle'], [/configurações|configuração/i, 'gear'], [/sair|logout/i, 'sign-out'],
+    [/editar/i, 'pencil-simple'], [/excluir|remover/i, 'trash'], [/incluir|novo|adicionar/i, 'plus'],
+    [/salvar|publicar/i, 'floppy-disk'], [/voltar/i, 'arrow-left'], [/detalhes|abrir/i, 'arrow-square-out'],
+    [/teste|enviar/i, 'envelope'], [/fechar|cancelar/i, 'x']
+  ];
+  function enhanceAdminIcons() {
+    app.querySelectorAll('.admin-opportunity-location').forEach(element => {
+      if (element.querySelector('[data-phosphor]')) return;
+      const icon = document.createElement('span');
+      icon.className = 'phosphor-icon admin-opportunity-inline-icon';
+      icon.dataset.phosphor = 'map-pin';
+      icon.setAttribute('aria-hidden', 'true');
+      element.prepend(icon);
+    });
+    app.querySelectorAll('.admin-opportunity-facts span').forEach((element, index) => {
+      const fact = element.querySelector('strong');
+      if (index === 1 && fact && !fact.dataset.areaLocalized) {
+        fact.textContent = fact.textContent.replace(/\d+(?:[.,]\d+)?/g, value => Number(value.replace(',', '.')).toLocaleString('pt-BR', { maximumFractionDigits: 1 }));
+        fact.dataset.areaLocalized = 'true';
+      }
+      if (element.querySelector('[data-phosphor]')) return;
+      const icon = document.createElement('span');
+      icon.className = 'phosphor-icon admin-opportunity-inline-icon';
+      icon.dataset.phosphor = ['house', 'ruler', 'currency-circle-dollar'][index] || 'sparkle';
+      icon.setAttribute('aria-hidden', 'true');
+      element.prepend(icon);
+    });
+    app.querySelectorAll('button, a, .admin-property-placeholder, .admin-property-address, .admin-opportunity-location, .admin-opportunity-facts span').forEach(element => {
+      if (element.querySelector('[data-phosphor]') || element.classList.contains('admin-icon-enhanced')) return;
+      if (element.classList.contains('admin-property-placeholder')) element.textContent = '';
+      if (element.classList.contains('admin-modal-close')) element.textContent = '';
+      if (element.classList.contains('admin-secondary-action')) element.innerHTML = element.innerHTML.replace('→', '');
+      const text = element.textContent.trim();
+      const match = adminIconByText.find(([pattern]) => pattern.test(text));
+      if (!match) return;
+      const icon = document.createElement('span');
+      icon.className = 'phosphor-icon admin-context-icon';
+      icon.dataset.phosphor = match[1];
+      icon.setAttribute('aria-hidden', 'true');
+      element.prepend(icon);
+      element.classList.add('admin-icon-enhanced');
+    });
+  }
+  new MutationObserver(enhanceAdminIcons).observe(app, { childList: true, subtree: true });
+  const state = { tab: 'dashboard', dashboard: null, properties: [], opportunities: [], opportunityTypes: [], users: [], audit: [], policy: null, smtp: null, emailProvider: null };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const tipoCadastro = value => ({'Proprietário Direto':'Proprietário','Proprietario Direto':'Proprietário','Corretor':'Corretor','Imobiliária':'Imobiliária','Imobiliaria':'Imobiliária'}[String(value ?? '').trim()] || 'Não informado');
   async function api(path, options) { const response = await fetch(path, options); const data = await response.json().catch(() => ({})); if (response.status === 401) throw new Error('LOGIN_REQUIRED'); if (!response.ok) throw new Error(data.error || 'Não foi possível concluir a operação.'); return data; }
   function login() { app.innerHTML = '<main class="admin-login"><img src="assets/tatui-imoveis-logo.svg" alt="Tatuí Imóveis"><h1>Área administrativa</h1><p>Entre com suas credenciais administrativas.</p><form id="admin-login-form"><label>Usuário<input name="email" type="email" autocomplete="username" required></label><label>Senha<div class="password-field"><input name="senha" type="password" autocomplete="current-password" required><button type="button" class="password-toggle" aria-label="Mostrar senha" aria-pressed="false" title="Senha oculta — clique para mostrar"><svg class="password-eye password-eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-5 9.5-5 9.5 5 9.5 5-3.3 5-9.5 5-9.5-5-9.5-5Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg><svg class="password-eye password-eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 6.9A10.8 10.8 0 0 1 12 6.8c6.2 0 9.5 5.2 9.5 5.2a17.8 17.8 0 0 1-3.1 3.3"></path><path d="M6.6 8.2C4.2 9.4 2.5 12 2.5 12s3.3 5.2 9.5 5.2c1.3 0 2.5-.3 3.5-.7"></path></svg></button></div></label><p id="admin-login-error"></p><button class="admin-primary">Entrar</button></form></main>'; const password = document.querySelector('.admin-login input[name="senha"]'); const toggle = document.querySelector('.admin-login .password-toggle'); toggle.onclick = () => { const visible = password.type === 'text'; password.type = visible ? 'password' : 'text'; toggle.classList.toggle('is-visible', !visible); toggle.setAttribute('aria-label', visible ? 'Mostrar senha' : 'Ocultar senha'); toggle.setAttribute('aria-pressed', String(!visible)); toggle.title = visible ? 'Senha oculta — clique para mostrar' : 'Senha visível — clique para ocultar'; }; document.querySelector('#admin-login-form').onsubmit = async event => { event.preventDefault(); try { await api('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.currentTarget)))}); await load(); } catch(error) { document.querySelector('#admin-login-error').textContent = error.message === 'LOGIN_REQUIRED' ? 'Usuário ou senha inválidos.' : error.message; } }; }
-  function shell(content) { app.innerHTML = `<header class="admin-header"><a href="/"><img src="assets/tatui-imoveis-logo.svg" alt="Tatuí Imóveis"></a><div><strong>Área administrativa</strong><button id="logout">Sair</button></div></header><main class="admin-shell"><aside><button data-tab="dashboard">Visão geral</button><button data-tab="properties">Imóveis</button><button data-tab="users">Usuários</button><button data-tab="policy">Conteúdos e política</button><button data-tab="email">E-mail</button><button data-tab="audit">Auditoria</button></aside><section class="admin-content">${content}</section></main>`; document.querySelectorAll('[data-tab]').forEach(button => button.onclick = () => { state.tab = button.dataset.tab; render(); }); document.querySelector('#logout').onclick = async () => { await fetch('/api/logout',{method:'POST'}); location.replace('/'); }; }
-  async function load() { try { state.dashboard = await api('/api/admin/dashboard'); state.properties = await api('/api/admin/imoveis'); state.users = await api('/api/admin/usuarios'); state.audit = await api('/api/admin/auditoria'); state.policy = await api('/api/admin/conteudos/politica_privacidade'); state.smtp = await api('/api/admin/configuracoes/email'); render(); } catch (error) { if (error.message === 'LOGIN_REQUIRED') return login(); app.innerHTML = '<main class="admin-error"><h1>Acesso administrativo</h1><p>' + esc(error.message) + '</p></main>'; } }
+  function shell(content) { app.innerHTML = `<header class="admin-header"><a href="/"><img src="assets/tatui-imoveis-logo.svg" alt="Tatuí Imóveis"></a><div><strong>Área administrativa</strong><button id="logout">Sair</button></div></header><main class="admin-shell"><aside><button data-tab="dashboard">Visão geral</button><button data-tab="properties">Imóveis</button><button data-tab="opportunities">Oportunidades</button><button data-tab="users">Usuários</button><button data-tab="policy">Conteúdos e política</button><button data-tab="email">E-mail</button><button data-tab="audit">Auditoria</button></aside><section class="admin-content">${content}</section></main>`; document.querySelectorAll('[data-tab]').forEach(button => button.onclick = () => { state.tab = button.dataset.tab; render(); }); document.querySelector('#logout').onclick = async () => { await fetch('/api/logout',{method:'POST'}); location.replace('/'); }; }
+  async function load() { try { state.dashboard = await api('/api/admin/dashboard'); state.properties = await api('/api/admin/imoveis'); state.opportunities = await api('/api/admin/oportunidades'); const configuredTypes = await api('/api/admin/oportunidades/tipos'); state.opportunityTypes = configuredTypes.map(item => item.nome); if (!state.opportunityTypes.length) state.opportunityTypes = ['Casa', 'Apartamento', 'Terreno', 'Chácara / Sítio', 'Comercial']; state.users = await api('/api/admin/usuarios'); state.audit = await api('/api/admin/auditoria'); state.policy = await api('/api/admin/conteudos/politica_privacidade'); state.smtp = await api('/api/admin/configuracoes/email'); render(); } catch (error) { if (error.message === 'LOGIN_REQUIRED') return login(); app.innerHTML = '<main class="admin-error"><h1>Acesso administrativo</h1><p>' + esc(error.message) + '</p></main>'; } }
   function dashboard() { const m = state.dashboard.metricas; return `<h1>Visão geral</h1><div class="admin-metrics"><article><strong>${m.usuarios}</strong><span>Usuários</span></article><article><strong>${m.imoveis}</strong><span>Imóveis</span></article><article><strong>${m.acessosMes}</strong><span>Acessos no mês</span></article><article><strong>${m.contatosMes}</strong><span>Contatos no mês</span></article></div><div class="admin-columns"><section class="admin-panel"><h2>Últimos imóveis cadastrados</h2><table><tbody>${state.dashboard.ultimos.map(item => `<tr><td><strong>${esc(item.categoria)}</strong><small>${esc(item.anunciante || 'Sem anunciante')}</small></td><td>${esc(item.tipo)}</td></tr>`).join('') || '<tr><td>Nenhum imóvel cadastrado.</td></tr>'}</tbody></table></section><section class="admin-panel"><h2>Mais acessados no mês</h2><table><tbody>${state.dashboard.populares.map(item => `<tr><td>${esc(item.categoria)} · ${esc(item.tipo)}</td><td>${item.acessos} acessos</td></tr>`).join('') || '<tr><td>Nenhum acesso registrado.</td></tr>'}</tbody></table></section></div>`; }
   function properties() { return `<div class="admin-title-row"><div><p class="admin-eyebrow">Catálogo</p><h1>Imóveis</h1><p>Gerencie os anúncios publicados, revise os dados e acompanhe o desempenho de cada imóvel.</p></div><a class="admin-primary" href="/cadastro?modo=imovel">+ Incluir imóvel</a></div><div class="admin-property-list">${state.properties.map(item => { const photo = item.fotos?.[0]?.url; const transactions = Array.isArray(item.transacoes) ? item.transacoes : (item.tipo ? [item.tipo] : []); return `<article class="admin-property-card"><a class="admin-property-media" href="/cadastro?modo=editar&id=${item.id}&admin=1" aria-label="Editar ${esc(item.categoria || 'imóvel')}">${photo ? `<img src="${esc(photo)}" alt="Foto de ${esc(item.categoria || 'imóvel')}">` : '<span class="admin-property-placeholder" aria-hidden="true">⌂</span>'}</a><div class="admin-property-main"><div class="admin-property-heading"><div><div class="admin-property-kicker">${transactions.map(transaction => `<span>${esc(transaction)}</span>`).join('')}</div><h2>${esc(item.categoria || item.tipo || 'Imóvel')}</h2></div><span class="admin-property-id">#${esc(item.id)}</span></div><p class="admin-property-address">${esc(item.endereco || 'Endereço não informado')}</p><div class="admin-property-meta"><span><strong>${Number(item.acessos || 0)}</strong> acessos</span><span><strong>${esc(item.anunciante || 'Sem anunciante')}</strong> anunciante</span></div><div class="admin-property-actions"><a class="admin-secondary-action" href="/cadastro?modo=editar&id=${item.id}&admin=1">Editar imóvel <span aria-hidden="true">→</span></a><button class="admin-danger-action" type="button" data-delete="${item.id}">Excluir</button></div></div></article>`; }).join('') || '<div class="admin-property-empty"><strong>Nenhum imóvel cadastrado.</strong><span>Inclua o primeiro anúncio para começar a gerenciar o catálogo.</span></div>'}</div>`; }
+  function legacyOpportunities() { return `<div class="admin-title-row"><div><p class="admin-eyebrow">Demanda do mercado</p><h1>Oportunidades de compra</h1><p>Cadastre buscas reais de clientes e publique oportunidades para que proprietários encontrem uma demanda compatível.</p></div></div><section class="admin-panel admin-opportunity-form"><h2>Nova oportunidade</h2><div class="admin-form-grid"><label>Título<input id="op-title" maxlength="180" placeholder="Ex.: Família procura casa no Centro"></label><label>Tipo<select id="op-type"><option>Casa</option><option>Apartamento</option><option>Terreno</option><option>Chácara / Sítio</option><option>Comercial</option></select></label><label>Cidade<input id="op-city" value="Tatuí" maxlength="120"></label><label>Valor mínimo<input id="op-min" type="number" min="0" step="0.01"></label><label>Valor máximo<input id="op-max" type="number" min="0" step="0.01"></label><label class="admin-field-wide">Descrição<textarea id="op-description" rows="4" maxlength="5000" placeholder="Descreva o que o cliente procura."></textarea></label></div><fieldset class="admin-opportunity-transactions"><legend>Transação aceita</legend><label><input type="checkbox" name="op-transaction" value="Venda" checked> Compra</label><label><input type="checkbox" name="op-transaction" value="Aluguel"> Aluguel</label><label><input type="checkbox" name="op-transaction" value="Permuta"> Permuta</label></fieldset><div class="admin-opportunity-actions"><button class="admin-primary" id="create-opportunity">Salvar como rascunho</button><span id="opportunity-status" role="status"></span></div></section><section class="admin-panel"><div class="admin-panel-heading"><div><h2>Oportunidades cadastradas</h2><p>Somente as publicadas aparecem na área pública.</p></div></div><div class="admin-opportunity-list">${state.opportunities.map(item => { const tipos = Array.isArray(item.tipos_imovel) && item.tipos_imovel.length ? item.tipos_imovel : [item.tipo_imovel]; return `<article class="admin-opportunity-row"><div><span class="admin-property-kicker">${esc(item.status)} · ${esc(tipos.join(' · '))}</span><h3>${esc(item.titulo)}</h3><p>${esc(item.estado || 'SP')} · ${esc(item.cidade)}${item.bairros?.length ? ` · ${esc(item.bairros.join(', '))}` : ''} · ${esc(item.descricao)}</p></div><div class="admin-opportunity-row-actions"><select data-op-status="${item.id}" aria-label="Status de ${esc(item.titulo)}">${['rascunho','publicada','atendida','expirada','cancelada'].map(status => `<option value="${status}" ${item.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select><button class="admin-danger-action" type="button" data-op-delete="${item.id}">Excluir</button></div></article>`; }).join('') || '<p>Nenhuma oportunidade cadastrada.</p>'}</div></section>`; }
+  function opportunities() {
+    const types = state.opportunityTypes.length ? state.opportunityTypes : ['Casa', 'Apartamento', 'Terreno', 'Chácara / Sítio', 'Comercial'];
+    const statuses = { rascunho: 'Rascunho', publicada: 'Publicada', atendida: 'Atendida', expirada: 'Expirada', cancelada: 'Cancelada' };
+    const money = value => value == null ? 'A combinar' : Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+    const range = (min, max, suffix = '') => min == null && max == null ? 'A combinar' : `${min == null ? 'Até ' + max : max == null ? 'A partir de ' + min : `${min} a ${max}`}${suffix}`;
+    return `<div class="admin-title-row admin-opportunity-page-heading"><div><p class="admin-eyebrow">Demanda do mercado</p><h1>Oportunidades de compra</h1><p>Organize as buscas dos clientes e publique oportunidades para conectar proprietários às demandas certas.</p></div><span class="admin-page-badge"><strong>${state.opportunities.length}</strong> ${state.opportunities.length === 1 ? 'oportunidade' : 'oportunidades'}</span></div><section class="admin-panel admin-opportunity-form"><div class="admin-opportunity-form-heading"><div><p class="admin-eyebrow">Novo cadastro</p><h2>Registrar uma oportunidade</h2><p>Preencha apenas o que já estiver definido pelo cliente. Os campos opcionais podem ser completados depois.</p></div><span class="admin-draft-badge">Salva como rascunho</span></div><div class="admin-opportunity-section"><div class="admin-opportunity-section-heading"><span>1</span><div><h3>Dados principais</h3><p>Defina o que o cliente procura e como deseja negociar.</p></div></div><div class="admin-form-grid admin-opportunity-grid"><label class="admin-field-wide">Título da oportunidade<input id="op-title" maxlength="180" placeholder="Ex.: Família procura casa no Centro"></label><label>Tipo<select id="op-type">${types.map(type => `<option>${esc(type)}</option>`).join('')}</select></label><label>Cidade<input id="op-city" value="Tatuí" maxlength="120"></label><label>Valor mínimo<input id="op-min" type="number" min="0" step="0.01" placeholder="Ex.: 250000"></label><label>Valor máximo<input id="op-max" type="number" min="0" step="0.01" placeholder="Ex.: 450000"></label><label class="admin-field-wide">Descrição<textarea id="op-description" rows="4" maxlength="5000" placeholder="Descreva o perfil do imóvel e as necessidades do cliente."></textarea></label></div><fieldset class="admin-opportunity-transactions"><legend>Transação aceita</legend><label><input type="checkbox" name="op-transaction" value="Venda" checked> Compra</label><label><input type="checkbox" name="op-transaction" value="Aluguel"> Aluguel</label><label><input type="checkbox" name="op-transaction" value="Permuta"> Permuta</label></fieldset></div><div class="admin-opportunity-actions"><div><button class="admin-primary" id="create-opportunity">Salvar como rascunho</button><span id="opportunity-status" role="status"></span></div><small>Você poderá publicar ou alterar o status na lista abaixo.</small></div></section><section class="admin-panel admin-opportunity-catalog"><div class="admin-panel-heading"><div><p class="admin-eyebrow">Acompanhamento</p><h2>Oportunidades cadastradas</h2><p>Revise o status e mantenha as demandas atualizadas para o público.</p></div><span class="admin-panel-count">${state.opportunities.length}</span></div><div class="admin-opportunity-list">${state.opportunities.map(item => { const tipos = Array.isArray(item.tipos_imovel) && item.tipos_imovel.length ? item.tipos_imovel : [item.tipo_imovel]; const status = statuses[item.status] || item.status; const location = [item.estado || 'SP', item.cidade, item.bairros?.length ? item.bairros.join(', ') : ''].filter(Boolean).join(' · '); const investment = range(item.valor_minimo == null ? null : money(item.valor_minimo), item.valor_maximo == null ? null : money(item.valor_maximo)); const area = range(item.area_total_minima, item.area_total_maxima, ' m²'); return `<article class="admin-opportunity-row"><div class="admin-opportunity-row-main"><div class="admin-opportunity-row-top"><span class="admin-opportunity-status admin-opportunity-status-${esc(item.status)}">${esc(status)}</span><span class="admin-opportunity-id">#${esc(item.id)}</span></div><h3>${esc(item.titulo)}</h3><p class="admin-opportunity-location">${esc(location)}</p><div class="admin-opportunity-facts"><span><strong>${esc(tipos.join(' · '))}</strong>Tipo${tipos.length > 1 ? 's' : ''}</span><span><strong>${esc(area)}</strong>Área</span><span><strong>${esc(investment)}</strong>Investimento</span></div><p class="admin-opportunity-description">${esc(item.descricao)}</p></div><div class="admin-opportunity-row-actions"><label>Status<select data-op-status="${item.id}" aria-label="Status de ${esc(item.titulo)}">${Object.entries(statuses).map(([value, label]) => `<option value="${value}" ${item.status === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label><button class="admin-danger-action" type="button" data-op-delete="${item.id}">Excluir</button></div></article>`; }).join('') || '<div class="admin-opportunity-empty"><strong>Nenhuma oportunidade cadastrada.</strong><span>Cadastre a primeira demanda usando o formulário acima.</span></div>'}</div></section>`;
+  }
   function users() { return `<h1>Usuários</h1><p>Selecione um usuário para consultar anúncios e imóveis acessados.</p><div class="admin-panel"><table><thead><tr><th>Usuário</th><th>Perfil</th><th>Imóveis</th><th>Acessos</th></tr></thead><tbody>${state.users.map(item => `<tr><td><button class="admin-user" data-user="${item.id}"><strong>${esc(item.nome)}</strong><small>${esc(item.email)}</small></button></td><td>${esc(tipoCadastro(item.tipo_usuario))}</td><td>${item.imoveis}</td><td>${item.acessos}</td></tr>`).join('')}</tbody></table></div><div id="user-detail"></div>`; }
   function policy() { const content = state.policy?.conteudo || 'Nenhum conteúdo publicado.'; const version = state.policy?.versao || 1; const updated = state.policy?.updated_at ? new Date(state.policy.updated_at).toLocaleString('pt-BR') : 'Não informado'; return `<h1>Política de Privacidade</h1><p>Consulte e edite a versão vigente diretamente nesta área administrativa.</p><div class="admin-policy-grid"><section class="admin-panel"><div class="admin-panel-heading"><div><h2>Versão vigente</h2><p>Versão ${esc(version)} · Atualizada em ${esc(updated)}</p></div><span class="admin-status-badge">Publicada</span></div><div class="admin-policy-preview" aria-label="Prévia da política de privacidade">${esc(content)}</div></section><section class="admin-panel"><h2>Editar política</h2><p>Ao salvar, uma nova versão será publicada.</p><label>Texto da política<textarea id="policy-text" rows="18">${esc(content)}</textarea></label><button class="admin-primary" id="save-policy">Salvar nova versão</button><span id="policy-status"></span></section></div>`; }
   function email() { const smtp = state.smtp || {}; const isSendGrid = (state.emailProvider || document.querySelector('#email-provider')?.value || smtp.provedor || 'sendgrid') === 'sendgrid'; const secretLabel = isSendGrid ? 'Chave da API do SendGrid' : 'Senha do SMTP'; const secretPlaceholder = smtp.configurado ? 'Deixe em branco para manter a atual' : isSendGrid ? 'SG.xxxxxxxxxxxxxxxxx' : 'Informe a senha'; return `<h1>Configuração de e-mail</h1><p>Escolha o serviço usado para enviar links de recuperação e mensagens do sistema. As credenciais ficam disponíveis somente nesta área administrativa e são armazenadas criptografadas.</p><section class="admin-panel"><div class="admin-panel-heading"><div><h2>Serviço de envio</h2><p>O remetente precisa estar autorizado no serviço escolhido.</p></div><span class="admin-status-badge">${smtp.configurado ? 'Configurado' : 'Pendente'}</span></div><div class="admin-form-grid"><label>Provedor<select id="email-provider"><option value="sendgrid" ${isSendGrid ? 'selected' : ''}>SendGrid Web API</option><option value="smtp" ${!isSendGrid ? 'selected' : ''}>Servidor SMTP</option></select></label><label>Remetente<input id="smtp-from" type="email" value="${esc(smtp.remetente)}" placeholder="noreply@tatuiimoveis.com.br" autocomplete="email"></label>${isSendGrid ? `<label class="admin-field-wide">${secretLabel}<div class="password-field"><input id="smtp-pass" type="password" autocomplete="new-password" placeholder="${secretPlaceholder}"><button type="button" class="password-toggle" aria-label="Mostrar senha" aria-pressed="false" title="Senha oculta — clique para mostrar"><svg class="password-eye password-eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-5 9.5-5 9.5 5 9.5 5-3.3 5-9.5 5-9.5-5-9.5-5Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg><svg class="password-eye password-eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 6.9A10.8 10.8 0 0 1 12 6.8c6.2 0 9.5 5.2 9.5 5.2a17.8 17.8 0 0 1 3.1 3.3"></path><path d="M6.6 8.2C4.2 9.4 2.5 12 2.5 12s3.3 5.2 9.5 5.2c1.3 0 2.5-.3 3.5-.7"></path></svg></button></div></label>` : `<label>Servidor<input id="smtp-host" value="${esc(smtp.host)}" placeholder="smtp.exemplo.com"></label><label>Porta<input id="smtp-port" type="number" min="1" max="65535" value="${esc(smtp.port || 587)}"></label><label>Usuário<input id="smtp-user" value="${esc(smtp.usuario)}" autocomplete="username"></label><label>${secretLabel}<div class="password-field"><input id="smtp-pass" type="password" autocomplete="new-password" placeholder="${secretPlaceholder}"><button type="button" class="password-toggle" aria-label="Mostrar senha" aria-pressed="false" title="Senha oculta — clique para mostrar"><svg class="password-eye password-eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-5 9.5-5 9.5 5 9.5 5-3.3 5-9.5 5-9.5-5-9.5-5Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg><svg class="password-eye password-eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 6.9A10.8 10.8 0 0 1 12 6.8c6.2 0 9.5 5.2 9.5 5.2a17.8 17.8 0 0 1 3.1 3.3"></path><path d="M6.6 8.2C4.2 9.4 2.5 12 2.5 12s3.3 5.2 9.5 5.2c1.3 0 2.5-.3 3.5-.7"></path></svg></button></div></label><label class="admin-checkbox"><input id="smtp-secure" type="checkbox" ${smtp.secure ? 'checked' : ''}> Conexão segura (TLS/SSL)</label>`}</div><p id="smtp-status" role="status"></p><div class="admin-email-actions"><button class="admin-primary" id="save-smtp">Salvar configuração</button><button class="admin-secondary-action" type="button" id="open-smtp-test">Enviar e-mail de teste</button></div></section><div class="admin-modal-backdrop" id="smtp-test-modal" hidden><section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="smtp-test-title"><button class="admin-modal-close" type="button" id="close-smtp-test" aria-label="Fechar">×</button><h2 id="smtp-test-title">Testar envio de e-mail</h2><p>Informe um endereço que você consiga consultar. O sistema fará um envio real usando o provedor selecionado.</p><form id="smtp-test-form"><label>Enviar para<input id="smtp-test-email" type="email" required placeholder="seuemail@exemplo.com" autocomplete="email"></label><p class="admin-test-note">O diagnóstico informará se o problema está na autenticação, conexão, TLS/SSL ou remetente.</p><p id="smtp-test-status" role="status"></p><div class="admin-modal-actions"><button class="admin-secondary-action" type="button" id="cancel-smtp-test">Cancelar</button><button class="admin-primary" type="submit">Enviar teste</button></div></form></section></div>`; }
@@ -16,5 +75,191 @@
   function render() { const content = state.tab === 'dashboard' ? dashboard() : state.tab === 'properties' ? properties() : state.tab === 'users' ? users() : state.tab === 'policy' ? policy() : state.tab === 'email' ? email() : audit(); shell(content); document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab)); document.querySelectorAll('[data-delete]').forEach(b => b.onclick = async () => { if (!confirm('Excluir este imóvel e suas fotos?')) return; await api('/api/admin/imoveis/' + b.dataset.delete, { method:'DELETE' }); state.properties = await api('/api/admin/imoveis'); state.dashboard = await api('/api/admin/dashboard'); render(); }); document.querySelectorAll('[data-user]').forEach(b => b.onclick = async () => { const detail = await api('/api/admin/usuarios/' + b.dataset.user); document.querySelector('#user-detail').innerHTML = `<section class="admin-panel"><h2>${esc(detail.usuario.nome)}</h2><p>${esc(detail.usuario.email)} · ${esc(detail.usuario.telefone)}</p><h3>Imóveis cadastrados</h3><p>${detail.imoveis.length || 0} anúncio(s)</p><h3>Imóveis acessados</h3><ul>${detail.acessados.map(item => `<li>${esc(item.categoria)} · ${esc(item.tipo)} — ${new Date(item.created_at).toLocaleString('pt-BR')}</li>`).join('') || '<li>Nenhum acesso associado.</li>'}</ul></section>`; }); const save = document.querySelector('#save-policy'); if (save) save.onclick = async () => { const status = document.querySelector('#policy-status'); const result = await api('/api/admin/conteudos/politica_privacidade', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({conteudo:document.querySelector('#policy-text').value}) }); state.policy = result; status.textContent = 'Salvo com sucesso.'; }; const saveSmtp = document.querySelector('#save-smtp'); if (saveSmtp) saveSmtp.onclick = async () => { const status = document.querySelector('#smtp-status'); status.textContent = 'Salvando…'; try { const provider = document.querySelector('#email-provider').value; state.smtp = await api('/api/admin/configuracoes/email', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ provedor:provider, host:document.querySelector('#smtp-host')?.value, porta:Number(document.querySelector('#smtp-port')?.value), usuario:document.querySelector('#smtp-user')?.value, remetente:document.querySelector('#smtp-from').value, senha:document.querySelector('#smtp-pass').value, seguro:document.querySelector('#smtp-secure')?.checked || false }) }); status.textContent = 'Configuração salva com sucesso.'; render(); } catch (error) { status.textContent = error.message; } }; const provider = document.querySelector('#email-provider'); if (provider) provider.onchange = () => render(); const modal = document.querySelector('#smtp-test-modal'); const closeModal = () => { if (modal) modal.hidden = true; }; const openTest = document.querySelector('#open-smtp-test'); if (openTest) openTest.onclick = () => { modal.hidden = false; document.querySelector('#smtp-test-email').focus(); }; document.querySelector('#close-smtp-test')?.addEventListener('click', closeModal); document.querySelector('#cancel-smtp-test')?.addEventListener('click', closeModal); modal?.addEventListener('click', event => { if (event.target === modal) closeModal(); }); const testForm = document.querySelector('#smtp-test-form'); if (testForm) testForm.onsubmit = async event => { event.preventDefault(); const status = document.querySelector('#smtp-test-status'); const submit = testForm.querySelector('button[type="submit"]'); submit.disabled = true; status.className = ''; status.textContent = 'Autenticando e enviando…'; try { const result = await api('/api/admin/configuracoes/email/teste', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email:document.querySelector('#smtp-test-email').value }) }); status.className = 'admin-test-success'; status.textContent = result.message; } catch (error) { status.className = 'admin-test-error'; status.textContent = error.message; } finally { submit.disabled = false; } }; }
   document.addEventListener('click', event => { const toggle = event.target.closest('.admin-content .password-toggle'); if (!toggle) return; const password = toggle.parentElement?.querySelector('input'); if (!password) return; const visible = password.type === 'text'; password.type = visible ? 'password' : 'text'; toggle.classList.toggle('is-visible', !visible); toggle.setAttribute('aria-label', visible ? 'Mostrar senha' : 'Ocultar senha'); toggle.setAttribute('aria-pressed', String(!visible)); toggle.title = visible ? 'Senha oculta — clique para mostrar' : 'Senha visível — clique para ocultar'; });
   document.addEventListener('change', event => { if (event.target?.id === 'email-provider') { state.emailProvider = event.target.value; render(); } }, true);
+  const BR_STATES = [['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']].map(([sigla, nome]) => ({ sigla, nome }));
+  const semAcentos = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const termosLocaisIgnorados = new Set(['a', 'as', 'da', 'das', 'de', 'do', 'dos', 'e']);
+  const abreviacoesLocais = { dr: 'doutor', dra: 'doutora', jd: 'jardim', vl: 'vila', sta: 'santa', sto: 'santo' };
+  function nomeLocalCorresponde(nome, termo) {
+    const tokens = semAcentos(termo).replace(/[^a-z0-9]+/g, ' ').split(' ').filter(token => token && !termosLocaisIgnorados.has(token)).map(token => abreviacoesLocais[token] || token);
+    const palavras = semAcentos(nome).replace(/[^a-z0-9]+/g, ' ').split(' ').filter(Boolean);
+    return !tokens.length || tokens.every(token => palavras.some(palavra => palavra === token || palavra.startsWith(token)));
+  }
+  const localidadesCache = { estados: null, cidades: new Map(), bairros: new Map() };
+  async function carregarEstados() {
+    if (localidadesCache.estados) return localidadesCache.estados;
+    try { localidadesCache.estados = await api('/api/localidades/estados'); return localidadesCache.estados; }
+    catch (_) { localidadesCache.estados = BR_STATES; return localidadesCache.estados; }
+  }
+  async function carregarCidades(uf) {
+    if (localidadesCache.cidades.has(uf)) return localidadesCache.cidades.get(uf);
+    try { const cidades = await api(`/api/localidades/cidades?uf=${encodeURIComponent(uf)}`); localidadesCache.cidades.set(uf, cidades); return cidades; }
+    catch (_) { const cidades = [...new Set(state.properties.filter(item => String(item.estado || '').toUpperCase() === uf).map(item => item.cidade).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')); localidadesCache.cidades.set(uf, cidades); return cidades; }
+  }
+  async function carregarBairros(uf, cidade, termo = '') {
+    const cacheKey = `${uf}|${semAcentos(cidade)}|${semAcentos(termo)}`;
+    if (localidadesCache.bairros.has(cacheKey)) return localidadesCache.bairros.get(cacheKey);
+    try { const bairros = await api(`/api/localidades/bairros?uf=${encodeURIComponent(uf)}&cidade=${encodeURIComponent(cidade)}&q=${encodeURIComponent(termo)}`); localidadesCache.bairros.set(cacheKey, bairros); return bairros; }
+    catch (_) { const bairros = [...new Set(state.properties.filter(item => String(item.estado || '').toUpperCase() === uf && semAcentos(item.cidade) === semAcentos(cidade)).map(item => item.bairro).filter(Boolean))].filter(value => nomeLocalCorresponde(value, termo)).sort((a, b) => a.localeCompare(b, 'pt-BR')).slice(0, 30); localidadesCache.bairros.set(cacheKey, bairros); return bairros; }
+  }
+  function montarAutocomplete(input, getOptions, { onSelect, inline = false } = {}) {
+    const wrapper = document.createElement('div');
+    wrapper.className = `admin-autocomplete${inline ? ' admin-autocomplete-inline' : ''}`;
+    input.replaceWith(wrapper);
+    wrapper.appendChild(input);
+    input.removeAttribute('list');
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-expanded', 'false');
+    const menu = document.createElement('div');
+    menu.className = 'admin-autocomplete-menu';
+    menu.setAttribute('role', 'listbox');
+    menu.hidden = true;
+    wrapper.appendChild(menu);
+    let options = [];
+    let activeIndex = -1;
+    let requestId = 0;
+    let isOpen = false;
+    const close = () => { isOpen = false; wrapper.classList.remove('is-open'); menu.hidden = true; input.setAttribute('aria-expanded', 'false'); activeIndex = -1; };
+    const select = option => { input.value = option.label; close(); onSelect?.(option); };
+    const paint = () => {
+      menu.innerHTML = options.map((option, index) => `<button type="button" role="option" aria-selected="${index === activeIndex}" class="admin-autocomplete-option${index === activeIndex ? ' is-active' : ''}" data-autocomplete-index="${index}">${esc(option.label)}</button>`).join('');
+      menu.hidden = !isOpen || !options.length;
+      input.setAttribute('aria-expanded', String(!menu.hidden));
+    };
+    const search = async (query = '') => {
+      const currentRequest = ++requestId;
+      const result = await getOptions(query);
+      if (currentRequest !== requestId) return;
+      options = result.slice(0, 30);
+      activeIndex = -1;
+      paint();
+    };
+    input.addEventListener('focus', () => { isOpen = true; wrapper.classList.add('is-open'); search(input.value); });
+    input.addEventListener('input', () => { isOpen = true; wrapper.classList.add('is-open'); search(input.value); });
+    input.addEventListener('keydown', event => {
+      if (menu.hidden || !options.length) return;
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); activeIndex = (activeIndex + (event.key === 'ArrowDown' ? 1 : options.length - 1)) % options.length; paint(); }
+      if (event.key === 'Enter' && activeIndex >= 0) { event.preventDefault(); select(options[activeIndex]); }
+      if (event.key === 'Escape') close();
+    });
+    menu.addEventListener('mousedown', event => { const option = event.target.closest('[data-autocomplete-index]'); if (option) { event.preventDefault(); select(options[Number(option.dataset.autocompleteIndex)]); } });
+    document.addEventListener('mousedown', event => { if (!wrapper.contains(event.target)) close(); });
+    return { refresh: () => search(input.value), close };
+  }
+  const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  function lerMoedaBrasileira(value) {
+    const text = String(value ?? '').trim();
+    if (!text) return null;
+    const normalized = text.includes(',')
+      ? text.replace(/[^\d,-]/g, '').replace(/\./g, '').replace(',', '.')
+      : text.replace(/[^\d-]/g, '');
+    const number = Number(normalized);
+    return Number.isFinite(number) && number >= 0 ? number : null;
+  }
+  function aplicarMascaraMoeda(input) {
+    if (!input) return;
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.removeAttribute('min');
+    input.removeAttribute('step');
+    input.placeholder = 'R$ 0,00';
+    input.addEventListener('input', () => {
+      const digits = input.value.replace(/\D/g, '').slice(0, 14);
+      input.value = digits ? formatadorMoeda.format(Number(digits) / 100) : '';
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
+  }
+  function configurarFormularioOportunidade() {
+    aplicarMascaraMoeda(document.querySelector('#op-min'));
+    aplicarMascaraMoeda(document.querySelector('#op-max'));
+    const transactionFieldset = document.querySelector('.admin-opportunity-transactions');
+    const titleLabel = document.querySelector('#op-title')?.closest('label');
+    if (transactionFieldset && titleLabel) {
+      transactionFieldset.classList.add('admin-field-wide');
+      transactionFieldset.innerHTML = `<legend>Transação aceita <small>(selecione uma ou mais)</small></legend><div class="admin-opportunity-type-options"><label><input type="checkbox" name="op-transaction" value="Venda" checked><span>Compra</span></label><label><input type="checkbox" name="op-transaction" value="Aluguel"><span>Aluguel</span></label><label><input type="checkbox" name="op-transaction" value="Permuta"><span>Permuta</span></label></div>`;
+      titleLabel.insertAdjacentElement('afterend', transactionFieldset);
+    }
+    const typeSelect = document.querySelector('#op-type');
+    if (typeSelect) typeSelect.closest('label').outerHTML = `<fieldset class="admin-opportunity-types admin-field-wide"><legend>Tipos de imóvel <small>(selecione um ou mais)</small></legend><div class="admin-opportunity-type-options" id="op-type-options">${state.opportunityTypes.map(type => `<label><input type="checkbox" name="op-property-type" value="${esc(type)}"> <span>${esc(type)}</span></label>`).join('')}</div><div class="admin-add-type"><input id="op-new-type" maxlength="80" placeholder="Ex.: Galpão"><button class="admin-secondary-action" type="button" id="add-opportunity-type">Adicionar tipo</button></div><small class="admin-field-help">Inclua um novo tipo quando uma oportunidade não se encaixar nas opções existentes.</small></fieldset>`;
+    document.querySelector('#add-opportunity-type')?.addEventListener('click', async () => {
+      const input = document.querySelector('#op-new-type'); const nome = input.value.trim();
+      if (!nome) return;
+      try { await api('/api/admin/oportunidades/tipos', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ nome }) }); state.opportunityTypes = (await api('/api/admin/oportunidades/tipos')).map(item => item.nome); render(); }
+      catch (error) { const status = document.querySelector('#opportunity-status'); if (status) status.textContent = error.message; }
+    });
+    const city = document.querySelector('#op-city');
+    if (!city) return;
+    const cityLabel = city.closest('label');
+    cityLabel.insertAdjacentHTML('beforebegin', '<label>Estado<input id="op-state" placeholder="Digite UF ou estado"></label>');
+    cityLabel.insertAdjacentHTML('afterend', '<label>Bairros de interesse<div class="admin-autocomplete-row"><input id="op-neighborhood" maxlength="120" placeholder="Pesquise e adicione um bairro"><button class="admin-secondary-action" type="button" id="add-opportunity-neighborhood">Adicionar</button></div><div class="admin-opportunity-tags" id="op-neighborhood-tags"></div><input type="hidden" id="op-bairros-json" value="[]"><small class="admin-field-help">Opcional. Você pode adicionar mais de um bairro.</small></label><label>Área mínima (m²)<input id="op-area-min" type="number" min="0" step="0.01" placeholder="Ex.: 250"></label><label>Área máxima (m²)<input id="op-area-max" type="number" min="0" step="0.01" placeholder="Ex.: 500"></label>');
+    const stateInput = document.querySelector('#op-state');
+    const neighborhoods = [];
+    let stateRows = BR_STATES;
+    let cityOptions = [];
+    const renderNeighborhoods = () => { document.querySelector('#op-neighborhood-tags').innerHTML = neighborhoods.map((item, index) => `<button type="button" class="admin-opportunity-tag" data-neighborhood-index="${index}">${esc(item)} <span aria-hidden="true">×</span></button>`).join(''); document.querySelector('#op-bairros-json').value = JSON.stringify(neighborhoods); };
+    const cityAutocomplete = montarAutocomplete(city, async query => cityOptions.filter(value => !query || semAcentos(value).includes(semAcentos(query))).map(value => ({ value, label: value })), { onSelect: option => { city.value = option.value; neighborhoodAutocomplete?.refresh(); } });
+    const neighborhoodInput = document.querySelector('#op-neighborhood');
+    const neighborhoodAutocomplete = montarAutocomplete(neighborhoodInput, async query => { const uf = stateInput.dataset.uf; if (!uf || !city.value.trim()) return []; return (await carregarBairros(uf, city.value, query)).map(value => ({ value, label: value })); }, { inline: true, onSelect: option => { neighborhoodInput.value = option.value; } });
+    document.querySelector('#add-opportunity-neighborhood').onclick = () => { const value = neighborhoodInput.value.trim(); if (!value || neighborhoods.some(item => semAcentos(item) === semAcentos(value))) return; neighborhoods.push(value); neighborhoodInput.value = ''; neighborhoodAutocomplete.close(); renderNeighborhoods(); };
+    document.querySelector('#op-neighborhood-tags').onclick = event => { const button = event.target.closest('[data-neighborhood-index]'); if (!button) return; neighborhoods.splice(Number(button.dataset.neighborhoodIndex), 1); renderNeighborhoods(); };
+    const selectState = async selected => {
+      delete stateInput.dataset.uf;
+      city.value = '';
+      cityOptions = [];
+      city.disabled = true;
+      neighborhoodInput.value = '';
+      neighborhoodAutocomplete.close();
+      if (!selected) { city.disabled = false; return; }
+      stateInput.dataset.uf = selected.sigla;
+      cityOptions = await carregarCidades(selected.sigla);
+      city.disabled = false;
+      cityAutocomplete.refresh();
+    };
+    const stateAutocomplete = montarAutocomplete(stateInput, async query => stateRows.filter(row => !query || semAcentos(`${row.sigla} ${row.nome}`).includes(semAcentos(query))).map(row => ({ value: row.sigla, label: row.nome, state: row })), { onSelect: option => { stateInput.value = option.label; selectState(option.state); } });
+    carregarEstados().then(rows => { stateRows = rows; stateAutocomplete.refresh(); });
+    stateInput.value = 'São Paulo';
+    stateInput.dataset.uf = 'SP';
+    selectState({ sigla: 'SP', nome: 'São Paulo' });
+  }
+  document.addEventListener('click', async event => {
+    const button = event.target.closest('#create-opportunity');
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const status = document.querySelector('#opportunity-status');
+    const stateInput = document.querySelector('#op-state');
+    const estado = stateInput?.dataset.uf || '';
+    const tipos_imovel = [...document.querySelectorAll('[name="op-property-type"]:checked')].map(input => input.value);
+    const bairros = JSON.parse(document.querySelector('#op-bairros-json')?.value || '[]');
+    if (!estado) { status.textContent = 'Selecione um estado da lista.'; return; }
+    if (!tipos_imovel.length) { status.textContent = 'Selecione pelo menos um tipo de imóvel.'; return; }
+    status.textContent = 'Salvando…';
+    try {
+      await api('/api/admin/oportunidades', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ titulo:document.querySelector('#op-title').value, tipos_imovel, tipo_imovel:tipos_imovel[0], cidade:document.querySelector('#op-city').value, estado, bairros, area_total_minima:document.querySelector('#op-area-min').value, area_total_maxima:document.querySelector('#op-area-max').value, valor_minimo:lerMoedaBrasileira(document.querySelector('#op-min').value), valor_maximo:lerMoedaBrasileira(document.querySelector('#op-max').value), descricao:document.querySelector('#op-description').value, transacoes:[...document.querySelectorAll('[name="op-transaction"]:checked')].map(input => input.value) }) });
+      state.opportunities = await api('/api/admin/oportunidades');
+      render();
+    } catch (error) { status.textContent = error.message; }
+  }, true);
+  const renderBase = render;
+  render = function renderOpportunitiesAware() {
+    if (state.tab !== 'opportunities') return renderBase();
+    shell(opportunities());
+    configurarFormularioOportunidade();
+    document.querySelectorAll('[data-tab]').forEach(button => button.classList.toggle('active', button.dataset.tab === state.tab));
+    document.querySelectorAll('[data-op-delete]').forEach(button => button.addEventListener('click', async () => {
+      if (!confirm('Excluir esta oportunidade?')) return;
+      await api('/api/admin/oportunidades/' + button.dataset.opDelete, { method:'DELETE' });
+      state.opportunities = await api('/api/admin/oportunidades');
+      render();
+    }));
+    document.querySelectorAll('[data-op-status]').forEach(select => select.addEventListener('change', async () => {
+      const item = state.opportunities.find(opportunity => String(opportunity.id) === String(select.dataset.opStatus));
+      if (!item) return;
+      await api('/api/admin/oportunidades/' + item.id, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...item, status:select.value }) });
+      state.opportunities = await api('/api/admin/oportunidades');
+      render();
+    }));
+  };
   load();
 })();

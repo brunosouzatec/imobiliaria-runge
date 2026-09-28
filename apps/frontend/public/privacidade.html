@@ -10,10 +10,7 @@
   <link rel="stylesheet" href="react-pages.css">
 </head>
 <body>
-  <header class="react-header">
-    <a class="react-brand" href="index.html"><img src="assets/tatui-imoveis-logo.svg" alt="Tatuí Imóveis — O portal de imóveis de Tatuí"></a>
-    <nav class="react-nav"><a href="index.html">Página inicial</a><a href="imoveis.html">Imóveis</a><a href="cadastro.html">Anunciar</a></nav>
-  </header>
+  <div data-site-header></div>
   <main class="react-page privacy-page">
     <p class="eyebrow">Transparência e privacidade</p>
     <h1>Política de Privacidade</h1>
@@ -21,7 +18,24 @@
     <section class="privacy-section" id="politica-dinamica"><p>Carregando a versão vigente…</p></section>
     <p class="privacy-disclaimer">Este documento é uma base informativa e deve ser revisado pela responsável pelo tratamento e por assessoria jurídica antes de ser considerado a versão definitiva da política da empresa.</p>
   </main>
-  <footer class="site-footer" id="contato"><a class="site-footer-brand" href="index.html"><img src="assets/tatui-imoveis-logo-light.svg" alt="Tatuí Imóveis"><span>O portal de imóveis de Tatuí.</span></a><nav><a href="imoveis.html">Comprar</a><a href="imoveis.html?tipo=Aluguel">Alugar</a><a href="imoveis.html">Imóveis</a><a href="index.html#contato">Contato</a><a href="privacidade.html">Política de Privacidade</a></nav><span class="site-footer-note">Tatuí, a cidade que a gente ama.</span></footer>
+  <div data-site-footer></div>
+  <script src="site-chrome.js"></script>
+  <script>SiteChrome.mount(document, 'privacy');</script>
 </body>
 </html>
-<script>fetch('/api/conteudos/politica_privacidade').then(r=>r.ok?r.json():null).then(data=>{if(!data?.conteudo)return;const section=document.querySelector('#politica-dinamica');section.innerHTML='';data.conteudo.split(/\r?\n\s*\r?\n/).filter(Boolean).forEach(block=>{const lines=block.trim().split(/\r?\n/);const heading=lines.shift();const title=document.createElement('h2');title.textContent=heading;section.appendChild(title);if(lines.length){const p=document.createElement('p');p.textContent=lines.join(' ');section.appendChild(p);}});}).catch(()=>{});</script>
+  <script>
+    fetch('/api/conteudos/politica_privacidade')
+      .then(response => response.ok ? response.json() : null)
+      .then(data => {
+        if (!data?.conteudo) return;
+        const section = document.querySelector('#politica-dinamica');
+        section.replaceChildren();
+        data.conteudo.split(/\r?\n/).map(line => line.trim()).filter(Boolean).forEach(line => {
+          const isHeading = /^\d+(?:\.\d+)*[.)]?\s+\S/.test(line);
+          const element = document.createElement(isHeading ? 'h2' : 'p');
+          element.textContent = line;
+          section.appendChild(element);
+        });
+      })
+      .catch(() => {});
+  </script>

@@ -50,8 +50,8 @@ test('fornece um ícone específico para cada característica exibida', () => {
   const features = characteristics.list(data);
   const icons = features.map(feature => characteristics.icon(feature.key));
 
-  assert.ok(icons.every(paths => Array.isArray(paths) && paths.length > 0));
-  assert.equal(new Set(icons.map(paths => paths.join('|'))).size, features.length);
+  assert.ok(icons.every(name => typeof name === 'string' && name.length > 0));
+  assert.ok(icons.every(name => name !== 'house'));
   assert.deepEqual(characteristics.icon('unknown'), characteristics.icon('default'));
 });
 

@@ -503,3 +503,15 @@
 .property-delete-confirm:hover:not(:disabled), .property-delete-confirm:focus-visible { background: #85372c; border-color: #85372c; }
 .property-delete-confirm:disabled, .property-delete-actions button:disabled { cursor: wait; opacity: .7; }
 @media(max-width:560px){.property-delete-dialog{padding:30px 22px}.property-delete-actions{flex-direction:column-reverse}.property-delete-actions button{width:100%}}
+
+@media (min-width: 1101px) {
+  .property-detail { max-width: 100%; }
+  .property-detail-layout { grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); }
+  .property-detail-gallery { max-width: none; width: 100%; }
+}
+
+@media (max-width: 720px) {
+  .property-detail-main { order: 0; }
+  .property-detail-sidebar { order: 1; }
+  .property-detail-card { position: static; }
+}

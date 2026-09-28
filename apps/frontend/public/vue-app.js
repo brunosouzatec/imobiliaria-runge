@@ -1,3 +1,7 @@
+const phosphorStyles = document.createElement('link');
+phosphorStyles.rel = 'stylesheet';
+phosphorStyles.href = '/phosphor-icons.css';
+document.head.appendChild(phosphorStyles);
 const { createApp, ref, computed, watch, onMounted, onBeforeUnmount } = Vue;
 const TATUI = [-23.3556, -47.8561];
 
@@ -17,8 +21,10 @@ const Header = {
   template: `<header class="react-header"><a class="react-brand" href="index.html"><img src="assets/tatui-imoveis-logo.svg" alt="Tatuí Imóveis — O portal de imóveis de Tatuí"></a><a class="home-button" href="index.html">Página inicial</a><nav class="react-nav"><a href="imoveis.html" :class="{active: locationPath.includes('imoveis') || locationPath.includes('imovel.html')}">Imóveis</a><a href="cadastro.html">Anunciar</a><template v-if="usuario"><div class="react-user-menu"><button class="react-user-link" type="button" @click.stop="alternar" aria-haspopup="menu" aria-controls="user-menu-dropdown" :aria-expanded="aberto"><span class="react-avatar">{{ iniciais }}</span><span class="react-greeting">Olá, {{ primeiroNome }}</span><span class="user-chevron" :class="{open: aberto}" aria-hidden="true"></span></button><div v-if="aberto" id="user-menu-dropdown" class="user-dropdown" role="menu"><a href="perfil.html" role="menuitem"><span class="user-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.25"></circle><path d="M5.5 19c.8-3.2 3.1-5 6.5-5s5.7 1.8 6.5 5"></path></svg></span><span><strong>Meu perfil</strong><small>Seus dados e preferências</small></span></a><a href="meus-imoveis.html" role="menuitem"><span class="user-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 21V5.5L12 3l8 2.5V21"></path><path d="M8 9h1M15 9h1M8 13h1M15 13h1M10 21v-4h4v4"></path></svg></span><span><strong>Meus imóveis</strong><small>Gerencie seus anúncios</small></span></a><button type="button" role="menuitem" @click="sair(); $emit('logout')"><span class="user-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 5H5v14h5"></path><path d="m13 8 4 4-4 4M17 12H8"></path></svg></span><span><strong>Sair</strong><small>Encerrar sessão</small></span></button></div></div></template><a v-else class="react-action" href="login.html">Área do usuário</a></nav></header>`,
   computed: { locationPath: () => location.pathname }
 };
+Header.template = Header.template.replace('<a href="imoveis.html" :class="{active: locationPath.includes(\'imoveis\') || locationPath.includes(\'imovel.html\')}">Imóveis</a>', '<a href="oportunidades.html">Oportunidades</a><a href="imoveis.html" :class="{active: locationPath.includes(\'imoveis\') || locationPath.includes(\'imovel.html\')}">Imóveis</a>');
 
 const Footer = { template: `<footer class="site-footer" id="contato"><a class="site-footer-brand" href="index.html"><img src="assets/tatui-imoveis-logo-light.svg" alt="Tatuí Imóveis"><span>O portal de imóveis de Tatuí.</span></a><nav><a href="imoveis.html">Comprar</a><a href="imoveis.html?tipo=Aluguel">Alugar</a><a href="imoveis.html">Imóveis</a><a href="index.html#contato">Contato</a><a href="privacidade.html">Política de Privacidade</a></nav><span class="site-footer-note">Tatuí, a cidade que a gente ama.</span></footer>` };
+Footer.template = Footer.template.replace('<a href="imoveis.html">Imóveis</a>', '<a href="imoveis.html">Imóveis</a><a href="oportunidades.html">Oportunidades</a>');
 
 const Layout = {
   components: { Header, Footer },
@@ -55,6 +61,7 @@ PropertyCard.setup = props => {
   return { ...state, PropertyOffers, descricaoResumo: computed(() => PropertyDescription.resumo(props.item?.descricao) || 'Confira todos os detalhes deste imóvel.'), shareStatus, compartilhar };
 };
 PropertyCard.template = PropertyCard.template.replace("{{ item.descricao || 'Confira todos os detalhes deste imóvel.' }}", '{{ descricaoResumo }}');
+PropertyCard.template = PropertyCard.template.replace('<svg viewBox="0 0 24 24" aria-hidden="true"><path v-for="(path, index) in featureIcon(feature.key)" :key="index" :d="path"/></svg>', '<span class="phosphor-icon property-feature-glyph" :data-phosphor="featureIcon(feature.key)" aria-hidden="true"></span>');
 PropertyCard.template = PropertyCard.template.replace('<a v-if="!showEdit" class="listing-whatsapp-link" :href="whatsappLink(item)" target="_blank" rel="noopener noreferrer" aria-label="Pedir informações deste imóvel pelo WhatsApp">', '<button v-if="!showEdit" class="listing-whatsapp-link" type="button" @click="shareWhatsApp($event, item)" aria-label="Compartilhar este imóvel pelo WhatsApp">').replace('</svg> WhatsApp</a>', '</svg> WhatsApp</button>');
 PropertyCard.template = PropertyCard.template.replace('<div class="listing-property-footer-actions">', '<div class="listing-property-footer-actions"><button class="listing-share-button" type="button" @click="compartilhar" :aria-label="\'Compartilhar \' + PropertyOffers.displayTitle(item)"><svg class="property-share-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"></path></svg><span>Compartilhar</span></button><span v-if="shareStatus" class="property-share-status" role="status" aria-live="polite">{{ shareStatus }}</span>');
 PropertyCard.emits = ['delete'];
@@ -80,7 +87,7 @@ const Home = {
     const normalizarBusca = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\b(jd|jard)\.?\b/g, 'jardim').replace(/\b(vl|v)\.?\b/g, 'vila').replace(/\b(sta|s)\.?\b/g, 'santa').replace(/\b(av|avda)\.?\b/g, 'avenida').replace(/\b(r|rua)\.?\b/g, 'rua').replace(/\b(pq)\.?\b/g, 'parque').replace(/\s+/g, ' ').trim();
     const sugerir = () => { clearTimeout(timer); if (query.value.trim().length < 2) { suggestions.value = []; return; } timer = setTimeout(async () => { const termo = normalizarBusca(query.value.trim()); const locais = []; const vistos = new Set(); imoveis.value.forEach(item => { const valores = [item.bairro, item.cidade, item.endereco].filter(Boolean); valores.forEach(valor => { const chave = normalizarBusca(valor); if (chave.includes(termo) && !vistos.has(chave)) { vistos.add(chave); locais.push({ id: `local-${item.id}-${chave}`, place_name: valor, center: item.coordenadas ? [Number(item.coordenadas.longitude), Number(item.coordenadas.latitude)] : null }); } }); }); let remotas = []; try { remotas = await geocodificar(query.value); } catch (_) {} suggestions.value = [...locais, ...remotas].filter(item => item.center).slice(0, 6); }, 300); };
     const buscar = () => { const p = new URLSearchParams(); if (query.value.trim()) p.set('q', query.value.trim()); if (negociacao.value) p.set('tipo', negociacao.value); if (tipo.value) p.set('categoria', tipo.value); if (preco.value) p.set('faixa', preco.value); location.href = `imoveis.html${p.toString() ? `?${p}` : ''}`; };
-    const selecionar = feature => { query.value = feature.place_name; suggestions.value = []; if (map) map.setView([feature.center[1], feature.center[0]], 15); };
+    const selecionar = feature => { query.value = feature.place_name; suggestions.value = []; if (map) map.setView([feature.center[1], feature.center[0]], feature.place_type?.includes('place') ? 12 : 15); };
     watch(categoriaMapa, desenharMarcadores);
     onMounted(async () => { await carregar(); map = L.map(mapEl.value, { zoomControl: true }).setView(TATUI, 13); PropertyMapLayers.addControl(map, MAPBOX_TOKEN); layer = L.layerGroup().addTo(map); userLayer = L.layerGroup().addTo(map); desenharMarcadores(); setTimeout(() => map.invalidateSize(), 100); });
     return { usuario, imoveis, query, negociacao, tipo, preco, categoriaMapa, imoveisDoMapa, suggestions, error, categorias, mapEl, nearbyCenter, nearbyMessage, nearbyLoading, buscarProximos, sugerir, buscar, selecionar, logout };
@@ -93,17 +100,51 @@ const Listing = { components: { Layout, PropertyCard }, setup() { const usuario 
 Home.components = { Header, Footer };
 Home.template = Home.template.replace('<div class="home-map"><div ref="mapEl" id="vue-map"></div>', `<div class="home-map"><div class="home-map-nearby"><button class="home-nearby-button" type="button" @click="buscarProximos" :disabled="nearbyLoading"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="2"></circle><path d="M12 2v2m0 16v2M2 12h2m16 0h2"></path></svg><span>{{ nearbyLoading ? 'Localizando…' : nearbyCenter ? 'Atualizar localização' : 'Imóveis perto de mim' }}</span></button><span v-if="nearbyMessage" class="home-nearby-status" role="status" aria-live="polite">{{ nearbyMessage }}</span></div><div ref="mapEl" id="vue-map"></div>`);
 Home.template = Home.template.replace(/<footer class="home-footer" id="contato">.*?<\/footer>/, '<Footer/>');
+Home.template = Home.template.replace('<p class="home-kicker">Explore Tatuí</p><h2>Imóveis no mapa</h2>', '<h2>Explore Tatuí</h2>');
+Home.template = Home.template.replace('<p>Veja os imóveis disponíveis em Tatuí e encontre o seu próximo endereço.</p>', '');
 
 const homeSetupOriginal = Home.setup;
 Home.setup = () => {
   const state = homeSetupOriginal();
+  const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\b(jd|jard)\.?\b/g, 'jardim').replace(/\b(vl|v)\.?\b/g, 'vila').replace(/\b(sta|s)\.?\b/g, 'santa').replace(/\s+/g, ' ').trim();
+  const makeUrl = (query, types, limit) => {
+    const params = new URLSearchParams({ access_token: MAPBOX_TOKEN, language: 'pt-BR', country: 'br', limit: String(limit), autocomplete: 'true', types });
+    return `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${params}`;
+  };
   const sugerir = async () => {
-    await state.sugerir();
-    state.suggestions.value = state.suggestions.value.map(item => {
-      const local = item.id?.startsWith('local-');
-      const source = local ? state.imoveis.value.find(property => `${property.id}` === String(item.id).split('-')[1]) : null;
-      const prefix = source?.bairro === item.place_name ? 'Bairro' : source?.cidade === item.place_name ? 'Cidade' : item.place_type?.includes('neighborhood') ? 'Bairro' : item.place_type?.includes('locality') || item.place_type?.includes('place') ? 'Região' : item.place_type?.includes('address') ? 'Endereço' : '';
-      return { ...item, query: item.place_name, label: prefix ? `${prefix} · ${item.place_name}` : item.place_name };
+    const query = state.query.value.trim();
+    const term = normalize(query);
+    if (term.length < 2) { state.suggestions.value = []; return; }
+    const [cityResponse, localResponse] = await Promise.allSettled([
+      fetch(makeUrl(query, 'place', 5)).then(response => response.ok ? response.json() : null),
+      fetch(makeUrl(`${query}, Tatuí, SP`, 'address,postcode,neighborhood,locality', 5)).then(response => response.ok ? response.json() : null)
+    ]);
+    if (normalize(state.query.value) !== term) return;
+    const cities = (cityResponse.status === 'fulfilled' ? cityResponse.value?.features || [] : [])
+      .filter(item => item.center && item.place_type?.includes('place') && normalize(item.text || '').startsWith(term))
+      .sort((a, b) => Number(normalize(b.text) === term) - Number(normalize(a.text) === term));
+    const localProperties = [];
+    const seenLocals = new Set();
+    state.imoveis.value.forEach(property => [property.bairro, property.cidade, property.endereco].filter(Boolean).forEach(value => {
+      const key = normalize(value);
+      if (key.includes(term) && !seenLocals.has(key) && property.coordenadas) {
+        seenLocals.add(key);
+        localProperties.push({ id: `local-${property.id}-${key}`, text: value, place_name: value, place_type: [value === property.cidade ? 'place' : value === property.bairro ? 'neighborhood' : 'address'], center: [Number(property.coordenadas.longitude), Number(property.coordenadas.latitude)] });
+      }
+    }));
+    const remote = localResponse.status === 'fulfilled' ? localResponse.value?.features || [] : [];
+    const all = [...cities, ...localProperties, ...remote].filter(item => item.center);
+    const seen = new Set();
+    state.suggestions.value = all.filter(item => {
+      const key = normalize(item.text || item.place_name);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 6).map(item => {
+      const name = item.text || item.place_name;
+      const type = item.place_type?.[0];
+      const prefix = type === 'place' ? 'Cidade' : type === 'neighborhood' ? 'Bairro' : type === 'locality' ? 'Região' : type === 'address' ? 'Endereço' : '';
+      return { ...item, query: type === 'place' ? name : item.place_name, label: prefix ? `${prefix} · ${item.place_name}` : item.place_name };
     });
   };
   const selecionar = feature => state.selecionar({ ...feature, place_name: feature.query || feature.place_name });
@@ -562,6 +603,7 @@ Cadastro.setup = () => {
   const mostrarConfirmacaoSenha = ref(false);
   return { ...state, mostrarSenha, mostrarConfirmacaoSenha };
 };
+Cadastro.template = Cadastro.template.replace('Preencha as informações para publicar uma nova oportunidade no Tatuí Imóveis.', 'Preencha as informações para publicar seu imóvel no Tatuí Imóveis. Para publicar uma nova oportunidade no Tatuí Imóveis, acesse Oportunidades.');
 const cadastroSetupComMapaOriginal = Cadastro.setup;
 Cadastro.setup = () => {
   const state = cadastroSetupComMapaOriginal();

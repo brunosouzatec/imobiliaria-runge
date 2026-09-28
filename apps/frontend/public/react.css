@@ -82,11 +82,11 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .home-header nav a { color:#314748; font-size:.82rem; text-decoration:none; }
 .home-header nav a:hover { color:#e5651c; }
 .home-announce,.home-announce-button { background:#e5651c; border-radius:7px; color:#fff; font-weight:700; padding:13px 19px; text-decoration:none; white-space:nowrap; }
-.home-hero { align-items:center; background:linear-gradient(100deg,#102d32e8 0%,#16494db5 52%,#b3613a66 100%),url('assets/tatui-basilica.jpg') center/cover; color:#fff; display:flex; min-height:370px; padding:70px clamp(22px,8vw,120px); position:relative; }
+.home-hero { align-items:center; background:linear-gradient(100deg,#102d32e8 0%,#16494db5 52%,#b3613a66 100%),url('assets/tatui-basilica.jpg') center/cover; color:#fff; display:flex; min-height:280px; padding:36px clamp(22px,8vw,120px); position:relative; }
 .home-hero-content { max-width:590px; }
 .home-kicker { font-size:.72rem; font-weight:800; letter-spacing:.16em; margin:0 0 14px; text-transform:uppercase; }
-.home-hero h1 { font-family:inherit; font-size:clamp(2.8rem,6vw,5.2rem); font-weight:800; letter-spacing:-.06em; line-height:.98; margin:0 0 20px; }
-.home-hero p:not(.home-kicker) { font-size:1.08rem; line-height:1.55; max-width:540px; }
+.home-hero h1 { font-family:inherit; font-size:clamp(2.25rem,4vw,3.5rem); font-weight:800; letter-spacing:-.06em; line-height:.98; margin:0 0 12px; }
+.home-hero p:not(.home-kicker) { font-size:.98rem; line-height:1.5; max-width:540px; }
 .home-search { background:#fff; border:1px solid #dce5df; border-radius:12px; bottom:25px; box-shadow:0 15px 35px #102d3244; display:grid; gap:9px; grid-template-columns:2fr 1fr 1fr 1fr auto; left:8%; padding:9px; position:absolute; right:8%; }
 .home-search input,.home-search select { border:1px solid #d9dfdb; border-radius:7px; color:#435658; min-width:0; padding:15px; }
 .home-location-field { align-items:center; border:1px solid #d9dfdb; border-radius:7px; display:flex; gap:9px; padding:0 13px; }
@@ -101,7 +101,7 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .home-footer { align-items:center; background:#173c3d; color:#d9e2de; display:flex; justify-content:space-between; padding:28px clamp(22px,7vw,110px); }.home-footer .home-logo { color:#fff; }.home-footer .home-logo small { color:#b4c6c0; }
 .home-footer .home-logo { background:url('assets/tatui-imoveis-logo-light.svg') left center/contain no-repeat; height:58px; width:245px; }
 .home-footer .home-logo > * { display:none; }
-@media (max-width:850px) { .home-header { flex-wrap:wrap; gap:15px; }.home-header .home-logo { height:48px; width:205px; }.home-header nav { display:none; }.home-announce { margin-left:auto; }.home-hero { min-height:430px; padding-top:45px; }.home-search { bottom:22px; grid-template-columns:1fr 1fr; left:22px; right:22px; }.home-location-field { grid-column:1/-1; }.home-search > button { min-height:50px; }.home-suggestions { right:22px; top:68px; }.home-map-section,.home-categories { display:block; padding:52px 22px; }.home-map { margin-top:30px; min-height:360px; }.home-map #react-map { min-height:360px; }.home-announce-card { margin-top:30px; min-height:0; }.home-category-grid { margin-top:28px; grid-template-columns:repeat(2,1fr); }.home-announce-button { display:inline-block; margin-top:18px; }.home-footer { align-items:flex-start; flex-direction:column; gap:18px; } }
+@media (max-width:850px) { .home-header { flex-wrap:wrap; gap:15px; }.home-header .home-logo { height:48px; width:205px; }.home-header nav { display:none; }.home-announce { margin-left:auto; }.home-hero { min-height:320px; padding:34px 24px; }.home-search { bottom:22px; grid-template-columns:1fr 1fr; left:22px; right:22px; }.home-location-field { grid-column:1/-1; }.home-search > button { min-height:50px; }.home-suggestions { right:22px; top:68px; }.home-map-section,.home-categories { display:block; padding:52px 22px; }.home-map { margin-top:30px; min-height:360px; }.home-map #react-map { min-height:360px; }.home-announce-card { margin-top:30px; min-height:0; }.home-category-grid { margin-top:28px; grid-template-columns:repeat(2,1fr); }.home-announce-button { display:inline-block; margin-top:18px; }.home-footer { align-items:flex-start; flex-direction:column; gap:18px; } }
 .home-area-button { background:#08716d; border:0; border-radius:7px; bottom:14px; color:#fff; cursor:pointer; font-size:.78rem; font-weight:700; left:14px; padding:11px 15px; position:absolute; z-index:500; }
 .home-category-grid strong { background:center/contain no-repeat; display:block; font-size:0; height:52px; width:52px; }
 .home-category-grid a:nth-child(1) strong { background-image:url('assets/icon-casa.svg'); }
@@ -207,7 +207,10 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
   .home-search { grid-template-columns: minmax(0, 1fr); }
   .home-search .home-location-field,
   .home-search > button { grid-column: 1; }
-  .home-hero { min-height: 480px; }
+  .home-hero { min-height: 290px; padding: 28px 20px; }
+  .home-hero .home-kicker { font-size: .64rem; margin-bottom: 8px; }
+  .home-hero h1 { font-size: clamp(2rem, 9vw, 2.5rem); margin-bottom: 10px; }
+  .home-hero p:not(.home-kicker) { font-size: 1rem; line-height: 1.45; }
 }
 
 @media (min-width: 851px) and (max-width: 1100px) {
@@ -286,7 +289,7 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .home-map-categories { grid-template-columns:1fr auto 1fr; }
 .home-map-categories .home-category-grid { grid-column:2; grid-row:2; display:flex; flex-wrap:wrap; justify-content:center; gap:16px 24px; margin:0; }
 .home-map-category-button { min-height:84px; min-width:76px; padding:10px 12px; border-radius:12px; position:relative; }
-.home-map-category-button strong { background:var(--category-color); width:48px; height:48px; padding:0; border-radius:0; filter:none; mask:var(--category-icon) center/contain no-repeat; -webkit-mask:var(--category-icon) center/contain no-repeat; }
+.home-map-category-button strong { background:var(--category-color); width:48px; height:48px; padding:0; border-radius:0; filter:none; }
 .home-map-category-button span { color:var(--category-color); font-size:12px; font-weight:650; height:auto; line-height:1.2; overflow:visible; position:static; text-align:center; width:auto; white-space:nowrap; }
 .home-map-category-button.active::after { content:''; position:absolute; bottom:2px; width:20px; height:3px; border-radius:3px; background:var(--category-color); }
 .home-map-category-button:focus-visible,.home-category-clear:focus-visible { outline:2px solid var(--teal); outline-offset:4px; }
@@ -335,6 +338,43 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .home-highlight-footer a { color:#e5651c; font-weight:700; text-decoration:none; white-space:nowrap; }
 @media(max-width:1100px) { .home-highlights-section { padding-left:28px; padding-right:28px; }.home-highlights-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:560px) { .home-highlights-section { padding:8px 20px 48px; }.home-highlights-grid { grid-template-columns:1fr; }.home-highlight-media { height:220px; } }
+
+.home-opportunities-section { box-sizing:border-box; margin:0 auto; max-width:1720px; padding:52px 48px 64px; width:100%; }
+.home-opportunities-heading { align-items:end; display:flex; gap:24px; justify-content:space-between; margin-bottom:24px; }
+.home-opportunities-heading .home-kicker { margin:0 0 8px; }
+.home-opportunities-heading h2 { color:#173c3d; font:500 clamp(32px,2.6vw,44px)/1.1 Georgia,serif; letter-spacing:-.035em; margin:0 0 7px; }
+.home-opportunities-heading p:last-child { color:#667473; font-size:15px; line-height:1.55; margin:0; }
+.home-opportunities-all { align-items:center; color:#08716d; display:inline-flex; flex:0 0 auto; font-size:14px; font-weight:700; gap:8px; padding:10px 0; text-decoration:none; }
+.home-opportunities-all:hover { color:#e5651c; }
+.home-opportunities-arrow { font-size:18px; transition:transform .2s ease; }
+.home-opportunities-all:hover .home-opportunities-arrow { transform:translateX(3px); }
+.home-opportunities-grid { display:grid; gap:20px; grid-template-columns:repeat(4,minmax(0,1fr)); }
+.home-opportunity-card { background:#fff; border:1px solid #dce5df; border-radius:14px; box-shadow:0 8px 24px #173c3d0a; box-sizing:border-box; display:flex; flex-direction:column; min-height:320px; min-width:0; padding:18px; transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease; }
+.home-opportunity-card:hover { border-color:#b7d3c9; box-shadow:0 14px 30px #173c3d14; transform:translateY(-2px); }
+.home-opportunity-card-head { align-items:center; display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; margin-bottom:10px; }
+.home-opportunity-badge { background:#eaf4ef; border-radius:999px; color:#08716d; font-size:11px; font-weight:750; letter-spacing:.035em; padding:7px 10px; }
+.home-opportunity-type { color:#e5651c; font-size:12px; font-weight:700; text-align:right; }
+.home-opportunity-card h3 { color:#173c3d; font:600 clamp(20px,1.3vw,24px)/1.22 Georgia,serif; margin:0 0 10px; }
+.home-opportunity-location { align-items:center; color:#425c59; display:flex; font-size:14px; font-weight:550; gap:10px; margin:0 0 3px; min-height:40px; }
+.home-opportunity-icon { color:#08716d; display:inline-block; fill:none; flex:0 0 auto; height:20px; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; stroke-width:16; width:20px; }
+.home-opportunity-facts { display:grid; gap:0; list-style:none; margin:0 0 16px; padding:0; }
+.home-opportunity-facts li { align-items:center; display:flex; gap:10px; min-height:44px; min-width:0; }
+.home-opportunity-facts li+li { border-top:1px solid #f0f3f1; }
+.home-opportunity-fact-copy { display:flex; flex:1; flex-direction:column; gap:2px; min-width:0; }
+.home-opportunity-fact-copy small { color:#7b8986; font-size:11px; }
+.home-opportunity-fact-copy strong { color:#294a48; font-size:14px; font-weight:650; line-height:1.35; overflow-wrap:anywhere; }
+.home-opportunity-cta { align-items:center; background:#08716d; border:1px solid #08716d; border-radius:8px; color:#fff; display:flex; font-size:13px; font-weight:700; justify-content:center; margin-top:auto; min-height:46px; padding:0 12px; text-align:center; text-decoration:none; transition:background .2s ease,border-color .2s ease; }
+.home-opportunity-cta:hover { background:#075c59; border-color:#075c59; }
+.home-opportunities-footer { align-items:center; display:flex; flex-direction:column; gap:10px; justify-content:center; margin:22px 0 0; max-width:1480px; }
+.home-opportunities-footer-actions { align-items:center; display:flex; flex-wrap:wrap; gap:20px; justify-content:flex-end; width:100%; }
+.home-opportunities-publish { background:#e5651c; border:1px solid #e5651c; border-radius:8px; color:#fff; font-size:14px; font-weight:700; padding:12px 24px; text-decoration:none; transition:background .2s ease; }
+.home-opportunities-publish:hover { background:#c94f10; }
+.home-opportunities-footer small { color:#87928f; font-size:11px; text-align:center; }
+@media(max-width:1100px) { .home-opportunities-section { padding-left:28px; padding-right:28px; }.home-opportunities-grid { gap:20px; grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:760px) { .home-opportunities-section { padding:40px 22px 48px; }.home-opportunities-heading { align-items:flex-start; flex-direction:column; gap:12px; }.home-opportunities-heading h2 { font-size:30px; }.home-opportunities-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:560px) { .home-opportunities-section { padding:34px 20px 44px; }.home-opportunities-grid { grid-template-columns:1fr; }.home-opportunity-card { min-height:0; padding:20px; }.home-opportunity-card h3 { font-size:20px; }.home-opportunity-facts li { min-height:44px; } }
+@media(max-width:760px) { .home-opportunities-footer-actions { justify-content:center; } }
+@media(prefers-reduced-motion:reduce) { .home-opportunity-card,.home-opportunities-arrow { transition:none; } }
 .login-password-toggle { align-items: center; color: #667473; display: flex; font-size: .76rem; font-weight: 400; gap: 6px; letter-spacing: 0; margin-top: -2px; text-transform: none; }
 .login-password-toggle input { accent-color: #08716d; margin: 0; padding: 0; width: auto; }
 .react-form button:disabled { cursor: wait; opacity: .7; }
@@ -361,3 +401,46 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
   .react-nav { gap:16px; justify-content:flex-start; }
   .react-nav > a:not(.react-action) { display:inline-flex !important; }
 }
+
+/* Keep the map title and category controls in one balanced header row. */
+.home-map-section .home-section-copy { align-items:center; display:flex; grid-column:1; grid-row:1; justify-content:flex-start; min-height:96px; position:relative; }
+.home-map-section .home-section-copy h2 { flex:0 0 auto; }
+.home-map-section .home-map-categories { align-items:center; background:transparent; display:flex; flex-direction:column; gap:0; left:50%; padding:0; position:absolute; top:50%; transform:translate(-50%,-50%); width:max-content; }
+.home-map-section .home-map-filter-heading { flex:0 0 auto; }
+.home-map-section .home-map-categories h3 { white-space:nowrap; }
+.home-map-section .home-map-category-controls { justify-content:center; min-height:0; width:auto; }
+.home-map-section .home-map-category-controls .home-category-grid { flex-wrap:nowrap; gap:8px; width:auto; }
+.home-map-section .home-map-category-controls .home-category-clear { position:static; white-space:nowrap; }
+.home-map-section .home-map-explorer .home-search { grid-row:2; }
+.home-map-section .home-map-explorer .home-map { grid-row:3; }
+.home-map-section .home-all-properties-card { grid-row:2; }
+.home-map-section .home-announce-card { grid-row:3; }
+@media(max-width:1100px) and (min-width:851px) {
+  .home-map-section .home-section-copy { align-items:flex-start; display:flex; flex-direction:column; gap:20px; min-height:0; }
+  .home-map-section .home-map-categories { left:auto; position:static; transform:none; width:100%; }
+  .home-map-section .home-map-category-controls { flex:1; justify-content:center; }
+  .home-map-section .home-map-category-controls .home-category-grid { flex-wrap:wrap; }
+}
+@media(max-width:850px) {
+  .home-map-section .home-section-copy { align-items:stretch; display:flex; flex-direction:column; gap:14px; grid-row:1; min-height:0; }
+  .home-map-section .home-section-copy h2 { margin:0!important; }
+  .home-map-section .home-map-categories { align-items:center; flex-direction:column; gap:8px; left:auto; position:static; transform:none; width:100%; }
+  .home-map-section .home-map-categories h3 { text-align:center; }
+  .home-map-section .home-map-category-controls { display:flex; flex-direction:column; width:100%; }
+  .home-map-section .home-map-category-controls .home-category-grid { flex-wrap:wrap; }
+  .home-map-section .home-map-category-controls .home-category-clear { position:static; }
+}
+
+/* Sem busca na home, o mapa e os cards laterais formam uma única faixa. */
+.home-map-section .home-map-explorer .home-map { grid-row:2/4; }
+.home-map-section .home-all-properties-card { grid-row:2; }
+.home-map-section .home-announce-card { grid-row:3; }
+@media(max-width:850px) {
+  .home-map-section .home-map-explorer .home-map { grid-column:1; grid-row:2; }
+  .home-map-section .home-all-properties-card { grid-row:3; }
+  .home-map-section .home-announce-card { grid-row:4; }
+}
+
+/* Ícones Phosphor das características na listagem: tamanho legível em cards largos. */
+.listing-property-feature .property-feature-glyph { flex:0 0 20px; height:20px; width:20px; }
+.listing-property-feature { gap:8px; }

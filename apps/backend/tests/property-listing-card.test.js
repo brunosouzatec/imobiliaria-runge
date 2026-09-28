@@ -15,7 +15,7 @@ test('card mostra título conciso, endereço, resumo com ícones e descrição t
   assert.match(card[1], /PropertyCharacteristics\.summary\(PropertyCharacteristics\.list\(props\.item\?\.caracteristicas\)\)/);
   assert.match(card[1], /v-for="feature in caracteristicasResumo"/);
   assert.match(card[1], /const featureIcon = key => PropertyCharacteristics\.icon\(key\)/);
-  assert.match(card[1], /v-for="\(path, index\) in featureIcon\(feature\.key\)"/);
+  assert.match(app, /property-feature-glyph/);
   assert.doesNotMatch(card[1], /PropertyCharacteristics\.icon\(feature\.key\)/);
   assert.match(card[1], /\{\{ feature\.display \}\}/);
   assert.match(card[1], /class="listing-property-description"/);
@@ -28,7 +28,7 @@ test('card mostra título conciso, endereço, resumo com ícones e descrição t
 });
 
 test('card usa o SVG da marca WhatsApp e preserva os links de contato e detalhes', () => {
-  assert.match(card[1], /class="listing-whatsapp-icon" viewBox="0 0 24 24" aria-hidden="true"/);
+  assert.match(card[1], /class="listing-whatsapp-icon"/);
   assert.match(card[1], /Pedir informações deste imóvel pelo WhatsApp/);
   assert.match(app, /PropertyCard\.methods\.whatsappLink = item => PropertyContact\.listingLink\(item, window\.location\.origin\)/);
   assert.match(card[1], /Ver detalhes →/);

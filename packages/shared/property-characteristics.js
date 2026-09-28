@@ -39,6 +39,13 @@
     ar_condicionado: ['M12 2v20M4 7l16 10M4 17L20 7M9 4l3 2 3-2M9 20l3-2 3 2M3 10l3 1-1 3M19 10l-1 4 3 1M3 14l3-1M18 11l3-1'],
     default: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8 12h8']
   };
+  const iconNames = {
+    area: 'ruler', area_total: 'ruler', area_construida: 'building', quartos: 'bed', suite: 'bed',
+    banheiros: 'bathtub', vagas: 'car', quintal: 'tree', piscina: 'swimming-pool', churrasqueira: 'cooking-pot',
+    sacada: 'buildings', elevador: 'elevator', condominio: 'buildings', frente: 'ruler', topografia: 'mountains',
+    agua: 'drop', energia: 'lightning', rua_asfaltada: 'road-horizon', area_verde: 'tree', nascente: 'waves',
+    salas: 'armchair', acessibilidade: 'wheelchair', estacionamento: 'car', ar_condicionado: 'wind', default: 'house'
+  };
   const order = Object.keys(labels);
   const count = (value, singular, plural) => `${value} ${Number(value) === 1 ? singular : plural}`;
 
@@ -69,7 +76,7 @@
   const summary = features => features
     .filter(feature => summaryOrder.includes(feature.key))
     .sort((a, b) => summaryOrder.indexOf(a.key) - summaryOrder.indexOf(b.key));
-  const icon = key => iconPaths[key] || iconPaths.default;
+  const icon = key => iconNames[key] || iconNames.default;
   const withCondoOption = (category, options) => {
     const base = options.filter(option => option.key !== 'condominio');
     return category && category !== 'Comercial'

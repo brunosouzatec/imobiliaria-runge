@@ -5,13 +5,13 @@
 
   const labels = [...section.querySelectorAll('.home-category-grid a')].map((link, index) => ({
     label: link.querySelector('span')?.textContent?.trim() || '',
-    icon: link.querySelector('strong')?.style.backgroundImage || '',
+    icon: link.querySelector('strong')?.dataset.phosphor || ['house', 'buildings', 'mountains', 'tree', 'storefront'][index] || 'house',
     color: ['#00796b', '#2563eb', '#c2410c', '#15803d', '#9333ea'][index] || '#00796b'
   })).filter(item => item.label);
 
   const panel = document.createElement('div');
   panel.className = 'home-map-categories';
-  panel.innerHTML = '<div class="home-map-filter-heading"><h3>Explore por categoria</h3></div>';
+  panel.innerHTML = '<div class="home-map-filter-heading"><h3>Selecione uma categoria</h3></div>';
   const grid = document.createElement('div');
   grid.className = 'home-category-grid';
   grid.setAttribute('role', 'group');
@@ -39,11 +39,7 @@
     button.setAttribute('aria-pressed', 'false');
     button.title = label;
     button.style.setProperty('--category-color', color);
-    button.innerHTML = `<span>${label}</span>`;
-    const iconElement = document.createElement('strong');
-    iconElement.style.setProperty('--category-icon', icon);
-    iconElement.setAttribute('aria-hidden', 'true');
-    button.prepend(iconElement);
+    button.innerHTML = `<strong class="phosphor-icon" data-phosphor="${icon}" aria-hidden="true"></strong><span>${label}</span>`;
     button.addEventListener('click', () => {
       selectCategory(button.classList.contains('active') ? '' : label);
     });
@@ -54,11 +50,14 @@
   controls.append(grid, clear);
   panel.append(controls);
   const map = mapColumn.querySelector('.home-map');
+  const sectionHeading = document.querySelector('.home-section-copy');
   const search = document.querySelector('.home-search');
   const explorer = document.createElement('div');
   explorer.className = 'home-map-explorer';
   map.parentNode.insertBefore(explorer, map);
-  if (search) explorer.append(panel, search, map);
-  else explorer.append(panel, map);
+  search?.remove();
+  explorer.append(map);
+  if (sectionHeading) sectionHeading.append(panel);
+  else explorer.prepend(panel);
   section.remove();
 })();

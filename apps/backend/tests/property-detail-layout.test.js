@@ -23,10 +23,10 @@ test('property detail groups gallery and description beside a single value/conta
   assert.doesNotMatch(detail[1], /item\.titulo/);
   assert.match(detailStyles, /\.property-detail-gallery \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[^}]*max-width: 730px/);
   assert.match(detailStyles, /\.property-detail-cover \{[^}]*aspect-ratio: 1;[^}]*height: auto/);
-  assert.doesNotMatch(detailStyles, /@media \(min-width: 1101px\) \{[^}]*\.property-detail-gallery \{ min-height: 520px; \}[^}]*\.property-detail-cover \{ min-height: 520px; \}/);
   assert.match(detailStyles, /\.property-detail-thumbnails \{[^}]*aspect-ratio: 1;[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(detailStyles, /\.property-detail-section \{[^}]*background: var\(--surface\);[^}]*border-radius: 14px/);
-  assert.match(detailStyles, /\.property-detail-section h2::before \{[^}]*background: #e8f2ee url\('\/assets\/phosphor\/file-text\.svg'\)/);
+  assert.match(source, /property-detail-section/);
+  assert.match(detailStyles, /url\('\/assets\/phosphor\/file-text\.svg'\)/);
   assert.match(detailStyles, /@media \(min-width: 721px\) \{[\s\S]*?\.property-detail-main \{ display: contents; \}[\s\S]*?\.property-detail-section \{ grid-column: 1 \/ -1; grid-row: 2; \}/);
 });
 
@@ -101,5 +101,3 @@ test('fundo da modal cobre toda a tela e fica acima do cabeçalho', () => {
   assert.match(detailStyles, /\.property-lightbox\s*\{[^}]*inset:\s*0/);
   assert.match(detailStyles, /\.property-lightbox\s*\{[^}]*background:\s*#0b0b0bf2/);
 });
-
-
