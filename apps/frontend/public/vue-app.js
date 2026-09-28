@@ -1,3 +1,7 @@
+const phosphorStyles = document.createElement('link');
+phosphorStyles.rel = 'stylesheet';
+phosphorStyles.href = '/phosphor-icons.css';
+document.head.appendChild(phosphorStyles);
 const { createApp, ref, computed, watch, onMounted, onBeforeUnmount } = Vue;
 const TATUI = [-23.3556, -47.8561];
 
@@ -16,6 +20,11 @@ const Header = {
 
 const Footer = { template: `<footer class="site-footer" id="contato"><a class="site-footer-brand" href="index.html"><img src="assets/tatui-imoveis-logo-light.svg" alt="Tatuí Imóveis"><span>O portal de imóveis de Tatuí.</span></a><nav><a href="imoveis.html">Comprar</a><a href="imoveis.html?tipo=Aluguel">Alugar</a><a href="imoveis.html">Imóveis</a><a href="index.html#contato">Contato</a><a href="privacidade.html">Política de Privacidade</a></nav><span class="site-footer-note">Tatuí, a cidade que a gente ama.</span></footer>` };
 
+Header.template = Header.template
+  .replace('<span class="user-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.25"></circle><path d="M5.5 19c.8-3.2 3.1-5 6.5-5s5.7 1.8 6.5 5"></path></svg></span>', '<span class="user-menu-icon phosphor-icon" data-phosphor="user" aria-hidden="true"></span>')
+  .replace('<span class="user-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 21V5.5L12 3l8 2.5V21"></path><path d="M8 9h1M15 9h1M8 13h1M15 13h1M10 21v-4h4v4"></path></svg></span>', '<span class="user-menu-icon phosphor-icon" data-phosphor="buildings" aria-hidden="true"></span>')
+  .replace('<span class="user-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 5H5v14h5"></path><path d="m13 8 4 4-4 4M17 12H8"></path></svg></span>', '<span class="user-menu-icon phosphor-icon" data-phosphor="sign-out" aria-hidden="true"></span>');
+
 const Layout = {
   components: { Header, Footer },
   props: { eyebrow: String, usuario: Object },
@@ -24,6 +33,12 @@ const Layout = {
 };
 
 const PropertyCard = { props: { item: Object }, setup(props) { const fotoAtual = ref(0); const caracteristicasResumo = computed(() => PropertyCharacteristics.summary(PropertyCharacteristics.list(props.item?.caracteristicas))); const ofertaResumo = computed(() => PropertyOffers.summary(props.item)); const featureIcon = key => PropertyCharacteristics.icon(key); const anterior = event => { event.stopPropagation(); fotoAtual.value = fotoAtual.value > 0 ? fotoAtual.value - 1 : props.item.fotos.length - 1; }; const proxima = event => { event.stopPropagation(); fotoAtual.value = (fotoAtual.value + 1) % props.item.fotos.length; }; return { fotoAtual, caracteristicasResumo, ofertaResumo, featureIcon, anterior, proxima }; }, template: `<article class="listing-property-card"><div class="listing-property-image"><a class="listing-property-image-link" :href="'imovel.html?id=' + item.id"><img v-if="item.fotos?.[fotoAtual]" :src="item.fotos[fotoAtual].url" :alt="item.fotos[fotoAtual].nome || item.categoria"><span v-else>Sem foto disponível</span></a><template v-if="item.fotos?.length > 1"><button type="button" class="listing-photo-arrow listing-photo-prev" aria-label="Foto anterior" @click="anterior">‹</button><button type="button" class="listing-photo-arrow listing-photo-next" aria-label="Próxima foto" @click="proxima">›</button><div class="listing-photo-dots"><i v-for="(_, index) in item.fotos" :key="index" :class="{ active: index === fotoAtual }"></i></div></template></div><div class="listing-property-body"><a class="listing-property-main" :href="'imovel.html?id=' + item.id"><h2>{{ PropertyOffers.displayTitle(item) }}</h2><strong class="listing-property-price">{{ money(item) }}</strong><small v-if="ofertaResumo.included.length" class="offer-included">Incluso: {{ ofertaResumo.included.join(', ') }}</small><p class="listing-property-address">{{ item.endereco }}</p><div v-if="caracteristicasResumo.length" class="listing-property-features" aria-label="Resumo das características"><span v-for="feature in caracteristicasResumo" :key="feature.key" class="listing-property-feature"><svg viewBox="0 0 24 24" aria-hidden="true"><path v-for="(path, index) in featureIcon(feature.key)" :key="index" :d="path"/></svg><span>{{ feature.display }}</span></span></div><p class="listing-property-description">{{ item.descricao || 'Confira todos os detalhes deste imóvel.' }}</p></a><div class="listing-property-footer"><div class="listing-property-footer-actions"><a v-if="!showEdit" class="listing-whatsapp-link" :href="whatsappLink(item)" target="_blank" rel="noopener noreferrer" aria-label="Pedir informações deste imóvel pelo WhatsApp"><svg class="listing-whatsapp-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.247-.694.247-1.29.173-1.414-.074-.123-.272-.198-.57-.347M12.051 21.785h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.999-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.99 2.898a9.825 9.825 0 0 1 2.894 6.993c-.002 5.45-4.437 9.885-9.889 9.885m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.334.157 11.89c0 2.096.547 4.142 1.588 5.946L.057 24l6.304-1.654a11.88 11.88 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.334 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg> WhatsApp</a><a :href="'imovel.html?id=' + item.id">Ver detalhes →</a><a v-if="showEdit" class="listing-edit-link" :href="'cadastro.html?modo=editar&id=' + item.id">Editar imóvel</a></div></div></div></article>`, methods: { money, PropertyOffers } };
+PropertyCard.template = PropertyCard.template
+  .replace('<svg viewBox="0 0 24 24" aria-hidden="true"><path v-for="(path, index) in featureIcon(feature.key)" :key="index" :d="path"/></svg>', '<span class="phosphor-icon property-feature-glyph" :data-phosphor="featureIcon(feature.key)" aria-hidden="true"></span>')
+  .replace('<svg class="listing-whatsapp-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.472,14.382', '<span class="phosphor-icon listing-whatsapp-icon" data-phosphor="whatsapp-logo" aria-hidden="true"></span><svg class="listing-whatsapp-icon legacy-whatsapp-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.472,14.382')
+  .replace('>‹</button>', '><span class="phosphor-icon" data-phosphor="arrow-left" aria-hidden="true"></span></button>')
+  .replace('>›</button>', '><span class="phosphor-icon" data-phosphor="arrow-right" aria-hidden="true"></span></button>')
+  .replace('>Ver detalhes →</a>', '>Ver detalhes <span class="phosphor-icon" data-phosphor="arrow-right" aria-hidden="true"></span></a>');
 PropertyCard.methods.whatsappLink = item => PropertyContact.listingLink(item, window.location.origin);
 PropertyCard.methods.shareWhatsApp = async (event, item) => {
   event.preventDefault();
@@ -63,11 +78,65 @@ const Home = {
     const carregar = async () => { const [conta, lista] = await Promise.all([fetch('/api/minha-conta').then(r => r.ok ? r.json() : null), fetch('/api/imoveis').then(r => r.json())]); usuario.value = conta?.usuario || null; imoveis.value = Array.isArray(lista) ? lista : []; };
     const popup = item => { const foto = item.fotos?.[0]; const detailUrl = `imovel.html?id=${item.id}`; return `<article class="react-popup">${foto ? `<a class="react-popup-image-link" href="${detailUrl}" aria-label="Ver detalhes de ${item.titulo}"><img class="react-popup-image" src="${foto.url}" alt="${foto.nome || item.titulo}"></a>` : ''}<small>${(item.tipos_transacao || [item.tipo]).join(' · ')}</small><h3>${item.titulo}</h3><p>${money(item)}</p><a href="${detailUrl}">Ver detalhes</a></article>`; };
     const desenharMarcadores = () => { if (!layer) return; layer.clearLayers(); imoveisDoMapa.value.forEach(item => { const c = item.coordenadas || {}; if (!c.latitude || !c.longitude) return; const cor = corDaCategoria(item.categoria); if (item.perimetro) L.geoJSON(item.perimetro, { style: { color: cor, weight: 2, fillColor: cor, fillOpacity: .16 } }).addTo(layer); const marker = L.marker([c.latitude, c.longitude], { icon: L.divIcon({ className: 'home-map-marker-wrapper', html: `<span class="home-map-marker" style="--marker-color:${cor}"></span>`, iconSize: [30, 38], iconAnchor: [15, 38], popupAnchor: [0, -35] }) }).addTo(layer); marker.on('click', () => map.setView([c.latitude, c.longitude], map.getZoom(), { animate: false })); marker.bindPopup(popup(item), { autoPan: false, maxWidth: 290, minWidth: 210 }); marker.on('popupopen', () => { setTimeout(() => { const markerPoint = map.latLngToContainerPoint(marker.getLatLng()); const targetPoint = L.point(map.getSize().x / 2, map.getSize().y * 0.82); map.panBy(markerPoint.subtract(targetPoint), { animate: true, duration: 0.25 }); }, 30); }); }); };
-    const geocodificar = async value => { const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(`${value}, Tatuí, SP`)}.json?access_token=${MAPBOX_TOKEN}&language=pt-BR&country=br&limit=5&autocomplete=true&types=address,postcode,neighborhood,locality,place`; const data = await fetch(url).then(r => r.json()); return data.features || []; };
+    const geocodificar = async value => {
+      const makeUrl = (query, types, limit) => {
+        const params = new URLSearchParams({ access_token: MAPBOX_TOKEN, language: 'pt-BR', country: 'br', limit: String(limit), autocomplete: 'true', types });
+        return `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${params}`;
+      };
+      const [cities, nearby] = await Promise.allSettled([
+        fetch(makeUrl(value, 'place', 5)).then(response => response.ok ? response.json() : null),
+        fetch(makeUrl(`${value}, Tatuí, SP`, 'address,postcode,neighborhood,locality', 5)).then(response => response.ok ? response.json() : null)
+      ]);
+      return [
+        ...(cities.status === 'fulfilled' ? cities.value?.features || [] : []),
+        ...(nearby.status === 'fulfilled' ? nearby.value?.features || [] : [])
+      ];
+    };
     const normalizarBusca = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\b(jd|jard)\.?\b/g, 'jardim').replace(/\b(vl|v)\.?\b/g, 'vila').replace(/\b(sta|s)\.?\b/g, 'santa').replace(/\b(av|avda)\.?\b/g, 'avenida').replace(/\b(r|rua)\.?\b/g, 'rua').replace(/\b(pq)\.?\b/g, 'parque').replace(/\s+/g, ' ').trim();
-    const sugerir = () => { clearTimeout(timer); if (query.value.trim().length < 2) { suggestions.value = []; return; } timer = setTimeout(async () => { const termo = normalizarBusca(query.value.trim()); const locais = []; const vistos = new Set(); imoveis.value.forEach(item => { const valores = [item.bairro, item.cidade, item.endereco].filter(Boolean); valores.forEach(valor => { const chave = normalizarBusca(valor); if (chave.includes(termo) && !vistos.has(chave)) { vistos.add(chave); locais.push({ id: `local-${item.id}-${chave}`, place_name: valor, center: item.coordenadas ? [Number(item.coordenadas.longitude), Number(item.coordenadas.latitude)] : null }); } }); }); let remotas = []; try { remotas = await geocodificar(query.value); } catch (_) {} suggestions.value = [...locais, ...remotas].filter(item => item.center).slice(0, 6); }, 300); };
+    const sugerir = () => {
+      clearTimeout(timer);
+      if (query.value.trim().length < 2) { suggestions.value = []; return; }
+      timer = setTimeout(async () => {
+        const consulta = query.value.trim();
+        const termo = normalizarBusca(consulta);
+        const locais = [];
+        const vistos = new Set();
+        imoveis.value.forEach(item => {
+          [item.bairro, item.cidade, item.endereco].filter(Boolean).forEach(valor => {
+            const chave = normalizarBusca(valor);
+            if (chave.includes(termo) && !vistos.has(chave)) {
+              vistos.add(chave);
+              locais.push({ id: `local-${item.id}-${chave}`, place_name: valor, center: item.coordenadas ? [Number(item.coordenadas.longitude), Number(item.coordenadas.latitude)] : null });
+            }
+          });
+        });
+        let remotas = [];
+        try { remotas = await geocodificar(consulta); } catch (_) {}
+        if (normalizarBusca(query.value.trim()) !== termo) return;
+        const cidades = remotas
+          .filter(item => item.place_type?.includes('place') && normalizarBusca(item.text || '').startsWith(termo))
+          .sort((a, b) => Number(normalizarBusca(b.text) === termo) - Number(normalizarBusca(a.text) === termo));
+        const nomesDasCidades = new Set(cidades.map(item => normalizarBusca(item.text || item.place_name?.split(',')[0])));
+        const locaisSemCidadeDuplicada = locais.filter(item => !nomesDasCidades.has(normalizarBusca(item.place_name)));
+        const ordenadas = [...cidades, ...locaisSemCidadeDuplicada, ...remotas.filter(item => !item.place_type?.includes('place'))];
+        const sugestoesVistas = new Set();
+        const unicas = ordenadas.filter(item => {
+          const chave = normalizarBusca(item.place_name);
+          if (!item.center || !chave || sugestoesVistas.has(chave)) return false;
+          sugestoesVistas.add(chave);
+          return true;
+        }).slice(0, 6);
+        suggestions.value = unicas.map(item => {
+          const local = item.id?.startsWith('local-');
+          const source = local ? imoveis.value.find(property => `${property.id}` === String(item.id).split('-')[1]) : null;
+          const isCity = item.place_type?.includes('place');
+          const prefix = isCity ? 'Cidade' : source?.bairro === item.place_name ? 'Bairro' : source?.cidade === item.place_name ? 'Cidade' : item.place_type?.includes('neighborhood') ? 'Bairro' : item.place_type?.includes('locality') ? 'Região' : item.place_type?.includes('address') ? 'Endereço' : '';
+          return { ...item, query: isCity ? item.text || item.place_name : item.place_name, label: prefix ? `${prefix} · ${item.place_name}` : item.place_name };
+        });
+      }, 300);
+    };
     const buscar = () => { const p = new URLSearchParams(); if (query.value.trim()) p.set('q', query.value.trim()); if (negociacao.value) p.set('tipo', negociacao.value); if (tipo.value) p.set('categoria', tipo.value); if (preco.value) p.set('faixa', preco.value); location.href = `imoveis.html${p.toString() ? `?${p}` : ''}`; };
-    const selecionar = feature => { query.value = feature.place_name; suggestions.value = []; if (map) map.setView([feature.center[1], feature.center[0]], 15); };
+    const selecionar = feature => { query.value = feature.query || feature.place_name; suggestions.value = []; if (map) map.setView([feature.center[1], feature.center[0]], feature.place_type?.includes('place') ? 12 : 15); };
     watch(categoriaMapa, desenharMarcadores);
     onMounted(async () => { await carregar(); map = L.map(mapEl.value, { zoomControl: true }).setView(TATUI, 13); PropertyMapLayers.addControl(map, MAPBOX_TOKEN); layer = L.layerGroup().addTo(map); desenharMarcadores(); setTimeout(() => map.invalidateSize(), 100); });
     return { usuario, imoveis, query, negociacao, tipo, preco, categoriaMapa, imoveisDoMapa, suggestions, error, categorias, mapEl, sugerir, buscar, selecionar, logout };
@@ -83,15 +152,7 @@ Home.template = Home.template.replace(/<footer class="home-footer" id="contato">
 const homeSetupOriginal = Home.setup;
 Home.setup = () => {
   const state = homeSetupOriginal();
-  const sugerir = async () => {
-    await state.sugerir();
-    state.suggestions.value = state.suggestions.value.map(item => {
-      const local = item.id?.startsWith('local-');
-      const source = local ? state.imoveis.value.find(property => `${property.id}` === String(item.id).split('-')[1]) : null;
-      const prefix = source?.bairro === item.place_name ? 'Bairro' : source?.cidade === item.place_name ? 'Cidade' : item.place_type?.includes('neighborhood') ? 'Bairro' : item.place_type?.includes('locality') || item.place_type?.includes('place') ? 'Região' : item.place_type?.includes('address') ? 'Endereço' : '';
-      return { ...item, query: item.place_name, label: prefix ? `${prefix} · ${item.place_name}` : item.place_name };
-    });
-  };
+  const sugerir = () => state.sugerir();
   const selecionar = feature => state.selecionar({ ...feature, place_name: feature.query || feature.place_name });
   return { ...state, sugerir, selecionar };
 };
@@ -187,8 +248,8 @@ Listing.template = Listing.template
 
 const PropertyFeatureIcon = {
   props: { name: String },
-  setup(props) { return { paths: computed(() => PropertyCharacteristics.icon(props.name)) }; },
-  template: `<svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path v-for="(path, index) in paths" :key="index" :d="path" /></svg>`
+  setup(props) { return { iconName: computed(() => PropertyCharacteristics.icon(props.name)) }; },
+  template: `<span class="phosphor-icon property-feature-glyph" :data-phosphor="iconName" aria-hidden="true"></span>`
 };
 
 const Detail = {
@@ -196,8 +257,26 @@ const Detail = {
   setup() {
     const usuario = ref(null); const item = ref(null); const error = ref(''); const contact = ref(false); const message = ref(''); const lightboxIndex = ref(null); const shareStatus = ref(''); const perimetroMapEl = ref(null); let perimetroMap;
     const caracteristicas = computed(() => PropertyCharacteristics.list(item.value?.caracteristicas));
-    const resumoCaracteristicas = computed(() => PropertyCharacteristics.summary(caracteristicas.value));
-    const caracteristicasDetalhadas = computed(() => caracteristicas.value.filter(feature => !['area', 'area_total', 'area_construida', 'quartos', 'banheiros', 'vagas'].includes(feature.key)));
+    const caracteristicasUnificadas = computed(() => {
+      const possuiAreasSeparadas = caracteristicas.value.some(feature => ['area_total', 'area_construida'].includes(feature.key));
+      const ordem = ['area_total', 'area_construida', 'area', 'frente', 'quartos', 'suite', 'banheiros', 'salas'];
+      return caracteristicas.value
+        .filter(feature => !(feature.key === 'area' && possuiAreasSeparadas))
+        .sort((a, b) => {
+          const indiceA = ordem.indexOf(a.key);
+          const indiceB = ordem.indexOf(b.key);
+          if (indiceA === -1 && indiceB === -1) return 0;
+          if (indiceA === -1) return 1;
+          if (indiceB === -1) return -1;
+          return indiceA - indiceB;
+        });
+    });
+    const caracteristicaNumerica = feature => ['area', 'area_total', 'area_construida', 'quartos', 'suite', 'banheiros', 'vagas', 'frente', 'salas'].includes(feature.key);
+    const exibirCaracteristica = feature => {
+      if (feature.boolean) return feature.label;
+      if (!caracteristicaNumerica(feature)) return feature.display;
+      return String(feature.display || '').replace(/\b(quarto|quartos|suíte|suítes|banheiro|banheiros|vaga|vagas|ambiente|ambientes)\b/giu, word => word.charAt(0).toUpperCase() + word.slice(1));
+    };
     const oferta = computed(() => PropertyOffers.parse(item.value || {}));
     const ofertaResumo = computed(() => PropertyOffers.summary(item.value || {}));
     const valores = computed(() => {
@@ -239,7 +318,26 @@ const Detail = {
       window.setTimeout(() => { shareStatus.value = ''; }, 2800);
     };
     const normalizarPerimetroDetalhe = value => { if (!value) return null; let data = value; if (typeof data === 'string') { try { data = JSON.parse(data); } catch (_) { return null; } } if (data?.type === 'Feature' && data.geometry?.type === 'Polygon') return data; if (data?.type === 'Polygon') return { type: 'Feature', properties: {}, geometry: data }; return null; };
-    const iniciarMapaPerimetro = () => { if (!perimetroMapEl.value || perimetroMap || !item.value?.perimetro || !item.value?.coordenadas) return; const c = item.value.coordenadas; perimetroMap = L.map(perimetroMapEl.value, { scrollWheelZoom: false }).setView([Number(c.latitude), Number(c.longitude)], 17); PropertyMapLayers.addControl(perimetroMap, MAPBOX_TOKEN); L.marker([Number(c.latitude), Number(c.longitude)]).addTo(perimetroMap); const layer = L.geoJSON(normalizarPerimetroDetalhe(item.value.perimetro), { style: { color: '#e5651c', weight: 3, fillColor: '#e5651c', fillOpacity: .18 } }).addTo(perimetroMap); if (layer.getBounds().isValid()) perimetroMap.fitBounds(layer.getBounds(), { padding: [28, 28] }); setTimeout(() => perimetroMap?.invalidateSize(), 100); };
+    const iniciarMapaPerimetro = () => {
+      if (!perimetroMapEl.value || perimetroMap || !item.value?.coordenadas) return;
+      const latitude = Number(item.value.coordenadas.latitude);
+      const longitude = Number(item.value.coordenadas.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+      perimetroMap = L.map(perimetroMapEl.value, {
+        scrollWheelZoom: true,
+        touchZoom: true,
+        doubleClickZoom: true,
+        zoomControl: true
+      }).setView([latitude, longitude], 18);
+      PropertyMapLayers.addControl(perimetroMap, MAPBOX_TOKEN, { collapsed: true, initial: 'satellite' });
+      L.marker([latitude, longitude]).addTo(perimetroMap);
+      const perimetro = normalizarPerimetroDetalhe(item.value.perimetro);
+      if (perimetro) {
+        const layer = L.geoJSON(perimetro, { style: { color: '#e5651c', weight: 3, fillColor: '#e5651c', fillOpacity: .18 } }).addTo(perimetroMap);
+        if (layer.getBounds().isValid()) perimetroMap.fitBounds(layer.getBounds(), { padding: [28, 28] });
+      }
+      setTimeout(() => perimetroMap?.invalidateSize(), 100);
+    };
     const abrirGaleria = index => { lightboxIndex.value = index; };
     const fecharGaleria = () => { lightboxIndex.value = null; };
     const proximaFoto = () => { if (item.value?.fotos?.length) lightboxIndex.value = (lightboxIndex.value + 1) % item.value.fotos.length; };
@@ -248,7 +346,7 @@ const Detail = {
     const logout = async () => { await fetch('/api/logout', { method: 'POST' }); usuario.value = null; };
     onMounted(() => { carregar(); window.addEventListener('keydown', atalhosGaleria); });
     onBeforeUnmount(() => { window.removeEventListener('keydown', atalhosGaleria); if (perimetroMap) perimetroMap.remove(); });
-    return { usuario, item, error, contact, message, lightboxIndex, shareStatus, perimetroMapEl, caracteristicasDetalhadas, resumoCaracteristicas, valores, oferta, ofertaResumo, enviar, compartilhar, abrirGaleria, fecharGaleria, proximaFoto, fotoAnterior, logout, money, PropertyOffers };
+    return { usuario, item, error, contact, message, lightboxIndex, shareStatus, perimetroMapEl, caracteristicasUnificadas, caracteristicaNumerica, exibirCaracteristica, valores, oferta, ofertaResumo, enviar, compartilhar, abrirGaleria, fecharGaleria, proximaFoto, fotoAnterior, logout, money, PropertyOffers };
   },
   template: `<Layout :usuario="usuario" eyebrow="Detalhes do imóvel" @logout="logout">
     <p v-if="item === null" class="property-detail-loading">Carregando imóvel…</p>
@@ -256,8 +354,8 @@ const Detail = {
     <section v-else-if="!item" class="property-detail-not-found"><h1>Imóvel não encontrado.</h1><a href="imoveis.html">Voltar para a lista</a></section>
     <article v-else class="property-detail">
       <header class="property-detail-heading">
-        <div><p class="property-detail-transaction">{{ oferta.types.join(' · ') }}</p><h1>{{ item.categoria }}</h1><p class="property-detail-address"><span aria-hidden="true">⌖</span>{{ item.endereco }}</p><p class="property-detail-reference">Anúncio #{{ item.id }} · Publicado no Tatuí Imóveis</p></div>
-        <a href="imoveis.html" class="property-detail-back">← Voltar aos imóveis</a>
+        <div><p class="property-detail-transaction">{{ oferta.types.join(' · ') }}</p><h1>{{ item.categoria }}</h1><p class="property-detail-reference">Anúncio #{{ item.id }} · Publicado no Tatuí Imóveis</p></div>
+        <a href="imoveis.html" class="property-detail-back"><span class="property-detail-back-icon" aria-hidden="true">←</span><span>Voltar aos imóveis</span></a>
       </header>
       <div class="property-detail-layout">
         <div class="property-detail-main">
@@ -266,21 +364,43 @@ const Detail = {
             <div v-if="item.fotos.length > 1" class="property-detail-thumbnails"><button v-for="(foto, index) in item.fotos.slice(1, 5)" :key="foto.id" type="button" @click="abrirGaleria(index + 1)" :aria-label="'Ampliar foto ' + (index + 2)"><img :src="foto.url" :alt="foto.nome || item.categoria"><span v-if="index === 3 && item.fotos.length > 5">+{{ item.fotos.length - 5 }} fotos</span></button></div>
           </section>
           <div v-else class="property-detail-no-photo">Imóvel sem fotos cadastradas</div>
-          <section class="property-detail-section" aria-labelledby="property-description-title"><h2 id="property-description-title">Sobre o imóvel</h2><div v-if="item.descricao" class="property-detail-description" v-html="item.descricao"></div><p v-else class="property-detail-muted">O anunciante não adicionou uma descrição.</p></section>
-          <section v-if="item.perimetro" class="property-detail-section property-detail-perimeter" aria-labelledby="property-perimeter-title"><h2 id="property-perimeter-title">Perímetro do imóvel</h2><p class="property-detail-muted">Área aproximada indicada no anúncio. O marcador central identifica a localização principal.</p><div ref="perimetroMapEl" class="property-detail-map" aria-label="Mapa do perímetro do imóvel"></div></section>
-          <section class="property-detail-section property-detail-characteristics" aria-labelledby="property-characteristics-title"><h2 id="property-characteristics-title">Características</h2><p v-if="!caracteristicasDetalhadas.length" class="property-detail-muted">Não há outras características informadas.</p><ul v-else><li v-for="feature in caracteristicasDetalhadas" :key="feature.key"><span class="property-feature-icon" :class="{ 'is-available': feature.boolean }"><PropertyFeatureIcon :name="feature.key" /></span><span><strong>{{ feature.label }}</strong><small>{{ feature.boolean ? 'Disponível' : feature.display }}</small></span></li></ul></section>
+            <section class="property-detail-section" aria-labelledby="property-description-title"><h2 id="property-description-title">Sobre o imóvel</h2><div v-if="item.descricao" class="property-detail-description" v-html="item.descricao"></div><p v-else class="property-detail-muted">O anunciante não adicionou uma descrição.</p></section>
         </div>
         <aside class="property-detail-sidebar">
           <section class="property-detail-card" aria-label="Valores e contato">
             <h2 class="property-detail-card-title">Valores</h2>
             <dl class="property-detail-prices"><div v-for="row in valores" :key="row.label"><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div><div v-if="!valores.length"><dt>Valor</dt><dd>{{ money(item.preco, item.tipo) }}</dd></div></dl>
-            <p v-if="ofertaResumo.included.length" class="property-detail-included"><strong>Incluso:</strong> {{ ofertaResumo.included.join(', ') }}</p>
-            <div v-if="resumoCaracteristicas.length" class="property-detail-summary" aria-label="Resumo das características"><div v-for="fact in resumoCaracteristicas" :key="fact.key"><strong>{{ fact.display }}</strong><span>{{ fact.label }}</span></div></div>
+            <div v-if="ofertaResumo.included.length" class="property-detail-included"><div class="property-detail-included-heading"><span aria-hidden="true">✓</span><strong>Incluso no valor</strong></div><div class="property-detail-included-list"><span v-for="item in ofertaResumo.included" :key="item">{{ item }}</span></div></div>
             <div class="property-detail-actions"><button class="react-button" type="button" @click="contact = true">Tenho interesse</button><button class="react-button secondary property-share-detail-button" type="button" @click="compartilhar"><svg class="property-share-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"></path></svg>Compartilhar</button><span v-if="shareStatus" class="property-share-status property-share-detail-status" role="status" aria-live="polite">{{ shareStatus }}</span><a v-if="usuario?.usuario?.id === item.usuario_id" class="react-button secondary" :href="'cadastro.html?modo=editar&id=' + item.id">Editar imóvel</a></div>
           </section>
         </aside>
-      </div>
-      <div v-if="lightboxIndex !== null" class="property-lightbox" role="presentation" @click.self="fecharGaleria"><section class="lightbox-dialog" role="dialog" aria-modal="true" aria-label="Galeria de fotos" @click.stop><div class="lightbox-photo-stage"><div class="lightbox-photo-frame"><img class="lightbox-photo" :src="item.fotos[lightboxIndex].url" :alt="item.fotos[lightboxIndex].nome || item.categoria"></div></div><button type="button" class="lightbox-close" aria-label="Fechar galeria" @click="fecharGaleria">×</button><button v-if="item.fotos.length > 1" type="button" class="lightbox-nav lightbox-prev" aria-label="Foto anterior" @click="fotoAnterior"><span aria-hidden="true">‹</span></button><button v-if="item.fotos.length > 1" type="button" class="lightbox-nav lightbox-next" aria-label="Próxima foto" @click="proximaFoto"><span aria-hidden="true">›</span></button><p class="lightbox-caption">{{ lightboxIndex + 1 }} de {{ item.fotos.length }}</p></section></div>
+       </div>
+       <section class="property-detail-features-card" aria-labelledby="property-characteristics-title">
+         <header class="property-detail-features-header">
+           <div><p class="property-detail-location-eyebrow">Detalhes do anúncio</p><h2 id="property-characteristics-title">Características do imóvel</h2><p class="property-detail-muted">Tudo o que foi informado pelo anunciante em um só lugar.</p></div>
+           <span class="property-detail-features-count">{{ caracteristicasUnificadas.length }} {{ caracteristicasUnificadas.length === 1 ? 'item' : 'itens' }}</span>
+         </header>
+         <ul v-if="caracteristicasUnificadas.length" class="property-detail-feature-grid">
+           <li v-for="feature in caracteristicasUnificadas" :key="feature.key" class="property-detail-feature-item"><span class="property-feature-icon" :class="{ 'is-available': feature.boolean }"><PropertyFeatureIcon :name="feature.key" /></span><span><strong>{{ exibirCaracteristica(feature) }}</strong><small v-if="!feature.boolean && (!caracteristicaNumerica(feature) || ['area', 'area_total', 'area_construida', 'frente'].includes(feature.key))">{{ feature.label }}</small></span></li>
+         </ul>
+         <p v-else class="property-detail-muted property-detail-features-empty">O anunciante ainda não informou características adicionais.</p>
+       </section>
+       <section class="property-detail-location-card" aria-labelledby="property-location-title">
+         <div class="property-detail-location-map-wrap">
+           <div v-if="item.coordenadas?.latitude && item.coordenadas?.longitude" ref="perimetroMapEl" class="property-detail-map property-detail-location-map" aria-label="Mapa da localização do imóvel"></div>
+           <div v-else class="property-detail-map property-detail-location-map property-detail-location-map-empty" role="status">Localização no mapa não informada</div>
+           <span class="property-detail-location-badge"><span aria-hidden="true">⌖</span> Localização do anúncio</span>
+         </div>
+         <div class="property-detail-location-content">
+           <p class="property-detail-location-eyebrow">Localização</p>
+           <h2 id="property-location-title">Onde fica este imóvel</h2>
+           <p class="property-detail-location-address">{{ item.endereco || 'Endereço não informado' }}</p>
+           <p class="property-detail-muted">O marcador indica a localização informada pelo anunciante. Para preservar a privacidade, o ponto pode representar uma área aproximada.</p>
+           <p class="property-detail-map-help"><strong>Visualização:</strong> use o seletor no canto do mapa para alternar entre Ruas, Satélite, Terreno, Claro e Escuro.</p>
+           <p v-if="item.perimetro" class="property-detail-location-perimeter"><strong>Área destacada no mapa:</strong> o perímetro informado pelo anunciante aparece em laranja.</p>
+         </div>
+       </section>
+       <div v-if="lightboxIndex !== null" class="property-lightbox" role="presentation" @click.self="fecharGaleria"><section class="lightbox-dialog" role="dialog" aria-modal="true" aria-label="Galeria de fotos" @click.stop><div class="lightbox-photo-stage"><div class="lightbox-photo-frame"><img class="lightbox-photo" :src="item.fotos[lightboxIndex].url" :alt="item.fotos[lightboxIndex].nome || item.categoria"></div></div><button type="button" class="lightbox-close" aria-label="Fechar galeria" @click="fecharGaleria">×</button><button v-if="item.fotos.length > 1" type="button" class="lightbox-nav lightbox-prev" aria-label="Foto anterior" @click="fotoAnterior"><span aria-hidden="true">‹</span></button><button v-if="item.fotos.length > 1" type="button" class="lightbox-nav lightbox-next" aria-label="Próxima foto" @click="proximaFoto"><span aria-hidden="true">›</span></button><p class="lightbox-caption">{{ lightboxIndex + 1 }} de {{ item.fotos.length }}</p></section></div>
       <div v-if="contact" class="react-modal" @click.self="contact = false"><div class="react-modal-card"><button class="modal-close" type="button" aria-label="Fechar contato" @click="contact = false">×</button><h2>Tenho interesse neste imóvel</h2><form class="react-form" @submit.prevent="enviar"><label>Nome<input name="nome" autocomplete="name" required></label><label>Telefone<input name="telefone" type="tel" autocomplete="tel" required></label><label>E-mail<input name="email" type="email" autocomplete="email" required></label><label class="privacy-consent"><input name="aceite_privacidade" value="true" type="checkbox" required><span>Li e aceito a <a href="privacidade.html" target="_blank" rel="noopener noreferrer">Política de Privacidade</a>.</span></label><p class="whatsapp-form-note">Seus dados irão na mensagem para o anunciante. Você poderá revisar antes de enviar pelo WhatsApp.</p><p v-if="message" class="whatsapp-form-status" role="status">{{ message }}</p><button class="react-button whatsapp-contact-button">Continuar pelo WhatsApp</button></form></div></div>
     </article>
   </Layout>`
@@ -663,12 +783,50 @@ Cadastro.template = Cadastro.template.replace('</div></div><p class="react-error
 Cadastro.template = Cadastro.template.replace('<div v-show="subetapa === 1" class="cadastro-step-navigation"><button', '<div v-show="subetapa === 1" class="cadastro-step-navigation"><p v-if="etapaMensagem" class="step-validation-message" role="alert">{{ etapaMensagem }}</p><button');
 Cadastro.template = Cadastro.template.replace('<div v-show="subetapa === 2" class="cadastro-step-navigation"><button', '<div v-show="subetapa === 2" class="cadastro-step-navigation"><p v-if="etapaMensagem" class="step-validation-message" role="alert">{{ etapaMensagem }}</p><button');
 Cadastro.template = Cadastro.template.replace('<form class="property-form" @submit="salvar">', '<form class="property-form" @submit="salvar" novalidate>');
+Cadastro.template = Cadastro.template.replace('Preencha as informações para publicar uma nova oportunidade no Tatuí Imóveis.', 'Preencha as informações para publicar seu imóvel no Tatuí Imóveis.');
+Cadastro.template = Cadastro.template.replace('<h2 id="property-description-title">Sobre o imóvel</h2>', '<h2 id="property-description-title"><span class="phosphor-icon" data-phosphor="file-text" aria-hidden="true"></span>Sobre o imóvel</h2>');
 const RecuperarSenha = { components: { Layout }, setup() { const token = ref(params().get('token') || ''); const email = ref(''); const senha = ref(''); const confirmacao = ref(''); const mensagem = ref(''); const sucesso = ref(false); const enviando = ref(false); const redirecionando = ref(false); const mostrarSenha = ref(false); const mostrarConfirmacao = ref(false); let redirectTimer; const senhaForca = computed(() => { const valor = senha.value || ''; const criterios = { tamanho: valor.length >= 8, maiuscula: /[A-Z]/.test(valor), minuscula: /[a-z]/.test(valor), numero: /\d/.test(valor) }; const pontos = Object.values(criterios).filter(Boolean).length; return { criterios, pontos, percentual: pontos * 25, rotulo: pontos === 0 ? 'Ainda não informada' : pontos < 3 ? 'Fraca' : pontos < 4 ? 'Média' : 'Forte' }; }); const senhasCoincidem = computed(() => Boolean(confirmacao.value) && senha.value === confirmacao.value); const solicitar = async () => { if (enviando.value) return; enviando.value = true; mensagem.value = ''; try { const response = await fetch('/api/recuperar-senha', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.value }) }); const result = await response.json(); mensagem.value = result.message || 'Se o e-mail estiver cadastrado, enviaremos um link para recuperação de senha.'; sucesso.value = response.ok; } catch (_) { mensagem.value = 'Não foi possível concluir a solicitação. Tente novamente.'; } finally { enviando.value = false; } }; const redefinir = async () => { if (senhaForca.value.pontos < 4 || !senhasCoincidem.value) { mensagem.value = senhaForca.value.pontos < 4 ? 'A senha deve ter 8 caracteres, letra maiúscula, minúscula e número.' : 'As senhas não coincidem. Confira os dois campos.'; return; } enviando.value = true; mensagem.value = ''; try { const response = await fetch('/api/redefinir-senha', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token.value, senha: senha.value, senha_confirmacao: confirmacao.value }) }); const result = await response.json(); mensagem.value = result.message || result.error; sucesso.value = response.ok; if (response.ok) { redirecionando.value = true; redirectTimer = setTimeout(() => location.replace('meus-imoveis.html'), 3000); } } catch (_) { mensagem.value = 'Não foi possível alterar a senha. Tente novamente.'; } finally { enviando.value = false; } }; onBeforeUnmount(() => clearTimeout(redirectTimer)); return { token, email, senha, confirmacao, mensagem, sucesso, enviando, redirecionando, mostrarSenha, mostrarConfirmacao, senhaForca, senhasCoincidem, solicitar, redefinir }; }, template: `<Layout eyebrow="Segurança da conta"><template v-if="!token"><h1>Recupere sua senha.</h1><p class="react-lead">Informe o e-mail cadastrado e enviaremos um link para criar uma nova senha.</p><form class="react-form" @submit.prevent="solicitar"><label>E-mail<input type="email" v-model="email" autocomplete="email" required></label><p v-if="mensagem" :class="sucesso ? 'react-success-message' : 'react-error'">{{ mensagem }}</p><button class="react-button" :disabled="enviando">{{ enviando ? 'Enviando…' : 'Enviar link de recuperação' }}</button></form></template><template v-else-if="!sucesso"><h1>Crie uma nova senha.</h1><p class="react-lead">Use uma senha com pelo menos 8 caracteres, uma letra maiúscula, uma minúscula e um número.</p><form class="react-form" @submit.prevent="redefinir"><label>Nova senha<div class="password-field"><input :type="mostrarSenha ? 'text' : 'password'" v-model="senha" autocomplete="new-password" required><button type="button" class="password-toggle" :class="{ 'is-visible': mostrarSenha }" @click="mostrarSenha = !mostrarSenha" :aria-label="mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'" :title="mostrarSenha ? 'Senha visível — clique para ocultar' : 'Senha oculta — clique para mostrar'" :aria-pressed="mostrarSenha">${passwordEyeIcons('mostrarSenha')}</button></div><div class="password-strength"><div class="password-strength-head"><span>Força da senha</span><strong>{{ senhaForca.rotulo }}</strong></div><div class="password-strength-track"><i :style="{ width: senhaForca.percentual + '%' }" :class="'strength-' + senhaForca.pontos"></i></div><ul><li :class="{ valid: senhaForca.criterios.tamanho }">8 caracteres</li><li :class="{ valid: senhaForca.criterios.maiuscula }">1 letra maiúscula</li><li :class="{ valid: senhaForca.criterios.minuscula }">1 letra minúscula</li><li :class="{ valid: senhaForca.criterios.numero }">1 número</li></ul></div></label><label>Confirme a nova senha<div class="password-field"><input :type="mostrarConfirmacao ? 'text' : 'password'" v-model="confirmacao" autocomplete="new-password" required><button type="button" class="password-toggle" :class="{ 'is-visible': mostrarConfirmacao }" @click="mostrarConfirmacao = !mostrarConfirmacao" :aria-label="mostrarConfirmacao ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'" :title="mostrarConfirmacao ? 'Confirmação visível — clique para ocultar' : 'Confirmação oculta — clique para mostrar'" :aria-pressed="mostrarConfirmacao">${passwordEyeIcons('mostrarConfirmacao')}</button></div><small v-if="confirmacao" class="password-match" :class="{ matching: senhasCoincidem }">{{ senhasCoincidem ? 'As senhas coincidem.' : 'As senhas não coincidem.' }}</small></label><p v-if="mensagem" class="react-error">{{ mensagem }}</p><button class="react-button" :disabled="enviando || senhaForca.pontos < 4 || !senhasCoincidem">{{ enviando ? 'Salvando…' : 'Alterar senha' }}</button></form></template><section v-else class="password-reset-success" aria-live="polite"><div class="password-reset-success-icon" aria-hidden="true">✓</div><h1>Senha alterada com sucesso.</h1><p><span>Você já pode entrar com a nova senha.</span></p><button class="react-button password-redirect-button" type="button" disabled><span class="password-loading-spinner" aria-hidden="true"></span>Redirecionando para Meus imóveis</button><small>Você será direcionado automaticamente em 3 segundos.</small></section><p v-if="!redirecionando" class="react-lead"><a href="login.html">Voltar para o login</a></p></Layout>` };
 const path = location.pathname === '/' ? '/index.html' : location.pathname.endsWith('.html') ? location.pathname : `${location.pathname}.html`; const Page = path.endsWith('meus-imoveis.html') ? MeusImoveis : path.endsWith('imoveis.html') ? Listing : path.endsWith('imovel.html') ? Detail : path.endsWith('login.html') ? Login : path.endsWith('recuperar-senha.html') ? RecuperarSenha : path.endsWith('perfil.html') ? Profile : path.endsWith('sucesso.html') ? Success : path.endsWith('cadastro.html') ? Cadastro : Home;
 if (!Cadastro.template.includes('v-model="perfil.senha_confirmacao"')) {
   const confirmationField = '<label class="field field-wide">Confirme sua senha<div class="password-field"><input :type="mostrarConfirmacaoSenha ? \'text\' : \'password\'" v-model="perfil.senha_confirmacao" placeholder="Digite a senha novamente" autocomplete="new-password" required><button type="button" class="password-toggle" @click="mostrarConfirmacaoSenha = !mostrarConfirmacaoSenha" :aria-label="mostrarConfirmacaoSenha ? \'Ocultar confirmação de senha\' : \'Mostrar confirmação de senha\'" :title="mostrarConfirmacaoSenha ? \'Confirmação visível — clique para ocultar\' : \'Confirmação oculta — clique para mostrar\'" :aria-pressed="mostrarConfirmacaoSenha">' + passwordEyeIcons('mostrarConfirmacaoSenha') + '</button></div><small v-if="senhaConfirmacaoStatus" class="password-match" :class="{ matching: senhaConfirmacaoStatus === \'As senhas coincidem.\' }">{{ senhaConfirmacaoStatus }}</small></label>';
   Cadastro.template = Cadastro.template.replace('</div></div><label class="privacy-consent">', confirmationField + '</div></div><label class="privacy-consent">');
 }
+ Detail.template = Detail.template
+   .replace('<span class="property-detail-back-icon" aria-hidden="true">←</span>', '<span class="property-detail-back-icon phosphor-icon" data-phosphor="arrow-left" aria-hidden="true"></span>')
+   .replace('<span aria-hidden="true">⌖</span> Localização do anúncio', '<span class="phosphor-icon" data-phosphor="map-pin" aria-hidden="true"></span> Localização do anúncio')
+   .replace('<span aria-hidden="true">✓</span><strong>Incluso no valor</strong>', '<span class="phosphor-icon" data-phosphor="check-circle" aria-hidden="true"></span><strong>Incluso no valor</strong>')
+   .replace('<button class="lightbox-close" aria-label="Fechar galeria" @click="fecharGaleria">×</button>', '<button class="lightbox-close" aria-label="Fechar galeria" @click="fecharGaleria"><span class="phosphor-icon" data-phosphor="x" aria-hidden="true"></span></button>')
+   .replace('<button v-if="item.fotos.length > 1" type="button" class="lightbox-nav lightbox-prev" aria-label="Foto anterior" @click="fotoAnterior"><span aria-hidden="true">‹</span></button>', '<button v-if="item.fotos.length > 1" type="button" class="lightbox-nav lightbox-prev" aria-label="Foto anterior" @click="fotoAnterior"><span class="phosphor-icon" data-phosphor="arrow-left" aria-hidden="true"></span></button>')
+   .replace('<button v-if="item.fotos.length > 1" type="button" class="lightbox-nav lightbox-next" aria-label="Próxima foto" @click="proximaFoto"><span aria-hidden="true">›</span></button>', '<button v-if="item.fotos.length > 1" type="button" class="lightbox-nav lightbox-next" aria-label="Próxima foto" @click="proximaFoto"><span class="phosphor-icon" data-phosphor="arrow-right" aria-hidden="true"></span></button>')
+   .replace('<button class="modal-close" type="button" aria-label="Fechar contato" @click="contact = false">×</button>', '<button class="modal-close" type="button" aria-label="Fechar contato" @click="contact = false"><span class="phosphor-icon" data-phosphor="x" aria-hidden="true"></span></button>');
+ const homeSetup = Home.setup;
+ Home.setup = (...args) => {
+   const state = homeSetup(...args);
+   const categoryIcons = { 'icon-casa.svg': 'house', 'icon-apartamento.svg': 'buildings', 'icon-terreno.svg': 'mountains', 'icon-chacara.svg': 'tree', 'icon-comercial.svg': 'storefront' };
+   state.categorias = state.categorias.map(([label, icon, color]) => [label, categoryIcons[icon] || 'house', color]);
+   return state;
+ };
+ Home.template = Home.template.replace(":style=\"{backgroundImage: 'url(assets/' + icon + ')'}\"", 'class="phosphor-icon" :data-phosphor="icon"');
+ Home.template = Home.template.replace('<p class="home-kicker">Explore Tatuí</p><h2>Imóveis no mapa</h2>', '<h2>Explore Tatuí</h2>');
+ Home.template = Home.template.replace('<p>Veja os imóveis disponíveis em Tatuí e encontre o seu próximo endereço.</p>', '');
+ const templatesWithIcons = [Home, Listing, Detail, Login, Profile, Success, Cadastro, RecuperarSenha];
+ templatesWithIcons.forEach(component => {
+   if (!component?.template) return;
+   component.template = component.template
+     .replaceAll('<span>⌖</span>', '<span class="phosphor-icon" data-phosphor="map-pin" aria-hidden="true"></span>')
+     .replaceAll('<span class="listing-search-icon">⌕</span>', '<span class="listing-search-icon phosphor-icon" data-phosphor="magnifying-glass" aria-hidden="true"></span>')
+     .replaceAll('⌕&nbsp; Buscar imóveis', '<span class="phosphor-icon" data-phosphor="magnifying-glass" aria-hidden="true"></span>&nbsp; Buscar imóveis')
+     .replaceAll('<span class="home-all-properties-arrow" aria-hidden="true">→</span>', '<span class="home-all-properties-arrow phosphor-icon" data-phosphor="arrow-right" aria-hidden="true"></span>')
+     .replaceAll('Anunciar agora grátis&nbsp; →', 'Anunciar agora grátis&nbsp; <span class="phosphor-icon" data-phosphor="arrow-right" aria-hidden="true"></span>')
+     .replaceAll('<span aria-hidden="true">→</span>', '<span class="phosphor-icon" data-phosphor="arrow-right" aria-hidden="true"></span>')
+     .replaceAll('<span aria-hidden="true">←</span>', '<span class="phosphor-icon" data-phosphor="arrow-left" aria-hidden="true"></span>')
+     .replaceAll('<span aria-hidden="true">✓</span>', '<span class="phosphor-icon" data-phosphor="check" aria-hidden="true"></span>')
+     .replaceAll('← Voltar', '<span class="phosphor-icon" data-phosphor="arrow-left" aria-hidden="true"></span> Voltar')
+     .replaceAll('← Informações', '<span class="phosphor-icon" data-phosphor="arrow-left" aria-hidden="true"></span> Informações')
+     .replaceAll('← Localização', '<span class="phosphor-icon" data-phosphor="arrow-left" aria-hidden="true"></span> Localização')
+     .replaceAll('>×</button>', '><span class="phosphor-icon" data-phosphor="x" aria-hidden="true"></span></button>')
+     .replaceAll('class="password-reset-success-icon" aria-hidden="true">✓', 'class="password-reset-success-icon phosphor-icon" data-phosphor="check-circle" aria-hidden="true">');
+ });
  const app = createApp(Page);
 app.config.errorHandler = (error, instance, info) => {
   console.error(`Falha ao renderizar a aplicação (${info}).`, error);

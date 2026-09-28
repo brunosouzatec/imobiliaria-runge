@@ -23,4 +23,19 @@
   <script>SiteChrome.mount(document, 'privacy');</script>
 </body>
 </html>
-<script>fetch('/api/conteudos/politica_privacidade').then(r=>r.ok?r.json():null).then(data=>{if(!data?.conteudo)return;const section=document.querySelector('#politica-dinamica');section.innerHTML='';data.conteudo.split(/\r?\n\s*\r?\n/).filter(Boolean).forEach(block=>{const lines=block.trim().split(/\r?\n/);const heading=lines.shift();const title=document.createElement('h2');title.textContent=heading;section.appendChild(title);if(lines.length){const p=document.createElement('p');p.textContent=lines.join(' ');section.appendChild(p);}});}).catch(()=>{});</script>
+  <script>
+    fetch('/api/conteudos/politica_privacidade')
+      .then(response => response.ok ? response.json() : null)
+      .then(data => {
+        if (!data?.conteudo) return;
+        const section = document.querySelector('#politica-dinamica');
+        section.replaceChildren();
+        data.conteudo.split(/\r?\n/).map(line => line.trim()).filter(Boolean).forEach(line => {
+          const isHeading = /^\d+(?:\.\d+)*[.)]?\s+\S/.test(line);
+          const element = document.createElement(isHeading ? 'h2' : 'p');
+          element.textContent = line;
+          section.appendChild(element);
+        });
+      })
+      .catch(() => {});
+  </script>

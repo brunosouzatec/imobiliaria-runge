@@ -1,5 +1,56 @@
 (() => {
+  const phosphorStyles = document.createElement('link');
+  phosphorStyles.rel = 'stylesheet';
+  phosphorStyles.href = '/phosphor-icons.css';
+  document.head.appendChild(phosphorStyles);
   const app = document.querySelector('#admin-app');
+  const adminIconByText = [
+    [/visão geral|dashboard/i, 'chart-line'], [/imóveis|imóvel/i, 'house'], [/usuários|usuário/i, 'users'],
+    [/auditoria|histórico/i, 'file-text'], [/conteúdo|política/i, 'file-text'], [/e-mail|email/i, 'envelope'],
+    [/oportunidade/i, 'sparkle'], [/configurações|configuração/i, 'gear'], [/sair|logout/i, 'sign-out'],
+    [/editar/i, 'pencil-simple'], [/excluir|remover/i, 'trash'], [/incluir|novo|adicionar/i, 'plus'],
+    [/salvar|publicar/i, 'floppy-disk'], [/voltar/i, 'arrow-left'], [/detalhes|abrir/i, 'arrow-square-out'],
+    [/teste|enviar/i, 'envelope'], [/fechar|cancelar/i, 'x']
+  ];
+  function enhanceAdminIcons() {
+    app.querySelectorAll('.admin-opportunity-location').forEach(element => {
+      if (element.querySelector('[data-phosphor]')) return;
+      const icon = document.createElement('span');
+      icon.className = 'phosphor-icon admin-opportunity-inline-icon';
+      icon.dataset.phosphor = 'map-pin';
+      icon.setAttribute('aria-hidden', 'true');
+      element.prepend(icon);
+    });
+    app.querySelectorAll('.admin-opportunity-facts span').forEach((element, index) => {
+      const fact = element.querySelector('strong');
+      if (index === 1 && fact && !fact.dataset.areaLocalized) {
+        fact.textContent = fact.textContent.replace(/\d+(?:[.,]\d+)?/g, value => Number(value.replace(',', '.')).toLocaleString('pt-BR', { maximumFractionDigits: 1 }));
+        fact.dataset.areaLocalized = 'true';
+      }
+      if (element.querySelector('[data-phosphor]')) return;
+      const icon = document.createElement('span');
+      icon.className = 'phosphor-icon admin-opportunity-inline-icon';
+      icon.dataset.phosphor = ['house', 'ruler', 'currency-circle-dollar'][index] || 'sparkle';
+      icon.setAttribute('aria-hidden', 'true');
+      element.prepend(icon);
+    });
+    app.querySelectorAll('button, a, .admin-property-placeholder, .admin-property-address, .admin-opportunity-location, .admin-opportunity-facts span').forEach(element => {
+      if (element.querySelector('[data-phosphor]') || element.classList.contains('admin-icon-enhanced')) return;
+      if (element.classList.contains('admin-property-placeholder')) element.textContent = '';
+      if (element.classList.contains('admin-modal-close')) element.textContent = '';
+      if (element.classList.contains('admin-secondary-action')) element.innerHTML = element.innerHTML.replace('→', '');
+      const text = element.textContent.trim();
+      const match = adminIconByText.find(([pattern]) => pattern.test(text));
+      if (!match) return;
+      const icon = document.createElement('span');
+      icon.className = 'phosphor-icon admin-context-icon';
+      icon.dataset.phosphor = match[1];
+      icon.setAttribute('aria-hidden', 'true');
+      element.prepend(icon);
+      element.classList.add('admin-icon-enhanced');
+    });
+  }
+  new MutationObserver(enhanceAdminIcons).observe(app, { childList: true, subtree: true });
   const state = { tab: 'dashboard', dashboard: null, properties: [], opportunities: [], opportunityTypes: [], users: [], audit: [], policy: null, smtp: null, emailProvider: null };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const tipoCadastro = value => ({'Proprietário Direto':'Proprietário','Proprietario Direto':'Proprietário','Corretor':'Corretor','Imobiliária':'Imobiliária','Imobiliaria':'Imobiliária'}[String(value ?? '').trim()] || 'Não informado');
@@ -33,63 +84,22 @@
     const palavras = semAcentos(nome).replace(/[^a-z0-9]+/g, ' ').split(' ').filter(Boolean);
     return !tokens.length || tokens.every(token => palavras.some(palavra => palavra === token || palavra.startsWith(token)));
   }
-  async function ibge(url) { const response = await fetch(url); if (!response.ok) throw new Error('Não foi possível carregar as localidades.'); return response.json(); }
+  const localidadesCache = { estados: null, cidades: new Map(), bairros: new Map() };
   async function carregarEstados() {
-    try { const rows = await ibge('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome'); return rows.map(row => ({ sigla: row.sigla, nome: row.nome })); }
-    catch (_) { return BR_STATES; }
+    if (localidadesCache.estados) return localidadesCache.estados;
+    try { localidadesCache.estados = await api('/api/localidades/estados'); return localidadesCache.estados; }
+    catch (_) { localidadesCache.estados = BR_STATES; return localidadesCache.estados; }
   }
   async function carregarCidades(uf) {
-    try { const rows = await ibge(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${encodeURIComponent(uf)}/municipios?orderBy=nome`); return rows.map(row => row.nome); }
-    catch (_) { return [...new Set(state.properties.filter(item => String(item.estado || '').toUpperCase() === uf).map(item => item.cidade).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')); }
-  }
-  const mapboxBairrosCache = new Map();
-  const mapboxLocalidadeCache = new Map();
-  function nomeEstadoPorUf(uf) {
-    return BR_STATES.find(item => item.sigla === String(uf || '').toUpperCase())?.nome || uf;
-  }
-  function mapboxResultadoPertenceAoLocal(feature, cidade, estado) {
-    const contexto = [feature.place_name, ...(feature.context || []).map(item => `${item.text || ''} ${item.place_name || ''}`)].join(' ');
-    const texto = semAcentos(contexto);
-    return texto.includes(semAcentos(cidade)) && texto.includes(semAcentos(estado)) && texto.includes('brasil');
-  }
-  async function carregarContextoCidade(token, uf, cidade, estado) {
-    const cacheKey = `${uf}|${semAcentos(cidade)}`;
-    if (mapboxLocalidadeCache.has(cacheKey)) return mapboxLocalidadeCache.get(cacheKey);
-    try {
-      const query = [cidade, estado, 'Brasil'].join(', ');
-      const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${encodeURIComponent(token)}&language=pt-BR&country=br&limit=1&types=place,locality`);
-      if (!response.ok) throw new Error('Mapbox indisponível');
-      const feature = (await response.json()).features?.[0];
-      const contexto = feature?.bbox && feature?.center ? { bbox: feature.bbox.join(','), proximity: feature.center.join(',') } : null;
-      mapboxLocalidadeCache.set(cacheKey, contexto);
-      return contexto;
-    } catch (_) {
-      mapboxLocalidadeCache.set(cacheKey, null);
-      return null;
-    }
+    if (localidadesCache.cidades.has(uf)) return localidadesCache.cidades.get(uf);
+    try { const cidades = await api(`/api/localidades/cidades?uf=${encodeURIComponent(uf)}`); localidadesCache.cidades.set(uf, cidades); return cidades; }
+    catch (_) { const cidades = [...new Set(state.properties.filter(item => String(item.estado || '').toUpperCase() === uf).map(item => item.cidade).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')); localidadesCache.cidades.set(uf, cidades); return cidades; }
   }
   async function carregarBairros(uf, cidade, termo = '') {
-    const local = state.properties.filter(item => String(item.estado || '').toUpperCase() === uf && semAcentos(item.cidade) === semAcentos(cidade)).map(item => item.bairro).filter(Boolean);
-    let remotos = [];
-    const token = typeof MAPBOX_TOKEN !== 'undefined' ? MAPBOX_TOKEN : (window.MAPBOX_TOKEN || '');
-    const estado = nomeEstadoPorUf(uf);
-    if (token && cidade && (termo.length >= 2 || !local.length)) {
-      try {
-        const contexto = await carregarContextoCidade(token, uf, cidade, estado);
-        const query = contexto && termo ? termo : [termo, cidade, estado, 'Brasil'].filter(Boolean).join(', ');
-        const cacheKey = `${uf}|${semAcentos(cidade)}|${query.toLowerCase()}`;
-        if (mapboxBairrosCache.has(cacheKey)) remotos = mapboxBairrosCache.get(cacheKey);
-        else {
-          const params = `access_token=${encodeURIComponent(token)}&language=pt-BR&country=br&limit=10&autocomplete=true&types=neighborhood,locality,district${contexto ? `&bbox=${contexto.bbox}&proximity=${contexto.proximity}` : ''}`;
-          const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${params}`);
-          if (!response.ok) throw new Error('Mapbox indisponível');
-          const data = await response.json();
-          remotos = (data.features || []).filter(item => mapboxResultadoPertenceAoLocal(item, cidade, estado)).map(item => item.text || item.place_name?.split(',')[0]).filter(Boolean);
-          mapboxBairrosCache.set(cacheKey, remotos);
-        }
-      } catch (_) {}
-    }
-    return [...new Set([...remotos, ...local])].filter(value => nomeLocalCorresponde(value, termo)).sort((a, b) => a.localeCompare(b, 'pt-BR')).slice(0, 30);
+    const cacheKey = `${uf}|${semAcentos(cidade)}|${semAcentos(termo)}`;
+    if (localidadesCache.bairros.has(cacheKey)) return localidadesCache.bairros.get(cacheKey);
+    try { const bairros = await api(`/api/localidades/bairros?uf=${encodeURIComponent(uf)}&cidade=${encodeURIComponent(cidade)}&q=${encodeURIComponent(termo)}`); localidadesCache.bairros.set(cacheKey, bairros); return bairros; }
+    catch (_) { const bairros = [...new Set(state.properties.filter(item => String(item.estado || '').toUpperCase() === uf && semAcentos(item.cidade) === semAcentos(cidade)).map(item => item.bairro).filter(Boolean))].filter(value => nomeLocalCorresponde(value, termo)).sort((a, b) => a.localeCompare(b, 'pt-BR')).slice(0, 30); localidadesCache.bairros.set(cacheKey, bairros); return bairros; }
   }
   function montarAutocomplete(input, getOptions, { onSelect, inline = false } = {}) {
     const wrapper = document.createElement('div');
@@ -137,7 +147,39 @@
     document.addEventListener('mousedown', event => { if (!wrapper.contains(event.target)) close(); });
     return { refresh: () => search(input.value), close };
   }
+  const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  function lerMoedaBrasileira(value) {
+    const text = String(value ?? '').trim();
+    if (!text) return null;
+    const normalized = text.includes(',')
+      ? text.replace(/[^\d,-]/g, '').replace(/\./g, '').replace(',', '.')
+      : text.replace(/[^\d-]/g, '');
+    const number = Number(normalized);
+    return Number.isFinite(number) && number >= 0 ? number : null;
+  }
+  function aplicarMascaraMoeda(input) {
+    if (!input) return;
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.removeAttribute('min');
+    input.removeAttribute('step');
+    input.placeholder = 'R$ 0,00';
+    input.addEventListener('input', () => {
+      const digits = input.value.replace(/\D/g, '').slice(0, 14);
+      input.value = digits ? formatadorMoeda.format(Number(digits) / 100) : '';
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
+  }
   function configurarFormularioOportunidade() {
+    aplicarMascaraMoeda(document.querySelector('#op-min'));
+    aplicarMascaraMoeda(document.querySelector('#op-max'));
+    const transactionFieldset = document.querySelector('.admin-opportunity-transactions');
+    const titleLabel = document.querySelector('#op-title')?.closest('label');
+    if (transactionFieldset && titleLabel) {
+      transactionFieldset.classList.add('admin-field-wide');
+      transactionFieldset.innerHTML = `<legend>Transação aceita <small>(selecione uma ou mais)</small></legend><div class="admin-opportunity-type-options"><label><input type="checkbox" name="op-transaction" value="Venda" checked><span>Compra</span></label><label><input type="checkbox" name="op-transaction" value="Aluguel"><span>Aluguel</span></label><label><input type="checkbox" name="op-transaction" value="Permuta"><span>Permuta</span></label></div>`;
+      titleLabel.insertAdjacentElement('afterend', transactionFieldset);
+    }
     const typeSelect = document.querySelector('#op-type');
     if (typeSelect) typeSelect.closest('label').outerHTML = `<fieldset class="admin-opportunity-types admin-field-wide"><legend>Tipos de imóvel <small>(selecione um ou mais)</small></legend><div class="admin-opportunity-type-options" id="op-type-options">${state.opportunityTypes.map(type => `<label><input type="checkbox" name="op-property-type" value="${esc(type)}"> <span>${esc(type)}</span></label>`).join('')}</div><div class="admin-add-type"><input id="op-new-type" maxlength="80" placeholder="Ex.: Galpão"><button class="admin-secondary-action" type="button" id="add-opportunity-type">Adicionar tipo</button></div><small class="admin-field-help">Inclua um novo tipo quando uma oportunidade não se encaixar nas opções existentes.</small></fieldset>`;
     document.querySelector('#add-opportunity-type')?.addEventListener('click', async () => {
@@ -194,7 +236,7 @@
     if (!tipos_imovel.length) { status.textContent = 'Selecione pelo menos um tipo de imóvel.'; return; }
     status.textContent = 'Salvando…';
     try {
-      await api('/api/admin/oportunidades', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ titulo:document.querySelector('#op-title').value, tipos_imovel, tipo_imovel:tipos_imovel[0], cidade:document.querySelector('#op-city').value, estado, bairros, area_total_minima:document.querySelector('#op-area-min').value, area_total_maxima:document.querySelector('#op-area-max').value, valor_minimo:document.querySelector('#op-min').value, valor_maximo:document.querySelector('#op-max').value, descricao:document.querySelector('#op-description').value, transacoes:[...document.querySelectorAll('[name="op-transaction"]:checked')].map(input => input.value) }) });
+      await api('/api/admin/oportunidades', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ titulo:document.querySelector('#op-title').value, tipos_imovel, tipo_imovel:tipos_imovel[0], cidade:document.querySelector('#op-city').value, estado, bairros, area_total_minima:document.querySelector('#op-area-min').value, area_total_maxima:document.querySelector('#op-area-max').value, valor_minimo:lerMoedaBrasileira(document.querySelector('#op-min').value), valor_maximo:lerMoedaBrasileira(document.querySelector('#op-max').value), descricao:document.querySelector('#op-description').value, transacoes:[...document.querySelectorAll('[name="op-transaction"]:checked')].map(input => input.value) }) });
       state.opportunities = await api('/api/admin/oportunidades');
       render();
     } catch (error) { status.textContent = error.message; }

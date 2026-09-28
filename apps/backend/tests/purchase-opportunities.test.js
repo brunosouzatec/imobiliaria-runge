@@ -38,6 +38,14 @@ test('oportunidades suportam localização hierárquica, múltiplos tipos e faix
   assert.match(admin, /add-opportunity-type/);
 });
 
+test('bairro usa consulta temporária do Mapbox sem persistir nem armazenar respostas em cache', () => {
+  const server = fs.readFileSync(path.join(root, 'apps/backend/src/server.js'), 'utf8');
+  const lookup = server.slice(server.indexOf('async function buscarBairrosMapbox'), server.indexOf('async function carregarBairrosCatalogo'));
+  assert.match(lookup, /permanent:\s*'false'/);
+  assert.doesNotMatch(lookup, /INSERT INTO|localidadesBairroCache|localidades_bairros/);
+  assert.match(server, /SELECT DISTINCT bairro AS nome FROM imoveis/);
+});
+
 test('administração oferece criação, alteração de status, exclusão e auditoria', () => {
   assert.match(server, /url\.pathname === '\/api\/admin\/oportunidades' && req\.method === 'POST'/);
   assert.match(server, /adminOpportunity && req\.method === 'PATCH'/);
@@ -54,7 +62,11 @@ test('administração oferece criação, alteração de status, exclusão e audi
 test('listagem e detalhe públicos existem e usam contato contextual', () => {
   assert.ok(fs.existsSync(path.join(root, 'apps/frontend/public/oportunidades.html')));
   assert.ok(fs.existsSync(path.join(root, 'apps/frontend/public/oportunidade.html')));
-  assert.match(fs.readFileSync(path.join(root, 'apps/frontend/public/oportunidades.js'), 'utf8'), /api\/oportunidades/);
+  const opportunities = fs.readFileSync(path.join(root, 'apps/frontend/public/oportunidades.js'), 'utf8');
+  assert.match(opportunities, /api\/oportunidades/);
+  assert.match(opportunities, /op-card-header/);
+  assert.match(opportunities, /op-card-stat/);
+  assert.match(fs.readFileSync(path.join(root, 'apps/frontend/public/admin.js'), 'utf8'), /admin-opportunity-facts/);
   assert.match(fs.readFileSync(path.join(root, 'apps/frontend/public/oportunidade.js'), 'utf8'), /Tenho um imóvel compatível/);
   assert.match(fs.readFileSync(path.join(root, 'apps/backend/src/server.js'), 'utf8'), /\['\/oportunidades\.html', '\/oportunidades'\]/);
 });

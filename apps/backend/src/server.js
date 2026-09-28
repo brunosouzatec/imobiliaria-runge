@@ -16,6 +16,7 @@ const PRIVACY_POLICY_VERSION = '2026-09-18';
 const projectRoot = path.resolve(__dirname, '../../..');
 const webRoot = path.resolve(projectRoot, 'apps/frontend/public');
 const sharedRoot = path.resolve(projectRoot, 'packages/shared');
+const phosphorIconsDir = path.resolve(projectRoot, 'node_modules/@phosphor-icons/core/assets/regular');
 const dataDir = process.env.DATA_DIR || path.join(projectRoot, 'data');
 const photosDir = path.join(dataDir, 'Fotos_imoveis');
 fs.mkdirSync(photosDir, { recursive: true });
@@ -31,6 +32,8 @@ const adminSessions = new Map();
 const rateLimits = new Map();
 const scrypt = promisify(crypto.scrypt);
 let activePasswordHashes = 0;
+const BR_STATES = [['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']].map(([sigla, nome]) => ({ sigla, nome }));
+const localidadesCidadeCache = new Map();
 const pool = mysql.createPool({
   host: process.env.DB_HOST || '127.0.0.1',
   port: Number(process.env.DB_PORT || 3306),
@@ -59,6 +62,8 @@ const cleanPageRoutes = new Map([
 ]);
 
 function httpError(message, statusCode) { return Object.assign(new Error(message), { statusCode }); }
+function normalizarLocalidade(value) { return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' '); }
+function limitarLocalidade(value, max) { return String(value || '').trim().slice(0, max); }
 function enderecoCliente(req) {
   if (process.env.TRUST_PROXY === 'true' && typeof req.headers['x-forwarded-for'] === 'string') return req.headers['x-forwarded-for'].split(',')[0].trim().slice(0, 80);
   return String(req.socket?.remoteAddress || 'unknown').slice(0, 80);
@@ -255,6 +260,92 @@ function bodyJson(req, maxSize = 1024 * 1024) {
     req.on('error', fail);
   });
 }
+async function fetchJson(url) {
+  const response = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new Error(`Serviço externo retornou HTTP ${response.status}.`);
+  return response.json();
+}
+async function carregarEstadosCatalogo() {
+  const [[count]] = await pool.query('SELECT COUNT(*) AS total FROM localidades_estados');
+  if (Number(count.total) < BR_STATES.length) {
+    let rows = BR_STATES;
+    try {
+      const remote = await fetchJson('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome');
+      if (Array.isArray(remote) && remote.length) rows = remote.map(row => ({ sigla: String(row.sigla).toUpperCase(), nome: String(row.nome) })).filter(row => /^[A-Z]{2}$/.test(row.sigla));
+    } catch (_) {}
+    for (const row of rows) await pool.query('INSERT INTO localidades_estados (sigla,nome,nome_normalizado) VALUES (?,?,?) ON DUPLICATE KEY UPDATE nome=VALUES(nome),nome_normalizado=VALUES(nome_normalizado)', [row.sigla, row.nome, normalizarLocalidade(row.nome)]);
+  }
+  const [rows] = await pool.query('SELECT sigla,nome FROM localidades_estados ORDER BY nome');
+  return rows;
+}
+async function carregarCidadesCatalogo(uf) {
+  const normalizedUf = String(uf || '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalizedUf)) throw httpError('Estado inválido.', 400);
+  const cached = localidadesCidadeCache.get(normalizedUf);
+  if (cached) return cached;
+  await carregarEstadosCatalogo();
+  const [[count]] = await pool.query('SELECT COUNT(*) AS total FROM localidades_cidades WHERE estado_sigla=?', [normalizedUf]);
+  if (!Number(count.total)) {
+    let rows = [];
+    try {
+      const remote = await fetchJson(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${encodeURIComponent(normalizedUf)}/municipios?orderBy=nome`);
+      rows = Array.isArray(remote) ? remote.map(row => String(row.nome || '').trim()).filter(Boolean) : [];
+    } catch (_) {}
+    for (const nome of rows) await pool.query('INSERT INTO localidades_cidades (estado_sigla,nome,nome_normalizado) VALUES (?,?,?) ON DUPLICATE KEY UPDATE nome=VALUES(nome)', [normalizedUf, nome, normalizarLocalidade(nome)]);
+  }
+  const [rows] = await pool.query('SELECT nome FROM localidades_cidades WHERE estado_sigla=? ORDER BY nome', [normalizedUf]);
+  const result = rows.map(row => row.nome);
+  localidadesCidadeCache.set(normalizedUf, result);
+  return result;
+}
+function nomeEstadoCatalogo(uf) { return BR_STATES.find(item => item.sigla === String(uf || '').toUpperCase())?.nome || uf; }
+function mapboxFeaturePertenceAoLocal(feature, cidade, estado) {
+  const contexto = [feature?.place_name, ...(feature?.context || []).map(item => `${item.text || ''} ${item.place_name || ''}`)].join(' ');
+  const texto = normalizarLocalidade(contexto);
+  return texto.includes(normalizarLocalidade(cidade)) && texto.includes(normalizarLocalidade(estado)) && texto.includes('brasil');
+}
+async function carregarContextoMapbox(token, uf, cidade, estado) {
+  try {
+    const query = [cidade, estado, 'Brasil'].join(', ');
+    const data = await fetchJson(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${encodeURIComponent(token)}&language=pt-BR&country=br&limit=1&types=place,locality`);
+    const feature = data.features?.[0];
+    return feature?.bbox && feature?.center ? { bbox: feature.bbox.join(','), proximity: feature.center.join(',') } : null;
+  } catch (_) {
+    return null;
+  }
+}
+async function buscarBairrosMapbox(uf, cidade, termo) {
+  const token = String(process.env.MAPBOX_TOKEN || '').trim();
+  if (!token || termo.length < 2) return [];
+  const estado = nomeEstadoCatalogo(uf);
+  const contexto = await carregarContextoMapbox(token, uf, cidade, estado);
+  const query = contexto ? termo : [termo, cidade, estado, 'Brasil'].filter(Boolean).join(', ');
+  const params = new URLSearchParams({ access_token: token, language: 'pt-BR', country: 'br', limit: '10', autocomplete: 'true', types: 'neighborhood,locality,district', permanent: 'false' });
+  if (contexto) { params.set('bbox', contexto.bbox); params.set('proximity', contexto.proximity); }
+  try {
+    const data = await fetchJson(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${params}`);
+    const features = (data.features || []).filter(feature => mapboxFeaturePertenceAoLocal(feature, cidade, estado));
+    return [...new Map(features.map(feature => {
+      const nome = String(feature.text || feature.place_name?.split(',')[0] || '').trim();
+      return [normalizarLocalidade(nome), nome];
+    }).filter(([key, nome]) => key && nome)).values()];
+  } catch (error) {
+    console.warn(`Não foi possível consultar bairros no Mapbox: ${error.message}`);
+    return [];
+  }
+}
+async function carregarBairrosCatalogo(uf, cidade, termo = '') {
+  const normalizedUf = String(uf || '').trim().toUpperCase();
+  const cidadeOriginal = limitarLocalidade(cidade, 120);
+  const cidadeNormalizada = normalizarLocalidade(cidadeOriginal);
+  const busca = normalizarLocalidade(termo).slice(0, 120);
+  if (!/^[A-Z]{2}$/.test(normalizedUf) || !cidadeNormalizada) throw httpError('Estado e cidade são obrigatórios.', 400);
+  await carregarCidadesCatalogo(normalizedUf);
+  const [localRows] = await pool.query("SELECT DISTINCT bairro AS nome FROM imoveis WHERE estado=? AND cidade=? AND bairro IS NOT NULL AND bairro<>'' ORDER BY bairro LIMIT 1000", [normalizedUf, cidadeOriginal]);
+  let names = localRows.map(row => String(row.nome || '').trim()).filter(nome => !busca || normalizarLocalidade(nome).includes(busca));
+  if (busca.length >= 2 && names.length < 10) names = [...new Set([...names, ...(await buscarBairrosMapbox(normalizedUf, cidadeOriginal, busca))])];
+  return names.sort((a, b) => a.localeCompare(b, 'pt-BR')).slice(0, 30);
+}
 function parseMultipart(req) {
   return new Promise((resolve, reject) => {
     const match = (req.headers['content-type'] || '').match(/boundary=(?:"([^"]+)"|([^;]+))/i); if (!match) return reject(httpError('Limite do formulário inválido.', 400));
@@ -422,17 +513,51 @@ const server = http.createServer(async (req, res) => {
       } catch { return sendJson(res, 404, { error: 'Arquivo não encontrado.' }); }
     }
     if (url.pathname.startsWith('/Fotos_imoveis/')) { const file = path.resolve(dataDir, `.${url.pathname}`); if (!PropertySecurity.dentroDe(photosDir, file) || !fs.existsSync(file)) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200, {'Content-Type': mimeTypes[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable'}); return fs.createReadStream(file).pipe(res); }
+    if (url.pathname === '/phosphor-icons.css' && ['GET', 'HEAD'].includes(req.method)) {
+      const names = fs.readdirSync(phosphorIconsDir).filter(name => /^[a-z0-9-]+\.svg$/.test(name));
+      const rules = names.map(name => {
+        const iconName = name.slice(0, -4);
+        return `.phosphor-icon[data-phosphor="${iconName}"]{mask-image:url("/phosphor-icons/${name}")}`;
+      }).join('\n');
+      const styles = `.phosphor-icon{background-color:currentColor;display:inline-block;flex:0 0 auto;height:1em;mask-position:center;-webkit-mask-position:center;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;mask-size:contain;-webkit-mask-size:contain;vertical-align:-.125em;width:1em}\n${rules}`;
+      res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+      return res.end(styles);
+    }
+    const phosphorIconRoute = url.pathname.match(/^\/phosphor-icons\/([a-z0-9-]+)\.svg$/);
+    if (phosphorIconRoute && ['GET', 'HEAD'].includes(req.method)) {
+      const file = path.resolve(phosphorIconsDir, `${phosphorIconRoute[1]}.svg`);
+      if (!file.startsWith(`${phosphorIconsDir}${path.sep}`) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return sendJson(res, 404, { error: 'Ícone não encontrado.' });
+      res.writeHead(200, { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'public, max-age=31536000, immutable' });
+      return fs.createReadStream(file).pipe(res);
+    }
     if (url.pathname === '/mapbox-config.js') { const token = PropertySecurity.publicMapboxToken(process.env.MAPBOX_TOKEN || ''); res.writeHead(200, {'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}); return res.end(`const MAPBOX_TOKEN = ${JSON.stringify(token)};`); }
+    if (url.pathname === '/api/localidades/estados' && req.method === 'GET') {
+      if (!rateLimit(req, res, 'localidades-estados', 60, 60 * 1000)) return;
+      return sendJson(res, 200, await carregarEstadosCatalogo());
+    }
+    if (url.pathname === '/api/localidades/cidades' && req.method === 'GET') {
+      if (!rateLimit(req, res, 'localidades-cidades', 120, 60 * 1000)) return;
+      return sendJson(res, 200, await carregarCidadesCatalogo(url.searchParams.get('uf')));
+    }
+    if (url.pathname === '/api/localidades/bairros' && req.method === 'GET') {
+      if (!rateLimit(req, res, 'localidades-bairros', 120, 60 * 1000)) return;
+      const uf = url.searchParams.get('uf');
+      const cidade = url.searchParams.get('cidade');
+      const termo = url.searchParams.get('q') || '';
+      return sendJson(res, 200, await carregarBairrosCatalogo(uf, cidade, termo));
+    }
     if (url.pathname.startsWith('/shared/')) { const file = path.resolve(sharedRoot, `.${url.pathname.slice('/shared'.length)}`); if (!file.startsWith(`${sharedRoot}${path.sep}`) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200, {'Content-Type':mimeTypes[path.extname(file)] || 'application/octet-stream'}); return fs.createReadStream(file).pipe(res); }
     if (['GET', 'HEAD'].includes(req.method) && cleanPageRoutes.has(url.pathname)) { const cleanPath = cleanPageRoutes.get(url.pathname); res.writeHead(301, { Location: `${cleanPath}${url.search}`, 'Cache-Control': 'no-store' }); return res.end(); }
     if (url.pathname === '/api/oportunidades' && req.method === 'GET') {
       if (!rateLimit(req, res, 'opportunity-list', 120, 60 * 1000)) return;
       const filters = ['status=?', '(expira_em IS NULL OR expira_em>=CURRENT_DATE)']; const values = ['publicada'];
+      const requestedLimit = Number.parseInt(url.searchParams.get('limit') || '100', 10);
+      const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 100;
       const q = String(url.searchParams.get('q') || '').trim().slice(0, 120);
       const tipo = String(url.searchParams.get('tipo') || '').trim();
       if (q) { filters.push('(titulo LIKE ? OR cidade LIKE ? OR descricao LIKE ? OR CAST(bairros AS CHAR) LIKE ? OR CAST(caracteristicas AS CHAR) LIKE ?)'); values.push(...Array(5).fill(`%${q}%`)); }
       if (tipo.length <= 80 && tipo) { filters.push('(tipo_imovel=? OR JSON_CONTAINS(COALESCE(tipos_imovel, JSON_ARRAY()), JSON_QUOTE(?)))'); values.push(tipo, tipo); }
-      const [rows] = await pool.query(`SELECT * FROM oportunidades_compra WHERE ${filters.join(' AND ')} ORDER BY publicada_em DESC, id DESC LIMIT 100`, values);
+      const [rows] = await pool.query(`SELECT * FROM oportunidades_compra WHERE ${filters.join(' AND ')} ORDER BY publicada_em DESC, id DESC LIMIT ${limit}`, values);
       return sendJson(res, 200, rows.map(opportunityJson));
     }
     if (url.pathname === '/api/oportunidade-tipos' && req.method === 'GET') {

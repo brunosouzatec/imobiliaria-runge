@@ -1,0 +1,112 @@
+/* Ajustes de contenção e leitura para a área administrativa em telas estreitas. */
+.admin-shell,
+.admin-shell > *,
+.admin-content,
+.admin-panel,
+.admin-columns > *,
+.admin-policy-grid > * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.admin-shell {
+  width: min(100%, 1640px);
+}
+
+.admin-panel {
+  max-width: 100%;
+}
+
+.admin-panel table {
+  min-width: 560px;
+}
+
+.admin-opportunity-location::before,
+.admin-opportunity-facts span::before {
+  content: none !important;
+}
+
+.admin-opportunity-inline-icon {
+  color: #087c76;
+  display: inline-block;
+  flex: 0 0 18px;
+  height: 18px;
+  margin-left: 0;
+  margin-right: 6px;
+  vertical-align: -4px;
+  width: 18px;
+}
+
+.admin-opportunity-facts span .admin-opportunity-inline-icon {
+  display: block;
+  margin: 0 0 5px;
+  vertical-align: initial;
+}
+
+.admin-panel .admin-opportunity-facts > span {
+  margin-left: 0;
+}
+
+.admin-opportunity-location {
+  align-items: center;
+  display: flex;
+}
+
+@media (max-width: 800px) {
+  .admin-shell {
+    gap: 18px;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 20px auto;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .admin-shell aside {
+    max-width: 100%;
+    min-width: 0;
+    overscroll-behavior-x: contain;
+    width: 100%;
+  }
+
+  .admin-shell aside button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .admin-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-content {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-form-grid,
+  .admin-opportunity-grid,
+  .admin-policy-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-form-grid .admin-field-wide,
+  .admin-opportunity-grid label:first-child {
+    grid-column: auto;
+  }
+
+  .admin-opportunity-form,
+  .admin-opportunity-catalog,
+  .admin-panel {
+    padding: 18px;
+  }
+
+  .admin-opportunity-form-heading,
+  .admin-opportunity-form .admin-opportunity-transactions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-opportunity-form .admin-opportunity-transactions legend {
+    margin: 0 0 8px;
+  }
+}

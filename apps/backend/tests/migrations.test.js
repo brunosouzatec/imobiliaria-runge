@@ -7,6 +7,7 @@ const removeAdvertiserFields = require('../migrations/005_remove_advertiser_fiel
 const passwordResetTokens = require('../migrations/008_password_reset_tokens');
 const adminSettings = require('../migrations/009_admin_settings');
 const propertyPerimeter = require('../migrations/010_property_perimeter');
+const purchaseLocationCatalog = require('../migrations/013_purchase_location_catalog');
 
 test('title removal migration drops the legacy column only when it exists', async () => {
   const statements = [];
@@ -85,4 +86,15 @@ test('perimeter migration adds the optional GeoJSON column only once', async () 
     'ALTER TABLE imoveis ADD COLUMN perimetro JSON NULL AFTER longitude',
     "SELECT COUNT(*) AS total FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='imoveis' AND column_name='perimetro'"
   ]);
+});
+
+test('purchase location catalog persists only states and cities', async () => {
+  const statements = [];
+  const connection = { query: async sql => { statements.push(sql); } };
+  await purchaseLocationCatalog.up(connection);
+  assert.equal(statements.length, 2);
+  assert.match(statements[0], /CREATE TABLE IF NOT EXISTS localidades_estados/);
+  assert.match(statements[1], /CREATE TABLE IF NOT EXISTS localidades_cidades/);
+  assert.match(statements[1], /UNIQUE KEY uq_localidade_cidade \(estado_sigla, nome_normalizado\)/);
+  assert.doesNotMatch(statements.join('\n'), /localidades_bairros|fonte_id/);
 });
