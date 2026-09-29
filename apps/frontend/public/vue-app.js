@@ -242,8 +242,8 @@ Listing.template = Listing.template
 
 const PropertyFeatureIcon = {
   props: { name: String },
-  setup(props) { return { paths: computed(() => PropertyCharacteristics.icon(props.name)) }; },
-  template: `<svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path v-for="(path, index) in paths" :key="index" :d="path" /></svg>`
+  setup(props) { return { icon: computed(() => PropertyCharacteristics.icon(props.name)) }; },
+  template: `<span class="phosphor-icon property-detail-feature-glyph" :data-phosphor="icon" aria-hidden="true"></span>`
 };
 
 const Detail = {
