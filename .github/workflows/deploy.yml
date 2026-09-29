@@ -70,9 +70,81 @@ jobs:
     if: ${{ github.ref == 'refs/heads/main' }}
     needs: build-and-push
     runs-on: ubuntu-latest
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
+      - name: Liberar temporariamente o IP do runner no firewall
+        id: firewall
+        env:
+          DO_API_TOKEN: ${{ secrets.DIGITALOCEAN_FIREWALL_TOKEN }}
+          DO_FIREWALL_ID: ${{ vars.DO_FIREWALL_ID }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DO_API_TOKEN" ] || [ -z "$DO_FIREWALL_ID" ]; then
+            echo "Configure os segredos DIGITALOCEAN_FIREWALL_TOKEN e a variável DO_FIREWALL_ID no GitHub."
+            exit 1
+          fi
+          if ! [[ "$DO_FIREWALL_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "A variável DO_FIREWALL_ID não contém um identificador válido de firewall."
+            exit 1
+          fi
+
+          runner_ip="$(curl --ipv4 --fail --silent --show-error https://api.ipify.org)"
+          python3 - "$runner_ip" <<'PY'
+          import ipaddress
+          import sys
+
+          address = ipaddress.ip_address(sys.argv[1])
+          if address.version != 4:
+              raise SystemExit("O IP público do runner não é IPv4.")
+          PY
+
+          firewall_url="https://api.digitalocean.com/v2/firewalls/$DO_FIREWALL_ID"
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $DO_API_TOKEN" \
+            "$firewall_url" --output "$RUNNER_TEMP/firewall-before.json"
+
+          runner_rule="$(jq -n --arg ip "$runner_ip/32" '{inbound_rules:[{protocol:"tcp",ports:"22",action:"allow",sources:{addresses:[$ip]}}]}')"
+          already_allowed="$(jq --arg ip "$runner_ip/32" '[.firewall.inbound_rules[] | select(.protocol == "tcp" and .ports == "22" and (.action // "allow") == "allow" and ((.sources.addresses // []) | index($ip) != null))] | length' "$RUNNER_TEMP/firewall-before.json")"
+
+          echo "runner_ip=$runner_ip" >> "$GITHUB_OUTPUT"
+          if [ "$already_allowed" -gt 0 ]; then
+            echo "remove_rule=false" >> "$GITHUB_OUTPUT"
+            echo "O runner já possui acesso SSH permitido; nenhuma regra temporária foi criada."
+            exit 0
+          fi
+
+          echo "remove_rule=true" >> "$GITHUB_OUTPUT"
+          printf '%s' "$runner_rule" > "$RUNNER_TEMP/firewall-rule.json"
+          curl --retry 3 --retry-all-errors --retry-delay 2 \
+            --fail --silent --show-error --request POST \
+            --header "Authorization: Bearer $DO_API_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data-binary "@$RUNNER_TEMP/firewall-rule.json" \
+            "$firewall_url/rules"
+
+          python3 - "$DEPLOY_HOST" <<'PY'
+          import socket
+          import sys
+          import time
+
+          host = sys.argv[1]
+          for attempt in range(20):
+              try:
+                  with socket.create_connection((host, 22), timeout=2):
+                      print("A porta SSH da VPS está acessível para este runner.")
+                      break
+              except OSError:
+                  if attempt == 19:
+                      raise SystemExit("A regra temporária não liberou o SSH em até 80 segundos.")
+                  time.sleep(2)
+          PY
+
       - name: Deploy via SSH
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -107,3 +179,35 @@ jobs:
             docker builder prune --all --force || true
             docker pull "$IMAGE_REF"
             IMAGE_NAME="$IMAGE_REF" docker compose up -d --no-build --remove-orphans
+
+      - name: Remover regra SSH temporária do firewall
+        if: ${{ always() && steps.firewall.outputs.remove_rule == 'true' }}
+        env:
+          DO_API_TOKEN: ${{ secrets.DIGITALOCEAN_FIREWALL_TOKEN }}
+          DO_FIREWALL_ID: ${{ vars.DO_FIREWALL_ID }}
+          RUNNER_IP: ${{ steps.firewall.outputs.runner_ip }}
+        run: |
+          set -euo pipefail
+          cleanup_rule="$(jq -n --arg ip "$RUNNER_IP/32" '{inbound_rules:[{protocol:"tcp",ports:"22",action:"allow",sources:{addresses:[$ip]}}]}')"
+          curl --retry 3 --retry-all-errors --retry-delay 2 \
+            --fail --silent --show-error --request DELETE \
+            --header "Authorization: Bearer $DO_API_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data-binary "$cleanup_rule" \
+            "https://api.digitalocean.com/v2/firewalls/$DO_FIREWALL_ID/rules"
+
+          for attempt in $(seq 1 30); do
+            curl --fail --silent --show-error \
+              --header "Authorization: Bearer $DO_API_TOKEN" \
+              "https://api.digitalocean.com/v2/firewalls/$DO_FIREWALL_ID" \
+              --output "$RUNNER_TEMP/firewall-after-cleanup.json"
+            remaining="$(jq --arg ip "$RUNNER_IP/32" '[.firewall.inbound_rules[] | select(.protocol == "tcp" and .ports == "22" and (.action // "allow") == "allow" and ((.sources.addresses // []) | index($ip) != null))] | length' "$RUNNER_TEMP/firewall-after-cleanup.json")"
+            if [ "$remaining" -eq 0 ]; then
+              echo "Regra temporária de SSH removida do firewall."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "A regra de SSH não foi removida do firewall dentro do tempo esperado."
+          exit 1
