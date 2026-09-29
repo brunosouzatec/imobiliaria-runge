@@ -23,7 +23,7 @@ const Header = {
 };
 Header.template = Header.template.replace('<a href="imoveis.html" :class="{active: locationPath.includes(\'imoveis\') || locationPath.includes(\'imovel.html\')}">Imóveis</a>', '<a href="oportunidades.html">Oportunidades</a><a href="imoveis.html" :class="{active: locationPath.includes(\'imoveis\') || locationPath.includes(\'imovel.html\')}">Imóveis</a>');
 
-const Footer = { template: `<footer class="site-footer" id="contato"><a class="site-footer-brand" href="index.html"><img src="assets/tatui-imoveis-logo-light.svg" alt="Tatuí Imóveis"><span>O portal de imóveis de Tatuí.</span></a><nav><a href="imoveis.html">Comprar</a><a href="imoveis.html?tipo=Aluguel">Alugar</a><a href="imoveis.html">Imóveis</a><a href="index.html#contato">Contato</a><a href="privacidade.html">Política de Privacidade</a></nav><span class="site-footer-note">Tatuí, a cidade que a gente ama.</span></footer>` };
+const Footer = { template: `<footer class="site-footer" id="contato"><a class="site-footer-brand" href="index.html"><img src="assets/tatui-imoveis-logo-light.svg" alt="Tatuí Imóveis"><span>O portal de imóveis de Tatuí.</span><span class="site-footer-creci">Corretora de imóveis · CRECI-SP 273083-F</span></a><nav><a href="imoveis.html">Comprar</a><a href="imoveis.html?tipo=Aluguel">Alugar</a><a href="imoveis.html">Imóveis</a><a href="index.html#contato">Contato</a><a href="privacidade.html">Política de Privacidade</a></nav><span class="site-footer-note">Tatuí, a cidade que a gente ama.</span></footer>` };
 Footer.template = Footer.template.replace('<a href="imoveis.html">Imóveis</a>', '<a href="imoveis.html">Imóveis</a><a href="oportunidades.html">Oportunidades</a>');
 
 const Layout = {

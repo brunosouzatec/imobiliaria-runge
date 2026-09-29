@@ -131,6 +131,7 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .site-footer-brand { align-items:center; color:#fff; display:flex; flex-direction:column; gap:6px; text-decoration:none; }
 .site-footer-brand img { display:block; height:48px; object-fit:contain; width:205px; }
 .site-footer-brand span, .site-footer-note { color:#b4c6c0; font-size:.72rem; }
+.site-footer-brand .site-footer-creci { color:#f1f5f3; font-size:.78rem; font-weight:600; letter-spacing:.01em; }
 .site-footer nav { display:flex; gap:24px; }
 .site-footer nav a { color:#d9e2de; font-size:.8rem; text-decoration:none; }
 .site-footer nav a[href="privacidade.html"], .home-footer a[href="privacidade.html"] { color:#fff; font-weight:700; text-decoration:underline; text-decoration-color:#f4a06f; text-decoration-thickness:2px; text-underline-offset:4px; }
