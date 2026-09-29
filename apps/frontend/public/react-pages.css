@@ -407,6 +407,7 @@
   height: 42px;
   width: 42px;
 }
+.property-detail-feature-glyph { height: 22px; width: 22px; }
 .property-detail-features-empty { margin: 0; }
 
 /* Em telas maiores, a descrição aproveita toda a largura depois de a

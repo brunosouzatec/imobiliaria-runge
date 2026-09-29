@@ -46,6 +46,15 @@ test('características ficam consolidadas em um único card sem duplicar área a
   assert.doesNotMatch(detail[1], /class="property-detail-summary"/);
 });
 
+test('ícones das características usam o padrão Phosphor por nome e não desenham cada letra como SVG', () => {
+  const icon = source.match(/const PropertyFeatureIcon = \{([\s\S]*?)\n\};/);
+  assert.ok(icon, 'PropertyFeatureIcon component exists');
+  assert.match(icon[1], /icon: computed\(\(\) => PropertyCharacteristics\.icon\(props\.name\)\)/);
+  assert.match(icon[1], /class="phosphor-icon property-detail-feature-glyph" :data-phosphor="icon"/);
+  assert.doesNotMatch(icon[1], /<path v-for=/);
+  assert.match(detailStyles, /\.property-detail-feature-glyph \{ height: 22px; width: 22px; \}/);
+});
+
 test('inclusões usam o contrato de resumo do PropertyOffers e não uma propriedade inexistente', () => {
   assert.match(detail[1], /ofertaResumo = computed\(\(\) => PropertyOffers\.summary\(item\.value \|\| \{\}\)\)/);
   assert.match(detail[1], /ofertaResumo\.included\.length/);
