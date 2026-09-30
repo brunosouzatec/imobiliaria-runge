@@ -25,7 +25,10 @@
       const icon = materialIcon('location_on', 'admin-opportunity-inline-icon');
       element.prepend(icon);
     });
-    app.querySelectorAll('.admin-opportunity-facts span').forEach((element, index) => {
+    // Only process each fact row, not icon spans nested inside it. The observer
+    // below watches the same subtree, so matching descendants would recursively
+    // wrap newly inserted icons and freeze the admin page.
+    app.querySelectorAll('.admin-opportunity-facts > span').forEach((element, index) => {
       const fact = element.querySelector('strong');
       const label = element.textContent.replace(fact?.textContent || '', '').toLowerCase();
       if (label.includes('área') && fact && !fact.dataset.areaLocalized) {
@@ -37,7 +40,7 @@
       const icon = materialIcon(symbol, 'admin-opportunity-inline-icon');
       element.prepend(icon);
     });
-    app.querySelectorAll('button, a, .admin-property-placeholder, .admin-property-address, .admin-opportunity-location, .admin-opportunity-facts span').forEach(element => {
+    app.querySelectorAll('button, a, .admin-property-placeholder, .admin-property-address, .admin-opportunity-location, .admin-opportunity-facts > span').forEach(element => {
       if (element.querySelector('[data-phosphor], .material-symbol-icon') || element.classList.contains('admin-icon-enhanced') || element.classList.contains('admin-icon-checked')) return;
       if (element.classList.contains('admin-property-placeholder')) element.textContent = '';
       if (element.classList.contains('admin-modal-close')) element.textContent = '';
