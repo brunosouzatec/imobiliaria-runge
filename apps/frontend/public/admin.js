@@ -21,7 +21,10 @@
       icon.setAttribute('aria-hidden', 'true');
       element.prepend(icon);
     });
-    app.querySelectorAll('.admin-opportunity-facts span').forEach((element, index) => {
+    // Only process each fact row, not icon spans nested inside it. The observer
+    // below watches the same subtree, so matching descendants would recursively
+    // wrap newly inserted icons and freeze the admin page.
+    app.querySelectorAll('.admin-opportunity-facts > span').forEach((element, index) => {
       const fact = element.querySelector('strong');
       if (index === 1 && fact && !fact.dataset.areaLocalized) {
         fact.textContent = fact.textContent.replace(/\d+(?:[.,]\d+)?/g, value => Number(value.replace(',', '.')).toLocaleString('pt-BR', { maximumFractionDigits: 1 }));
@@ -34,7 +37,7 @@
       icon.setAttribute('aria-hidden', 'true');
       element.prepend(icon);
     });
-    app.querySelectorAll('button, a, .admin-property-placeholder, .admin-property-address, .admin-opportunity-location, .admin-opportunity-facts span').forEach(element => {
+    app.querySelectorAll('button, a, .admin-property-placeholder, .admin-property-address, .admin-opportunity-location, .admin-opportunity-facts > span').forEach(element => {
       if (element.querySelector('[data-phosphor]') || element.classList.contains('admin-icon-enhanced')) return;
       if (element.classList.contains('admin-property-placeholder')) element.textContent = '';
       if (element.classList.contains('admin-modal-close')) element.textContent = '';
