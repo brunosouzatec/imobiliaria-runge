@@ -104,11 +104,6 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 @media (max-width:850px) { .home-header { flex-wrap:wrap; gap:15px; }.home-header .home-logo { height:48px; width:205px; }.home-header nav { display:none; }.home-announce { margin-left:auto; }.home-hero { min-height:320px; padding:34px 24px; }.home-search { bottom:22px; grid-template-columns:1fr 1fr; left:22px; right:22px; }.home-location-field { grid-column:1/-1; }.home-search > button { min-height:50px; }.home-suggestions { right:22px; top:68px; }.home-map-section,.home-categories { display:block; padding:52px 22px; }.home-map { margin-top:30px; min-height:360px; }.home-map #react-map { min-height:360px; }.home-announce-card { margin-top:30px; min-height:0; }.home-category-grid { margin-top:28px; grid-template-columns:repeat(2,1fr); }.home-announce-button { display:inline-block; margin-top:18px; }.home-footer { align-items:flex-start; flex-direction:column; gap:18px; } }
 .home-area-button { background:#08716d; border:0; border-radius:7px; bottom:14px; color:#fff; cursor:pointer; font-size:.78rem; font-weight:700; left:14px; padding:11px 15px; position:absolute; z-index:500; }
 .home-category-grid strong { background:center/contain no-repeat; display:block; font-size:0; height:52px; width:52px; }
-.home-category-grid a:nth-child(1) strong { background-image:url('assets/icon-casa.svg'); }
-.home-category-grid a:nth-child(2) strong { background-image:url('assets/icon-apartamento.svg'); }
-.home-category-grid a:nth-child(3) strong { background-image:url('assets/icon-terreno.svg'); }
-.home-category-grid a:nth-child(4) strong { background-image:url('assets/icon-chacara.svg'); }
-.home-category-grid a:nth-child(5) strong { background-image:url('assets/icon-comercial.svg'); }
 
 /* Sistema visual compartilhado com a home */
 .react-header { background:#fffdf9; border-bottom-color:#e4e3dc; padding:14px clamp(22px,7vw,110px); }
@@ -323,20 +318,23 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .home-highlights-heading .home-kicker { grid-column:1/-1; margin:0; }
 .home-highlights-heading h2 { color:#173c3d; font:700 clamp(28px,2.3vw,42px)/1.15 Inter,ui-sans-serif,system-ui,sans-serif; letter-spacing:-.035em; margin:0; }
 .home-highlights-heading p:last-child { color:#667473; font-size:15px; grid-column:1; margin:0; }
-.home-highlights-grid { display:grid; gap:20px; grid-template-columns:repeat(4,minmax(0,1fr)); }
-.home-highlight-card { background:#fff; border:1px solid #dce5df; border-radius:14px; box-shadow:0 8px 24px #173c3d0d; min-width:0; overflow:hidden; }
+.home-highlights-grid { display:grid; gap:20px; grid-auto-rows:1fr; grid-template-columns:repeat(4,minmax(0,1fr)); }
+.home-highlight-card { background:#fff; border:1px solid #dce5df; border-radius:14px; box-shadow:0 8px 24px #173c3d0d; display:flex; flex-direction:column; height:100%; min-width:0; overflow:hidden; }
 .home-highlight-media { background:#edf2ef; color:#52706c; display:block; height:190px; overflow:hidden; position:relative; text-align:center; text-decoration:none; }
 .home-highlight-media img { height:100%; object-fit:cover; transition:transform .25s ease; width:100%; }
 .home-highlight-media:hover img { transform:scale(1.03); }
 .home-highlight-media>span:not(.home-highlight-badge) { align-items:center; display:flex; height:100%; justify-content:center; }
 .home-highlight-badge { background:#173c3d; border-radius:0 0 8px 0; color:#fff; font-size:11px; font-weight:700; left:0; padding:8px 10px; position:absolute; top:0; }
-.home-highlight-body { display:flex; flex-direction:column; min-height:190px; padding:18px; }
-.home-highlight-category { color:#e5651c; font-size:11px; font-weight:700; letter-spacing:.1em; margin:0 0 8px; text-transform:uppercase; }
-.home-highlight-body h3 { color:#173c3d; font:600 21px/1.25 Georgia,serif; margin:0 0 8px; }
-.home-highlight-price { color:#173c3d; font-size:17px; margin-bottom:8px; }
-.home-highlight-location { color:#667473; font-size:13px; line-height:1.45; margin:0; }
+.home-highlight-body { box-sizing:border-box; display:flex; flex:1; flex-direction:column; min-width:0; padding:18px; }
+.home-highlight-category { color:#e5651c; font-size:11px; font-weight:700; height:14px; letter-spacing:.1em; margin:0 0 8px; overflow:hidden; text-overflow:ellipsis; text-transform:uppercase; white-space:nowrap; }
+.home-highlight-body h3 { -webkit-box-orient:vertical; -webkit-line-clamp:2; color:#173c3d; display:-webkit-box; font:600 21px/1.25 Georgia,serif; height:52px; margin:0 0 8px; overflow:hidden; }
+.home-highlight-price { -webkit-box-orient:vertical; -webkit-line-clamp:2; color:#173c3d; display:-webkit-box; font-size:17px; line-height:1.25; margin-bottom:8px; min-height:42px; overflow:hidden; }
+.home-highlight-location { -webkit-box-orient:vertical; -webkit-line-clamp:2; color:#667473; display:-webkit-box; font-size:13px; line-height:1.45; margin:0; min-height:38px; overflow:hidden; }
 .home-highlight-footer { align-items:center; border-top:1px solid #e1e7e3; color:#84918f; display:flex; font-size:11px; gap:10px; justify-content:space-between; margin-top:auto; padding-top:14px; }
-.home-highlight-footer a { color:#e5651c; font-weight:700; text-decoration:none; white-space:nowrap; }
+.home-highlight-footer a.home-highlight-details { align-items:center; background:#e5651c; border:1px solid #e5651c; border-radius:8px; box-sizing:border-box; color:#fff; display:inline-flex; flex:0 0 auto; font-size:12px; font-weight:700; gap:8px; justify-content:center; min-height:38px; padding:0 12px; text-decoration:none; white-space:nowrap; transition:background .18s ease,border-color .18s ease,transform .18s ease; }
+.home-highlight-footer a.home-highlight-details:hover { background:#c94f10; border-color:#c94f10; transform:translateY(-1px); }
+.home-highlight-details .material-symbol-icon { color:currentColor; font-size:18px; height:18px; line-height:1; width:18px; }
+.home-highlight-footer a.home-highlight-details:focus-visible { outline:3px solid #efb08b; outline-offset:2px; }
 @media(max-width:1100px) { .home-highlights-section { padding-left:28px; padding-right:28px; }.home-highlights-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:560px) { .home-highlights-section { padding:8px 20px 48px; }.home-highlights-grid { grid-template-columns:1fr; }.home-highlight-media { height:220px; } }
 
@@ -349,15 +347,16 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .home-opportunities-all:hover { color:#e5651c; }
 .home-opportunities-arrow { font-size:18px; transition:transform .2s ease; }
 .home-opportunities-all:hover .home-opportunities-arrow { transform:translateX(3px); }
-.home-opportunities-grid { display:grid; gap:20px; grid-template-columns:repeat(4,minmax(0,1fr)); }
-.home-opportunity-card { background:#fff; border:1px solid #dce5df; border-radius:14px; box-shadow:0 8px 24px #173c3d0a; box-sizing:border-box; display:flex; flex-direction:column; min-height:320px; min-width:0; padding:18px; transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease; }
+.home-opportunities-grid { display:grid; gap:20px; grid-auto-rows:1fr; grid-template-columns:repeat(4,minmax(0,1fr)); }
+.home-opportunity-card { background:#fff; border:1px solid #dce5df; border-radius:14px; box-shadow:0 8px 24px #173c3d0a; box-sizing:border-box; display:flex; flex-direction:column; height:100%; min-height:320px; min-width:0; padding:18px; transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease; }
 .home-opportunity-card:hover { border-color:#b7d3c9; box-shadow:0 14px 30px #173c3d14; transform:translateY(-2px); }
 .home-opportunity-card-head { align-items:center; display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; margin-bottom:10px; }
 .home-opportunity-badge { background:#eaf4ef; border-radius:999px; color:#08716d; font-size:11px; font-weight:750; letter-spacing:.035em; padding:7px 10px; }
 .home-opportunity-type { color:#e5651c; font-size:12px; font-weight:700; text-align:right; }
-.home-opportunity-card h3 { color:#173c3d; font:600 clamp(20px,1.3vw,24px)/1.22 Georgia,serif; margin:0 0 10px; }
+.home-opportunity-card h3 { -webkit-box-orient:vertical; -webkit-line-clamp:3; color:#173c3d; display:-webkit-box; font:600 clamp(20px,1.3vw,24px)/1.22 Georgia,serif; height:3.66em; margin:0 0 10px; overflow:hidden; }
 .home-opportunity-location { align-items:center; color:#425c59; display:flex; font-size:14px; font-weight:550; gap:10px; margin:0 0 3px; min-height:40px; }
 .home-opportunity-icon { color:#08716d; display:inline-block; fill:none; flex:0 0 auto; height:20px; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; stroke-width:16; width:20px; }
+.home-opportunity-exchange-icon { height:22px; stroke-width:24; width:22px; }
 .home-opportunity-facts { display:grid; gap:0; list-style:none; margin:0 0 16px; padding:0; }
 .home-opportunity-facts li { align-items:center; display:flex; gap:10px; min-height:44px; min-width:0; }
 .home-opportunity-facts li+li { border-top:1px solid #f0f3f1; }
@@ -445,3 +444,23 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 /* Ícones Phosphor das características na listagem: tamanho legível em cards largos. */
 .listing-property-feature .property-feature-glyph { flex:0 0 20px; height:20px; width:20px; }
 .listing-property-feature { gap:8px; }
+:root { --icon-size-inline: 20px; --icon-size-control: 20px; --icon-size-feature: 24px; --icon-size-category: 44px; }
+@font-face { font-display: block; font-family: 'Material Symbols Rounded'; font-style: normal; font-weight: 100 700; src: url('/assets/material-symbols-rounded.woff2') format('woff2'); }
+.material-symbol-icon { align-items: center; direction: ltr; display: inline-flex; flex: 0 0 auto; font-family: 'Material Symbols Rounded', sans-serif; font-feature-settings: 'liga'; font-size: var(--icon-size-inline); font-style: normal; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; font-weight: 400; justify-content: center; letter-spacing: normal; line-height: 1; text-transform: none; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+.phosphor-icon.material-symbol-icon { background: none; height: auto; mask-image: none; -webkit-mask-image: none; vertical-align: initial; width: auto; }
+.password-toggle .material-symbol-icon { font-size: var(--icon-size-control); transition: transform .16s ease, opacity .16s ease; }
+.password-toggle:active .material-symbol-icon { transform: scale(.88); }
+.password-toggle:not(.is-visible) .password-eye-open { display: none; }
+.password-toggle.is-visible .password-eye-closed { display: none; }
+.listing-property-feature .material-symbol-icon { color: #176b64; font-size: var(--icon-size-feature); height: 24px; width: 24px; }
+.listing-photo-arrow .material-symbol-icon { font-size: 20px; }
+.listing-share-button .material-symbol-icon, .property-share-detail-button .material-symbol-icon, .listing-delete-button .material-symbol-icon { font-size: 20px; }
+.owner-property-stat .material-symbol-icon { color: #176b64; font-size: 21px; height: 22px; width: 22px; }
+.user-menu-icon .material-symbol-icon { color: currentColor; font-size: 23px; height: 24px; width: 24px; }
+.home-map-category-button strong.material-symbol-icon { background: color-mix(in srgb, var(--category-color) 13%, #fff); border-radius: 50%; color: var(--category-color, currentColor); display: inline-flex; font-size: var(--icon-size-category); height: 48px; padding: 0; width: 48px; }
+.op-card-icon.material-symbol-icon, .admin-opportunity-inline-icon.material-symbol-icon { font-size: 21px; height: 24px; width: 24px; }
+.admin-context-icon.material-symbol-icon { font-size: 19px; height: 20px; width: 20px; }
+.property-detail-feature-glyph.material-symbol-icon { font-size: 25px; height: 28px; width: 28px; }
+.property-delete-icon .material-symbol-icon { font-size: 27px; }
+.home-nearby-button .material-symbol-icon { font-size: 20px; }
+.property-detail-section h2::before { background-image: none; content: 'description'; font-family: 'Material Symbols Rounded'; font-size: 22px; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }

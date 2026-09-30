@@ -55,11 +55,12 @@
     const views = document.createElement('span');
     views.textContent = `${Number(item.visualizacoes || 0)} acesso${Number(item.visualizacoes || 0) === 1 ? '' : 's'} este mês`;
     const details = document.createElement('a');
+    details.className = 'home-highlight-details';
     details.href = link.href;
     details.textContent = 'Ver detalhes';
     const arrow = document.createElement('span');
-    arrow.className = 'phosphor-icon';
-    arrow.dataset.phosphor = 'arrow-right';
+    arrow.className = 'material-symbol-icon';
+    arrow.textContent = 'arrow_forward';
     arrow.setAttribute('aria-hidden', 'true');
     details.append(' ', arrow);
     footer.append(views, details);

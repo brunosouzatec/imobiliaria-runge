@@ -24,3 +24,12 @@ test('home carrega destaques sem inserir dados de anúncios como HTML', () => {
   assert.match(home, /textContent/);
   assert.match(styles, /\.home-highlights-grid/);
 });
+
+test('cards de destaque alinham imagem, blocos de texto e rodapé mesmo com conteúdo variável', () => {
+  assert.match(styles, /\.home-highlight-card \{[^}]*display:flex; flex-direction:column; height:100%/);
+  assert.match(styles, /\.home-highlight-body \{[^}]*display:flex; flex:1; flex-direction:column/);
+  assert.match(styles, /\.home-highlight-body h3 \{[^}]*-webkit-line-clamp:2[^}]*height:52px/);
+  assert.match(styles, /\.home-highlight-price \{[^}]*-webkit-line-clamp:2[^}]*min-height:42px/);
+  assert.match(styles, /\.home-highlight-location \{[^}]*-webkit-line-clamp:2[^}]*min-height:38px/);
+  assert.match(styles, /\.home-highlight-footer \{[^}]*margin-top:auto/);
+});

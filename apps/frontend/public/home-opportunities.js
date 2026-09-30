@@ -12,9 +12,24 @@
   };
 
   function icon(name) {
+    if (name === 'arrows-left-right') {
+      const exchange = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      exchange.setAttribute('viewBox', '0 0 256 256');
+      exchange.setAttribute('class', 'home-opportunity-icon home-opportunity-exchange-icon');
+      exchange.setAttribute('aria-hidden', 'true');
+      exchange.setAttribute('focusable', 'false');
+      for (const d of iconPaths[name]) {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', d);
+        exchange.append(path);
+      }
+      return exchange;
+    }
+    if (window.MaterialIcons) return window.MaterialIcons.makeIcon(({ 'map-pin': 'location_on', ruler: 'straighten', bed: 'bed', 'currency-circle-dollar': 'attach_money', 'arrow-right': 'arrow_forward' })[name] || 'auto_awesome', 'home-opportunity-icon');
     const element = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     element.setAttribute('viewBox', '0 0 256 256');
     element.setAttribute('class', 'home-opportunity-icon');
+    element.dataset.materialSymbol = name;
     element.setAttribute('aria-hidden', 'true');
     element.setAttribute('focusable', 'false');
     for (const d of iconPaths[name] || iconPaths['arrow-right']) {

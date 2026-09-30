@@ -17,7 +17,6 @@ const PRIVACY_POLICY_VERSION = '2026-09-18';
 const projectRoot = path.resolve(__dirname, '../../..');
 const webRoot = path.resolve(projectRoot, 'apps/frontend/public');
 const sharedRoot = path.resolve(projectRoot, 'packages/shared');
-const phosphorIconsDir = path.resolve(projectRoot, 'node_modules/@phosphor-icons/core/assets/regular');
 const dataDir = process.env.DATA_DIR || path.join(projectRoot, 'data');
 const photosDir = path.join(dataDir, 'Fotos_imoveis');
 fs.mkdirSync(photosDir, { recursive: true });
@@ -44,7 +43,7 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10
 });
-const mimeTypes = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.json':'application/json; charset=utf-8', '.png':'image/png', '.jpg':'image/jpeg', '.webp':'image/webp', '.svg':'image/svg+xml' };
+const mimeTypes = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.json':'application/json; charset=utf-8', '.png':'image/png', '.jpg':'image/jpeg', '.webp':'image/webp', '.svg':'image/svg+xml', '.woff2':'font/woff2' };
 const maintenancePage = path.join(webRoot, 'manutencao.html');
 const cleanPageRoutes = new Map([
   ['/index.html', '/'],
@@ -624,23 +623,6 @@ const server = http.createServer(async (req, res) => {
       } catch { return sendJson(res, 404, { error: 'Arquivo não encontrado.' }); }
     }
     if (url.pathname.startsWith('/Fotos_imoveis/')) { const file = path.resolve(dataDir, `.${url.pathname}`); if (!PropertySecurity.dentroDe(photosDir, file) || !fs.existsSync(file)) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200, {'Content-Type': mimeTypes[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable'}); return fs.createReadStream(file).pipe(res); }
-    if (url.pathname === '/phosphor-icons.css' && ['GET', 'HEAD'].includes(req.method)) {
-      const names = fs.readdirSync(phosphorIconsDir).filter(name => /^[a-z0-9-]+\.svg$/.test(name));
-      const rules = names.map(name => {
-        const iconName = name.slice(0, -4);
-        return `.phosphor-icon[data-phosphor="${iconName}"]{mask-image:url("/phosphor-icons/${name}")}`;
-      }).join('\n');
-      const styles = `.phosphor-icon{background-color:currentColor;display:inline-block;flex:0 0 auto;height:1em;mask-position:center;-webkit-mask-position:center;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;mask-size:contain;-webkit-mask-size:contain;vertical-align:-.125em;width:1em}\n${rules}`;
-      res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
-      return res.end(styles);
-    }
-    const phosphorIconRoute = url.pathname.match(/^\/phosphor-icons\/([a-z0-9-]+)\.svg$/);
-    if (phosphorIconRoute && ['GET', 'HEAD'].includes(req.method)) {
-      const file = path.resolve(phosphorIconsDir, `${phosphorIconRoute[1]}.svg`);
-      if (!file.startsWith(`${phosphorIconsDir}${path.sep}`) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return sendJson(res, 404, { error: 'Ícone não encontrado.' });
-      res.writeHead(200, { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'public, max-age=31536000, immutable' });
-      return fs.createReadStream(file).pipe(res);
-    }
     if (url.pathname === '/mapbox-config.js') { const token = PropertySecurity.publicMapboxToken(process.env.MAPBOX_TOKEN || ''); res.writeHead(200, {'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}); return res.end(`const MAPBOX_TOKEN = ${JSON.stringify(token)};`); }
     if (url.pathname === '/api/localidades/estados' && req.method === 'GET') {
       if (!rateLimit(req, res, 'localidades-estados', 60, 60 * 1000)) return;

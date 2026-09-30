@@ -40,11 +40,11 @@
     default: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8 12h8']
   };
   const iconNames = {
-    area: 'ruler', area_total: 'ruler', area_construida: 'building', quartos: 'bed', suite: 'bed',
-    banheiros: 'bathtub', vagas: 'car', quintal: 'tree', piscina: 'swimming-pool', churrasqueira: 'cooking-pot',
-    sacada: 'buildings', elevador: 'elevator', condominio: 'buildings', frente: 'ruler', topografia: 'mountains',
-    agua: 'drop', energia: 'lightning', rua_asfaltada: 'road-horizon', area_verde: 'tree', nascente: 'waves',
-    salas: 'armchair', acessibilidade: 'wheelchair', estacionamento: 'car', ar_condicionado: 'wind', default: 'house'
+    area: 'square_foot', area_total: 'square_foot', area_construida: 'home_work', quartos: 'bed', suite: 'bedroom_parent',
+    banheiros: 'bathtub', vagas: 'directions_car', quintal: 'yard', piscina: 'pool', churrasqueira: 'outdoor_grill',
+    sacada: 'balcony', elevador: 'elevator', condominio: 'apartment', frente: 'straighten', topografia: 'terrain',
+    agua: 'water_drop', energia: 'bolt', rua_asfaltada: 'add_road', area_verde: 'park', nascente: 'waves',
+    salas: 'chair', acessibilidade: 'accessible', estacionamento: 'local_parking', ar_condicionado: 'ac_unit', default: 'home'
   };
   const order = Object.keys(labels);
   const count = (value, singular, plural) => `${value} ${Number(value) === 1 ? singular : plural}`;

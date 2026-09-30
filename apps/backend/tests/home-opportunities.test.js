@@ -19,12 +19,12 @@ test('home shows up to three current public purchase opportunities in a dedicate
   assert.match(home, /\.site-footer, \.home-footer/);
   assert.match(fs.readFileSync(path.join(root, 'apps/frontend/public/home-highlights.js'), 'utf8'), /\.site-footer, \.home-footer/);
   assert.match(index, /home-opportunities\.js/);
-  assert.match(styles, /\.home-opportunities-grid \{[^}]*gap:20px; grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
-  assert.match(styles, /\.home-highlights-grid \{ display:grid; gap:20px; grid-template-columns:repeat\(4,minmax\(0,1fr\)\); \}/);
+  assert.match(styles, /\.home-opportunities-grid \{[^}]*gap:20px; grid-auto-rows:1fr; grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.home-highlights-grid \{ display:grid; gap:20px; grid-auto-rows:1fr; grid-template-columns:repeat\(4,minmax\(0,1fr\)\); \}/);
   assert.match(styles, /@media\(max-width:1100px\)[\s\S]*\.home-opportunities-grid \{ gap:20px; grid-template-columns:repeat\(2,minmax\(0,1fr\)\); \}/);
   assert.doesNotMatch(styles, /home-opportunities-grid\[data-count=/);
-  assert.match(styles, /\.home-opportunity-card \{[^}]*box-sizing:border-box;[^}]*min-height:320px;[^}]*padding:18px/);
-  assert.match(styles, /\.home-opportunity-card h3 \{[^}]*Georgia,serif;[^}]*margin:0 0 10px/);
+  assert.match(styles, /\.home-opportunity-card \{[^}]*box-sizing:border-box;[^}]*display:flex; flex-direction:column; height:100%;[^}]*min-height:320px;[^}]*padding:18px/);
+  assert.match(styles, /\.home-opportunity-card h3 \{[^}]*-webkit-line-clamp:3[^}]*height:3\.66em[^}]*margin:0 0 10px/);
   assert.match(styles, /@media\(max-width:560px\)[\s\S]*\.home-opportunities-grid \{ grid-template-columns:1fr; \}/);
 });
 

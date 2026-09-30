@@ -26,7 +26,8 @@ test('property detail groups gallery and description beside a single value/conta
   assert.match(detailStyles, /\.property-detail-thumbnails \{[^}]*aspect-ratio: 1;[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(detailStyles, /\.property-detail-section \{[^}]*background: var\(--surface\);[^}]*border-radius: 14px/);
   assert.match(source, /property-detail-section/);
-  assert.match(detailStyles, /url\('\/assets\/phosphor\/file-text\.svg'\)/);
+  assert.match(detailStyles, /property-detail-section h2::before[\s\S]*?Material Symbols Rounded/);
+  assert.doesNotMatch(detailStyles, /assets\/phosphor\/file-text\.svg/);
   assert.match(detailStyles, /@media \(min-width: 721px\) \{[\s\S]*?\.property-detail-main \{ display: contents; \}[\s\S]*?\.property-detail-section \{ grid-column: 1 \/ -1; grid-row: 2; \}/);
 });
 
@@ -46,11 +47,13 @@ test('características ficam consolidadas em um único card sem duplicar área a
   assert.doesNotMatch(detail[1], /class="property-detail-summary"/);
 });
 
-test('ícones das características usam o padrão Phosphor por nome e não desenham cada letra como SVG', () => {
+test('ícones das características usam o padrão Material Symbols Rounded por nome', () => {
   const icon = source.match(/const PropertyFeatureIcon = \{([\s\S]*?)\n\};/);
   assert.ok(icon, 'PropertyFeatureIcon component exists');
   assert.match(icon[1], /icon: computed\(\(\) => PropertyCharacteristics\.icon\(props\.name\)\)/);
-  assert.match(icon[1], /class="phosphor-icon property-detail-feature-glyph" :data-phosphor="icon"/);
+  assert.match(icon[1], /class="material-symbol-icon property-detail-feature-glyph"[^>]*>{{ icon }}/);
+  assert.match(source, /material-icons\.js/);
+  assert.match(detailStyles, /Material Symbols Rounded/);
   assert.doesNotMatch(icon[1], /<path v-for=/);
   assert.match(detailStyles, /\.property-detail-feature-glyph \{ height: 22px; width: 22px; \}/);
 });
