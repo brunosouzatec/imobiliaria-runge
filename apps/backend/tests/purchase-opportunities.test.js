@@ -59,6 +59,11 @@ test('administração oferece criação, alteração de status, exclusão e audi
   assert.match(server, /\['Venda', 'Aluguel', 'Permuta'\]/);
 });
 
+test('ícones da administração não reprocessam spans inseridos dentro dos fatos da oportunidade', () => {
+  assert.equal((admin.match(/admin-opportunity-facts > span/g) || []).length, 2);
+  assert.doesNotMatch(admin, /admin-opportunity-facts span/);
+});
+
 test('listagem e detalhe públicos existem e usam contato contextual', () => {
   assert.ok(fs.existsSync(path.join(root, 'apps/frontend/public/oportunidades.html')));
   assert.ok(fs.existsSync(path.join(root, 'apps/frontend/public/oportunidade.html')));
