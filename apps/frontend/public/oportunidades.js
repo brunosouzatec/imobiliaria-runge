@@ -2,11 +2,11 @@
   const app = document.querySelector('#oportunidades-app');
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const money = value => value == null ? 'A combinar' : Number(value).toLocaleString('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits:0 });
-  function enhanceIcons() { app.querySelectorAll('.op-card-details > span[aria-hidden="true"]').forEach(element => { element.textContent = ''; element.className = 'phosphor-icon'; element.dataset.phosphor = 'arrow-right'; }); app.querySelectorAll('.op-whatsapp > span[aria-hidden="true"]').forEach(element => { element.textContent = ''; element.className = 'phosphor-icon'; element.dataset.phosphor = 'whatsapp-logo'; }); }
+  function enhanceIcons() { app.querySelectorAll('.op-card-details > span[aria-hidden="true"]').forEach(element => { element.textContent = 'arrow_forward'; element.className = 'material-symbol-icon'; }); app.querySelectorAll('.op-whatsapp > span[aria-hidden="true"]').forEach(element => { element.textContent = 'chat'; element.className = 'material-symbol-icon'; }); }
   const whatsapp = item => 'https://wa.me/5515998134885?text=' + encodeURIComponent(`Olá! Tenho interesse na oportunidade "${item.titulo}" no Tatuí Imóveis.`);
   const icon = name => {
-    const names = { location: 'map-pin', property: 'house', neighborhood: 'buildings', money: 'currency-circle-dollar', area: 'ruler' };
-    return `<span class="phosphor-icon op-card-icon" data-phosphor="${names[name] || 'sparkle'}" aria-hidden="true"></span>`;
+    const names = { location: 'location_on', property: 'home', neighborhood: 'apartment', money: 'attach_money', area: 'square_foot' };
+    return `<span class="material-symbol-icon op-card-icon" aria-hidden="true">${names[name] || 'auto_awesome'}</span>`;
   };
   async function load() {
     const params = new URLSearchParams(location.search);

@@ -5,7 +5,7 @@
 
   const labels = [...section.querySelectorAll('.home-category-grid a')].map((link, index) => ({
     label: link.querySelector('span')?.textContent?.trim() || '',
-    icon: link.querySelector('strong')?.dataset.phosphor || ['house', 'buildings', 'mountains', 'tree', 'storefront'][index] || 'house',
+    icon: ['home', 'apartment', 'landscape', 'park', 'storefront'][index] || 'home',
     color: ['#00796b', '#2563eb', '#c2410c', '#15803d', '#9333ea'][index] || '#00796b'
   })).filter(item => item.label);
 
@@ -39,7 +39,7 @@
     button.setAttribute('aria-pressed', 'false');
     button.title = label;
     button.style.setProperty('--category-color', color);
-    button.innerHTML = `<strong class="phosphor-icon" data-phosphor="${icon}" aria-hidden="true"></strong><span>${label}</span>`;
+    button.innerHTML = `<strong class="material-symbol-icon" aria-hidden="true">${icon}</strong><span>${label}</span>`;
     button.addEventListener('click', () => {
       selectCategory(button.classList.contains('active') ? '' : label);
     });

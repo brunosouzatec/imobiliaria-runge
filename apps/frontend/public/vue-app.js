@@ -1,7 +1,7 @@
-const phosphorStyles = document.createElement('link');
-phosphorStyles.rel = 'stylesheet';
-phosphorStyles.href = '/phosphor-icons.css';
-document.head.appendChild(phosphorStyles);
+const materialIconsScript = document.createElement('script');
+materialIconsScript.src = '/material-icons.js';
+materialIconsScript.onload = () => window.MaterialIcons?.enhance(document);
+document.head.appendChild(materialIconsScript);
 const { createApp, ref, computed, watch, onMounted, onBeforeUnmount } = Vue;
 const TATUI = [-23.3556, -47.8561];
 
@@ -62,6 +62,7 @@ PropertyCard.setup = props => {
 };
 PropertyCard.template = PropertyCard.template.replace("{{ item.descricao || 'Confira todos os detalhes deste imóvel.' }}", '{{ descricaoResumo }}');
 PropertyCard.template = PropertyCard.template.replace('<svg viewBox="0 0 24 24" aria-hidden="true"><path v-for="(path, index) in featureIcon(feature.key)" :key="index" :d="path"/></svg>', '<span class="phosphor-icon property-feature-glyph" :data-phosphor="featureIcon(feature.key)" aria-hidden="true"></span>');
+PropertyCard.template = PropertyCard.template.replace('<span class="phosphor-icon property-feature-glyph" :data-phosphor="featureIcon(feature.key)" aria-hidden="true"></span>', '<span class="material-symbol-icon property-feature-glyph" aria-hidden="true">{{ featureIcon(feature.key) }}</span>');
 PropertyCard.template = PropertyCard.template.replace('<a v-if="!showEdit" class="listing-whatsapp-link" :href="whatsappLink(item)" target="_blank" rel="noopener noreferrer" aria-label="Pedir informações deste imóvel pelo WhatsApp">', '<button v-if="!showEdit" class="listing-whatsapp-link" type="button" @click="shareWhatsApp($event, item)" aria-label="Compartilhar este imóvel pelo WhatsApp">').replace('</svg> WhatsApp</a>', '</svg> WhatsApp</button>');
 PropertyCard.template = PropertyCard.template.replace('<div class="listing-property-footer-actions">', '<div class="listing-property-footer-actions"><button class="listing-share-button" type="button" @click="compartilhar" :aria-label="\'Compartilhar \' + PropertyOffers.displayTitle(item)"><svg class="property-share-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"></path></svg><span>Compartilhar</span></button><span v-if="shareStatus" class="property-share-status" role="status" aria-live="polite">{{ shareStatus }}</span>');
 PropertyCard.emits = ['delete'];
@@ -243,7 +244,7 @@ Listing.template = Listing.template
 const PropertyFeatureIcon = {
   props: { name: String },
   setup(props) { return { icon: computed(() => PropertyCharacteristics.icon(props.name)) }; },
-  template: `<span class="phosphor-icon property-detail-feature-glyph" :data-phosphor="icon" aria-hidden="true"></span>`
+  template: `<span class="material-symbol-icon property-detail-feature-glyph" aria-hidden="true">{{ icon }}</span>`
 };
 
 const Detail = {
@@ -587,7 +588,7 @@ Cadastro.setup = () => {
 Cadastro.template = Cadastro.template.replace('<form v-else class="property-form" @submit="salvar">', '<template v-else><div class="cadastro-progress" aria-label="Etapas do cadastro"><div class="cadastro-progress-step is-active"><span>1</span><strong>Informações</strong></div><div class="cadastro-progress-line"></div><div class="cadastro-progress-step is-active"><span>2</span><strong>Localização</strong></div><div class="cadastro-progress-line"></div><div class="cadastro-progress-step"><span>3</span><strong>Fotos</strong></div></div><form class="property-form" @submit="salvar">');
 Cadastro.template = Cadastro.template.replace('<span>Continuar para o imóvel</span>', '<span>Finalizar cadastro</span>');
 Cadastro.template = Cadastro.template.replace('</button></form></main>` };', '</button></form></template></main>` };');
-const passwordEyeIcons = (condition) => `<svg v-if="${condition}" class="password-eye password-eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-5 9.5-5 9.5 5 9.5 5-3.3 5-9.5 5-9.5-5-9.5-5Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg><svg v-else class="password-eye password-eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 6.9A10.8 10.8 0 0 1 12 6.8c6.2 0 9.5 5.2 9.5 5.2a17.8 17.8 0 0 1-3.1 3.3"></path><path d="M6.6 8.2C4.2 9.4 2.5 12 2.5 12s3.3 5.2 9.5 5.2c1.3 0 2.5-.3 3.5-.7"></path></svg>`;
+const passwordEyeIcons = (condition) => `<span v-if="${condition}" class="material-symbol-icon password-eye password-eye-open" aria-hidden="true">visibility</span><span v-else class="material-symbol-icon password-eye password-eye-closed" aria-hidden="true">visibility_off</span>`;
 Cadastro.template = Cadastro.template.replace('<input type="password" v-model="perfil.senha_usuario" placeholder="Mínimo de 8 caracteres" minlength="8" autocomplete="new-password" required>', '<div class="password-field"><input :type="mostrarSenha ? \'text\' : \'password\'" v-model="perfil.senha_usuario" placeholder="Ex.: CasaTatuí2026" minlength="8" autocomplete="new-password" required><button type="button" class="password-toggle" @click="mostrarSenha = !mostrarSenha" :aria-label="mostrarSenha ? \'Ocultar senha\' : \'Mostrar senha\'" :title="mostrarSenha ? \'Senha visível — clique para ocultar\' : \'Senha oculta — clique para mostrar\'" :aria-pressed="mostrarSenha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-5 9.5-5 9.5 5 9.5 5-3.3 5-9.5 5-9.5-5-9.5-5Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg></button></div>');
 Cadastro.template = Cadastro.template.replace('</ul></div></label><label class="field">CEP', '</ul></div></label><label class="field field-wide">Confirme sua senha<div class="password-field"><input :type="mostrarConfirmacaoSenha ? \'text\' : \'password\'" v-model="perfil.senha_confirmacao" placeholder="Digite a senha novamente" autocomplete="new-password" required><button type="button" class="password-toggle" @click="mostrarConfirmacaoSenha = !mostrarConfirmacaoSenha" :aria-label="mostrarConfirmacaoSenha ? \'Ocultar confirmação de senha\' : \'Mostrar confirmação de senha\'" :aria-pressed="mostrarConfirmacaoSenha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-5 9.5-5 9.5 5 9.5 5-3.3 5-9.5 5-9.5-5-9.5-5Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg></button></div><small v-if="senhaConfirmacaoStatus" class="password-match" :class="{ matching: senhaConfirmacaoStatus === \'As senhas coincidem.\' }">{{ senhaConfirmacaoStatus }}</small></label><label class="field">CEP');
 Cadastro.template = Cadastro.template.replace('<label class="field">Preço de venda (R$)<input :value="imovel.preco_venda"', '<label class="field">Preço de venda (R$)<input :value="imovel.preco_venda"');
@@ -803,6 +804,33 @@ if (!Cadastro.template.includes('v-model="perfil.senha_confirmacao"')) {
   const confirmationField = '<label class="field field-wide">Confirme sua senha<div class="password-field"><input :type="mostrarConfirmacaoSenha ? \'text\' : \'password\'" v-model="perfil.senha_confirmacao" placeholder="Digite a senha novamente" autocomplete="new-password" required><button type="button" class="password-toggle" @click="mostrarConfirmacaoSenha = !mostrarConfirmacaoSenha" :aria-label="mostrarConfirmacaoSenha ? \'Ocultar confirmação de senha\' : \'Mostrar confirmação de senha\'" :title="mostrarConfirmacaoSenha ? \'Confirmação visível — clique para ocultar\' : \'Confirmação oculta — clique para mostrar\'" :aria-pressed="mostrarConfirmacaoSenha">' + passwordEyeIcons('mostrarConfirmacaoSenha') + '</button></div><small v-if="senhaConfirmacaoStatus" class="password-match" :class="{ matching: senhaConfirmacaoStatus === \'As senhas coincidem.\' }">{{ senhaConfirmacaoStatus }}</small></label>';
   Cadastro.template = Cadastro.template.replace('</div></div><label class="privacy-consent">', confirmationField + '</div></div><label class="privacy-consent">');
 }
+function materializeVueIcons(template) {
+  const symbols = { 'password-eye-open': 'visibility', 'password-eye-closed': 'visibility_off', 'property-share-icon': 'share', 'property-delete-icon': 'delete', 'listing-search-icon': 'search', 'listing-photo-prev': 'arrow_back', 'listing-photo-next': 'arrow_forward' };
+  let result = template.replace(/<svg\b([^>]*)>[\s\S]*?<\/svg>/g, (svg, attributes, offset, source) => {
+    if (/listing-whatsapp-icon/.test(attributes)) return svg;
+    const className = attributes.match(/\bclass="([^"]*)"/)?.[1] || '';
+    const nearby = `${source.slice(Math.max(0, offset - 180), offset)} ${source.slice(offset + svg.length, offset + svg.length + 260)}`;
+    const icon = symbols[className.split(/\s+/).find(name => symbols[name])] ||
+      (/Meu perfil/i.test(nearby) ? 'person' : /Meus imóveis/i.test(nearby) ? 'home_work' : /Sair|Encerrar sessão/i.test(nearby) ? 'logout' :
+      /compartilh/i.test(nearby) ? 'share' : /excluir|remover/i.test(nearby) ? 'delete' : /lightbox-prev|anterior|previous|voltar/i.test(`${className} ${nearby}`) ? 'arrow_back' :
+        /lightbox-next|próxim|seguinte|next/i.test(`${className} ${nearby}`) ? 'arrow_forward' : /fechar|modal-close/i.test(`${className} ${nearby}`) ? 'close' :
+          /perto de mim|minha localização/i.test(nearby) ? 'my_location' : /localiza|endereço|bairro|cidade/i.test(nearby) ? 'location_on' : /buscar|pesquisar|filtro/i.test(nearby) ? 'search' :
+            /senha|password/i.test(nearby) ? 'visibility' : /camada/i.test(nearby) ? 'layers' : 'auto_awesome');
+    const classValue = `material-symbol-icon ${className.split(/\s+/).filter(value => value && value !== 'phosphor-icon').join(' ')}`.trim();
+    const preserved = [...attributes.matchAll(/\s((?:v-[\w-]+|:[\w-]+|@[\w.-]+|aria-(?!hidden)[\w-]+|title|role)(?:=(?:"([^"]*)"|'([^']*)'))?)/g)].map(match => ` ${match[1]}`).join('');
+    return `<span class="${classValue}"${preserved} aria-hidden="true">${icon}</span>`;
+  });
+  const glyphs = { '←': 'arrow_back', '→': 'arrow_forward', '‹': 'arrow_back', '›': 'arrow_forward', '×': 'close', '✓': 'check', '⌂': 'home', '⌖': 'location_on', '⌕': 'search', '↔': 'swap_horiz' };
+  return result.replace(/>(←|→|‹|›|×|✓|⌂|⌖|⌕|↔)</g, (_, glyph) => `><span class="material-symbol-icon" aria-hidden="true">${glyphs[glyph]}</span><`);
+}
+const transformedComponents = new Set();
+function transformVueComponent(component) {
+  if (!component || typeof component !== 'object' || transformedComponents.has(component)) return;
+  transformedComponents.add(component);
+  if (typeof component.template === 'string') component.template = materializeVueIcons(component.template);
+  Object.values(component.components || {}).forEach(transformVueComponent);
+}
+transformVueComponent(Page);
  const app = createApp(Page);
 app.config.errorHandler = (error, instance, info) => {
   console.error(`Falha ao renderizar a aplicação (${info}).`, error);

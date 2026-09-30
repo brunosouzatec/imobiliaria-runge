@@ -1,24 +1,28 @@
 (() => {
-  const phosphorStyles = document.createElement('link');
-  phosphorStyles.rel = 'stylesheet';
-  phosphorStyles.href = '/phosphor-icons.css';
-  document.head.appendChild(phosphorStyles);
+  const materialIconsScript = document.createElement('script');
+  materialIconsScript.src = '/material-icons.js';
+  materialIconsScript.onload = () => { enhanceAdminIcons(); window.MaterialIcons?.enhance(document); };
+  document.head.appendChild(materialIconsScript);
   const app = document.querySelector('#admin-app');
   const adminIconByText = [
-    [/visão geral|dashboard/i, 'chart-line'], [/imóveis|imóvel/i, 'house'], [/usuários|usuário/i, 'users'],
-    [/auditoria|histórico/i, 'file-text'], [/conteúdo|política/i, 'file-text'], [/e-mail|email/i, 'envelope'],
-    [/oportunidade/i, 'sparkle'], [/configurações|configuração/i, 'gear'], [/sair|logout/i, 'sign-out'],
-    [/editar/i, 'pencil-simple'], [/excluir|remover/i, 'trash'], [/incluir|novo|adicionar/i, 'plus'],
-    [/salvar|publicar/i, 'floppy-disk'], [/voltar/i, 'arrow-left'], [/detalhes|abrir/i, 'arrow-square-out'],
-    [/teste|enviar/i, 'envelope'], [/fechar|cancelar/i, 'x']
+    [/visão geral|dashboard/i, 'analytics'], [/editar/i, 'edit'], [/imóveis|imóvel/i, 'home_work'], [/usuários|usuário/i, 'group'],
+    [/auditoria|histórico/i, 'history'], [/conteúdo|política/i, 'description'], [/e-mail|email/i, 'mail'],
+    [/oportunidade/i, 'auto_awesome'], [/configurações|configuração/i, 'settings'], [/sair|logout/i, 'logout'],
+    [/excluir|remover/i, 'delete'], [/incluir|novo|adicionar/i, 'add'],
+    [/salvar|publicar/i, 'save'], [/voltar/i, 'arrow_back'], [/detalhes|abrir/i, 'open_in_new'],
+    [/teste|enviar/i, 'mail'], [/fechar|cancelar/i, 'close']
   ];
+  function materialIcon(name, className) {
+    const icon = document.createElement('span');
+    icon.className = `material-symbol-icon ${className}`;
+    icon.textContent = name;
+    icon.setAttribute('aria-hidden', 'true');
+    return icon;
+  }
   function enhanceAdminIcons() {
     app.querySelectorAll('.admin-opportunity-location').forEach(element => {
-      if (element.querySelector('[data-phosphor]')) return;
-      const icon = document.createElement('span');
-      icon.className = 'phosphor-icon admin-opportunity-inline-icon';
-      icon.dataset.phosphor = 'map-pin';
-      icon.setAttribute('aria-hidden', 'true');
+      if (element.querySelector('[data-phosphor], .material-symbol-icon')) return;
+      const icon = materialIcon('location_on', 'admin-opportunity-inline-icon');
       element.prepend(icon);
     });
     // Only process each fact row, not icon spans nested inside it. The observer
@@ -26,40 +30,42 @@
     // wrap newly inserted icons and freeze the admin page.
     app.querySelectorAll('.admin-opportunity-facts > span').forEach((element, index) => {
       const fact = element.querySelector('strong');
-      if (index === 1 && fact && !fact.dataset.areaLocalized) {
+      const label = element.textContent.replace(fact?.textContent || '', '').toLowerCase();
+      if (label.includes('área') && fact && !fact.dataset.areaLocalized) {
         fact.textContent = fact.textContent.replace(/\d+(?:[.,]\d+)?/g, value => Number(value.replace(',', '.')).toLocaleString('pt-BR', { maximumFractionDigits: 1 }));
         fact.dataset.areaLocalized = 'true';
       }
-      if (element.querySelector('[data-phosphor]')) return;
-      const icon = document.createElement('span');
-      icon.className = 'phosphor-icon admin-opportunity-inline-icon';
-      icon.dataset.phosphor = ['house', 'ruler', 'currency-circle-dollar'][index] || 'sparkle';
-      icon.setAttribute('aria-hidden', 'true');
+      if (element.querySelector('[data-phosphor], .material-symbol-icon')) return;
+      const symbol = label.includes('tipo') ? 'home' : label.includes('área') ? 'straighten' : /investimento|valor/.test(label) ? 'attach_money' : ['home', 'straighten', 'attach_money'][index % 3];
+      const icon = materialIcon(symbol, 'admin-opportunity-inline-icon');
       element.prepend(icon);
     });
     app.querySelectorAll('button, a, .admin-property-placeholder, .admin-property-address, .admin-opportunity-location, .admin-opportunity-facts > span').forEach(element => {
-      if (element.querySelector('[data-phosphor]') || element.classList.contains('admin-icon-enhanced')) return;
+      if (element.querySelector('[data-phosphor], .material-symbol-icon') || element.classList.contains('admin-icon-enhanced') || element.classList.contains('admin-icon-checked')) return;
       if (element.classList.contains('admin-property-placeholder')) element.textContent = '';
       if (element.classList.contains('admin-modal-close')) element.textContent = '';
-      if (element.classList.contains('admin-secondary-action')) element.innerHTML = element.innerHTML.replace('→', '');
+      if (element.classList.contains('admin-property-placeholder') || element.classList.contains('admin-modal-close')) {
+        const icon = materialIcon(element.classList.contains('admin-modal-close') ? 'close' : 'home', 'admin-context-icon');
+        element.append(icon);
+        element.classList.add('admin-icon-enhanced');
+        return;
+      }
+      if (element.classList.contains('admin-secondary-action') && element.innerHTML.includes('→')) element.innerHTML = element.innerHTML.replace('→', '');
       const text = element.textContent.trim();
       const match = adminIconByText.find(([pattern]) => pattern.test(text));
-      if (!match) return;
-      const icon = document.createElement('span');
-      icon.className = 'phosphor-icon admin-context-icon';
-      icon.dataset.phosphor = match[1];
-      icon.setAttribute('aria-hidden', 'true');
+      if (!match) { element.classList.add('admin-icon-checked'); return; }
+      const icon = materialIcon(match[1], 'admin-context-icon');
       element.prepend(icon);
       element.classList.add('admin-icon-enhanced');
     });
+    window.MaterialIcons?.enhance(app);
   }
-  new MutationObserver(enhanceAdminIcons).observe(app, { childList: true, subtree: true });
   const state = { tab: 'dashboard', dashboard: null, properties: [], opportunities: [], opportunityTypes: [], users: [], audit: [], policy: null, smtp: null, emailProvider: null };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const tipoCadastro = value => ({'Proprietário Direto':'Proprietário','Proprietario Direto':'Proprietário','Corretor':'Corretor','Imobiliária':'Imobiliária','Imobiliaria':'Imobiliária'}[String(value ?? '').trim()] || 'Não informado');
   async function api(path, options) { const response = await fetch(path, options); const data = await response.json().catch(() => ({})); if (response.status === 401) throw new Error('LOGIN_REQUIRED'); if (!response.ok) throw new Error(data.error || 'Não foi possível concluir a operação.'); return data; }
   function login() { app.innerHTML = '<main class="admin-login"><img src="assets/tatui-imoveis-logo.svg" alt="Tatuí Imóveis"><h1>Área administrativa</h1><p>Entre com suas credenciais administrativas.</p><form id="admin-login-form"><label>Usuário<input name="email" type="email" autocomplete="username" required></label><label>Senha<div class="password-field"><input name="senha" type="password" autocomplete="current-password" required><button type="button" class="password-toggle" aria-label="Mostrar senha" aria-pressed="false" title="Senha oculta — clique para mostrar"><svg class="password-eye password-eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-5 9.5-5 9.5 5 9.5 5-3.3 5-9.5 5-9.5-5-9.5-5Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg><svg class="password-eye password-eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 6.9A10.8 10.8 0 0 1 12 6.8c6.2 0 9.5 5.2 9.5 5.2a17.8 17.8 0 0 1-3.1 3.3"></path><path d="M6.6 8.2C4.2 9.4 2.5 12 2.5 12s3.3 5.2 9.5 5.2c1.3 0 2.5-.3 3.5-.7"></path></svg></button></div></label><p id="admin-login-error"></p><button class="admin-primary">Entrar</button></form></main>'; const password = document.querySelector('.admin-login input[name="senha"]'); const toggle = document.querySelector('.admin-login .password-toggle'); toggle.onclick = () => { const visible = password.type === 'text'; password.type = visible ? 'password' : 'text'; toggle.classList.toggle('is-visible', !visible); toggle.setAttribute('aria-label', visible ? 'Mostrar senha' : 'Ocultar senha'); toggle.setAttribute('aria-pressed', String(!visible)); toggle.title = visible ? 'Senha oculta — clique para mostrar' : 'Senha visível — clique para ocultar'; }; document.querySelector('#admin-login-form').onsubmit = async event => { event.preventDefault(); try { await api('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.currentTarget)))}); await load(); } catch(error) { document.querySelector('#admin-login-error').textContent = error.message === 'LOGIN_REQUIRED' ? 'Usuário ou senha inválidos.' : error.message; } }; }
-  function shell(content) { app.innerHTML = `<header class="admin-header"><a href="/"><img src="assets/tatui-imoveis-logo.svg" alt="Tatuí Imóveis"></a><div><strong>Área administrativa</strong><button id="logout">Sair</button></div></header><main class="admin-shell"><aside><button data-tab="dashboard">Visão geral</button><button data-tab="properties">Imóveis</button><button data-tab="opportunities">Oportunidades</button><button data-tab="users">Usuários</button><button data-tab="policy">Conteúdos e política</button><button data-tab="email">E-mail</button><button data-tab="audit">Auditoria</button></aside><section class="admin-content">${content}</section></main>`; document.querySelectorAll('[data-tab]').forEach(button => button.onclick = () => { state.tab = button.dataset.tab; render(); }); document.querySelector('#logout').onclick = async () => { await fetch('/api/logout',{method:'POST'}); location.replace('/'); }; }
+  function shell(content) { app.innerHTML = `<header class="admin-header"><a href="/"><img src="assets/tatui-imoveis-logo.svg" alt="Tatuí Imóveis"></a><div><strong>Área administrativa</strong><button id="logout">Sair</button></div></header><main class="admin-shell"><aside><button data-tab="dashboard">Visão geral</button><button data-tab="properties">Imóveis</button><button data-tab="opportunities">Oportunidades</button><button data-tab="users">Usuários</button><button data-tab="policy">Conteúdos e política</button><button data-tab="email">E-mail</button><button data-tab="audit">Auditoria</button></aside><section class="admin-content">${content}</section></main>`; enhanceAdminIcons(); window.MaterialIcons?.enhance(app); document.querySelectorAll('[data-tab]').forEach(button => button.onclick = () => { state.tab = button.dataset.tab; render(); }); document.querySelector('#logout').onclick = async () => { await fetch('/api/logout',{method:'POST'}); location.replace('/'); }; }
   async function load() { try { state.dashboard = await api('/api/admin/dashboard'); state.properties = await api('/api/admin/imoveis'); state.opportunities = await api('/api/admin/oportunidades'); const configuredTypes = await api('/api/admin/oportunidades/tipos'); state.opportunityTypes = configuredTypes.map(item => item.nome); if (!state.opportunityTypes.length) state.opportunityTypes = ['Casa', 'Apartamento', 'Terreno', 'Chácara / Sítio', 'Comercial']; state.users = await api('/api/admin/usuarios'); state.audit = await api('/api/admin/auditoria'); state.policy = await api('/api/admin/conteudos/politica_privacidade'); state.smtp = await api('/api/admin/configuracoes/email'); render(); } catch (error) { if (error.message === 'LOGIN_REQUIRED') return login(); app.innerHTML = '<main class="admin-error"><h1>Acesso administrativo</h1><p>' + esc(error.message) + '</p></main>'; } }
   function dashboard() { const m = state.dashboard.metricas; return `<h1>Visão geral</h1><div class="admin-metrics"><article><strong>${m.usuarios}</strong><span>Usuários</span></article><article><strong>${m.imoveis}</strong><span>Imóveis</span></article><article><strong>${m.acessosMes}</strong><span>Acessos no mês</span></article><article><strong>${m.contatosMes}</strong><span>Contatos no mês</span></article></div><div class="admin-columns"><section class="admin-panel"><h2>Últimos imóveis cadastrados</h2><table><tbody>${state.dashboard.ultimos.map(item => `<tr><td><strong>${esc(item.categoria)}</strong><small>${esc(item.anunciante || 'Sem anunciante')}</small></td><td>${esc(item.tipo)}</td></tr>`).join('') || '<tr><td>Nenhum imóvel cadastrado.</td></tr>'}</tbody></table></section><section class="admin-panel"><h2>Mais acessados no mês</h2><table><tbody>${state.dashboard.populares.map(item => `<tr><td>${esc(item.categoria)} · ${esc(item.tipo)}</td><td>${item.acessos} acessos</td></tr>`).join('') || '<tr><td>Nenhum acesso registrado.</td></tr>'}</tbody></table></section></div>`; }
   function properties() { return `<div class="admin-title-row"><div><p class="admin-eyebrow">Catálogo</p><h1>Imóveis</h1><p>Gerencie os anúncios publicados, revise os dados e acompanhe o desempenho de cada imóvel.</p></div><a class="admin-primary" href="/cadastro?modo=imovel">+ Incluir imóvel</a></div><div class="admin-property-list">${state.properties.map(item => { const photo = item.fotos?.[0]?.url; const transactions = Array.isArray(item.transacoes) ? item.transacoes : (item.tipo ? [item.tipo] : []); return `<article class="admin-property-card"><a class="admin-property-media" href="/cadastro?modo=editar&id=${item.id}&admin=1" aria-label="Editar ${esc(item.categoria || 'imóvel')}">${photo ? `<img src="${esc(photo)}" alt="Foto de ${esc(item.categoria || 'imóvel')}">` : '<span class="admin-property-placeholder" aria-hidden="true">⌂</span>'}</a><div class="admin-property-main"><div class="admin-property-heading"><div><div class="admin-property-kicker">${transactions.map(transaction => `<span>${esc(transaction)}</span>`).join('')}</div><h2>${esc(item.categoria || item.tipo || 'Imóvel')}</h2></div><span class="admin-property-id">#${esc(item.id)}</span></div><p class="admin-property-address">${esc(item.endereco || 'Endereço não informado')}</p><div class="admin-property-meta"><span><strong>${Number(item.acessos || 0)}</strong> acessos</span><span><strong>${esc(item.anunciante || 'Sem anunciante')}</strong> anunciante</span></div><div class="admin-property-actions"><a class="admin-secondary-action" href="/cadastro?modo=editar&id=${item.id}&admin=1">Editar imóvel <span aria-hidden="true">→</span></a><button class="admin-danger-action" type="button" data-delete="${item.id}">Excluir</button></div></div></article>`; }).join('') || '<div class="admin-property-empty"><strong>Nenhum imóvel cadastrado.</strong><span>Inclua o primeiro anúncio para começar a gerenciar o catálogo.</span></div>'}</div>`; }
