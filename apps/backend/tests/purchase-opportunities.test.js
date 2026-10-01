@@ -59,9 +59,44 @@ test('administração oferece criação, alteração de status, exclusão e audi
   assert.match(server, /\['Venda', 'Aluguel', 'Permuta'\]/);
 });
 
+test('administração compara oportunidades com imóveis por regras determinísticas e sem serviço externo', () => {
+  const matcher = fs.readFileSync(path.join(root, 'packages/shared/opportunity-matching.js'), 'utf8');
+  const endpoint = server.slice(server.indexOf("const opportunityMatch = url.pathname.match"), server.indexOf("if (url.pathname === '/api/admin/oportunidades/tipos'"));
+  assert.match(endpoint, /adminUser\(req, res\)/);
+  assert.match(endpoint, /rateLimit\(req, res, 'admin-opportunity-match'/);
+  assert.match(endpoint, /SELECT \* FROM oportunidades_compra WHERE id=\?/);
+  assert.match(endpoint, /SELECT id,categoria,tipo,transacoes,preco,preco_venda,preco_aluguel,estado,cidade,bairro,descricao,caracteristicas\s+FROM imoveis/);
+  assert.match(endpoint, /OpportunityMatching\.scoreOpportunityMatches/);
+  assert.match(matcher, /function scoreOpportunityProperty/);
+  assert.match(matcher, /commonTransactions\.length/);
+  assert.match(matcher, /rangeProximity/);
+  assert.doesNotMatch(matcher, /fetch\(|https?:\/\/|openai|anthropic|gemini/i);
+  assert.match(admin, /data-op-match/);
+  assert.match(admin, /Analisar imóveis compatíveis/);
+  assert.match(admin, /Pontuação calculada por regras explícitas/);
+});
+
+test('administração edita oportunidades sem perder critérios e organiza o card com ações agrupadas', () => {
+  assert.match(admin, /data-op-edit/);
+  assert.match(admin, /Editar oportunidade #\$\{editing\.id\}/);
+  assert.match(admin, /Salvar alterações/);
+  assert.match(admin, /cancel-opportunity-edit/);
+  assert.match(admin, /method:editing \? 'PATCH' : 'POST'/);
+  assert.match(admin, /\.\.\.\(editing \|\| \{\}\)/);
+  assert.match(admin, /admin-opportunity-card-footer/);
+  assert.match(admin, /description\.textContent\.trim\(\)\.replace\(/);
+});
+
 test('ícones da administração não reprocessam spans inseridos dentro dos fatos da oportunidade', () => {
   assert.equal((admin.match(/admin-opportunity-facts > span/g) || []).length, 2);
   assert.doesNotMatch(admin, /admin-opportunity-facts span/);
+  assert.match(admin, /admin-opportunity-fact-content/);
+  assert.match(admin, /caption\.textContent = label\.trim\(\)/);
+  const adminCss = fs.readFileSync(path.join(root, 'apps/frontend/public/admin.css'), 'utf8');
+  assert.match(adminCss, /\.admin-opportunity-facts>span\{align-items:center;display:grid;gap:10px;grid-template-columns:22px minmax\(0,1fr\)/);
+  assert.match(adminCss, /\.admin-opportunity-facts \.admin-opportunity-inline-icon\.material-symbol-icon\{background:transparent;border:0;border-radius:0;box-shadow:none;flex:0 0 22px;margin:0;padding:0\}/);
+  assert.match(adminCss, /\.admin-opportunity-facts \.admin-opportunity-fact-content\{background:transparent;border:0;border-radius:0;box-shadow:none;color:inherit;flex:initial;font-size:inherit;padding:0\}/);
+  assert.match(adminCss, /\.admin-opportunity-location\{align-items:center;display:flex;gap:7px/);
 });
 
 test('listagem e detalhe públicos existem e usam contato contextual', () => {

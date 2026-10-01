@@ -129,7 +129,7 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .site-footer-brand .site-footer-creci { color:#f1f5f3; font-size:.78rem; font-weight:600; letter-spacing:.01em; }
 .site-footer nav { display:flex; gap:24px; }
 .site-footer nav a { color:#d9e2de; font-size:.8rem; text-decoration:none; }
-.site-footer nav a[href="privacidade.html"], .home-footer a[href="privacidade.html"] { color:#fff; font-weight:700; text-decoration:underline; text-decoration-color:#f4a06f; text-decoration-thickness:2px; text-underline-offset:4px; }
+.site-footer nav a[href="privacidade.html"], .home-footer a[href="privacidade.html"], .site-footer nav a[href="termos-de-uso.html"], .home-footer a[href="termos-de-uso.html"] { color:#fff; font-weight:700; text-decoration:underline; text-decoration-color:#f4a06f; text-decoration-thickness:2px; text-underline-offset:4px; }
 .site-footer nav a:hover { color:#f4a06f; }
 @media (max-width:700px) { .site-footer { align-items:flex-start; flex-direction:column; gap:18px; } .site-footer nav { flex-wrap:wrap; gap:12px 20px; } }
 .listing-heading { align-items:flex-end; display:flex; gap:24px; justify-content:space-between; margin-bottom:30px; }

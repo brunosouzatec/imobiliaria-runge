@@ -12,7 +12,8 @@ const footerLinks = [
   'imoveis.html',
   'imoveis.html?tipo=Aluguel',
   'index.html#contato',
-  'privacidade.html'
+  'privacidade.html',
+  'termos-de-uso.html'
 ];
 
 test('home e páginas Vue usam o rodapé público compartilhado', () => {

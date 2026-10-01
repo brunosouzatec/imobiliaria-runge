@@ -10,6 +10,27 @@ const propertyPerimeter = require('../migrations/010_property_perimeter');
 const accountChangeTokens = require('../migrations/011_account_change_tokens');
 const purchaseLocationCatalog = require('../migrations/013_purchase_location_catalog');
 const removeNeighborhoodSearchCache = require('../migrations/014_remove_neighborhood_search_cache');
+const seedTermsOfUse = require('../migrations/015_seed_terms_of_use');
+const termsAcceptance = require('../migrations/016_terms_of_use_acceptance');
+
+test('terms of use migration seeds its own editable content without overwriting existing content', async () => {
+  const statements = [];
+  const connection = { query: async (sql, values) => { statements.push({ sql, values }); } };
+  await seedTermsOfUse.up(connection);
+  assert.match(statements[0].sql, /INSERT IGNORE INTO site_conteudos/);
+  assert.deepEqual(statements[0].values, ['termos_uso', 'Termos de Uso', seedTermsOfUse.INITIAL_TERMS]);
+  assert.match(seedTermsOfUse.INITIAL_TERMS, /em elaboração/i);
+});
+
+test('terms acceptance migration adds version and timestamp fields idempotently', async () => {
+  const statements = [];
+  const connection = {
+    execute: async (_sql, [_table, column]) => [[...(column === 'termos_uso_versao' ? [{ present: 1 }] : [])]],
+    query: async sql => { statements.push(sql); }
+  };
+  await termsAcceptance.up(connection);
+  assert.deepEqual(statements, ['ALTER TABLE `usuarios` ADD COLUMN `termos_uso_aceita_em` DATETIME NULL']);
+});
 
 test('title removal migration drops the legacy column only when it exists', async () => {
   const statements = [];
