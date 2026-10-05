@@ -17,7 +17,7 @@ test('terms page uses the privacy page layout and safely renders editable plain 
 });
 
 test('terms content has separate public and administrator APIs with an explicit key allowlist', () => {
-  assert.ok(server.includes('(politica_privacidade|termos_uso)'));
+  assert.ok(server.includes('(politica_privacidade|termos_uso|termos_proprietario|termos_corretor_parceiro)'));
   assert.match(admin, /data-tab="terms">Termos de uso/);
   assert.match(admin, /\/api\/admin\/conteudos\/termos_uso/);
   assert.match(admin, /id="save-terms"/);

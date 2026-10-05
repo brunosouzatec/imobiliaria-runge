@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Termos de Uso do portal Tatuí Imóveis.">
-  <title>Termos de Uso | Tatuí Imóveis</title>
+  <meta name="description" content="Termos de parceria e divisão de honorários para Corretores e Imobiliárias parceiros da Tatuí Imóveis.">
+  <title>Termos do Corretor Parceiro | Tatuí Imóveis</title>
   <link rel="icon" href="assets/tatui-imoveis-favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="react.css">
   <link rel="stylesheet" href="react-pages.css">
@@ -12,24 +12,24 @@
 <body>
   <div data-site-header></div>
   <main class="react-page privacy-page">
-    <p class="eyebrow">Regras de utilização</p>
-    <h1>Termos de Uso</h1>
-    <p class="react-lead">As regras para navegação, cadastro e publicação de anúncios no portal Tatuí Imóveis estão reunidas nesta página.</p>
-    <section class="privacy-section" id="termos-dinamicos"><p>Carregando os Termos de Uso…</p></section>
-    <p class="react-lead">Proprietários que anunciam imóveis também podem consultar os <a href="termos-proprietario.html">Termos de Uso e Intermediação do Proprietário</a>.</p>
+    <p class="eyebrow">Parceria profissional</p>
+    <h1>Termos do Corretor Parceiro</h1>
+    <p class="react-lead">Condições de corretagem e divisão de honorários nas negociações originadas ou intermediadas por meio da plataforma.</p>
+    <p class="owner-terms-draft-notice">O texto inicial está marcado como minuta e deve passar por revisão jurídica antes de ser utilizado em produção.</p>
+    <section class="privacy-section" id="termos-corretor-dinamicos"><p>Carregando os Termos do Corretor Parceiro…</p></section>
   </main>
   <div data-site-footer></div>
   <script src="site-chrome.js"></script>
   <script>SiteChrome.mount(document, 'terms');</script>
   <script>
-    fetch('/api/conteudos/termos_uso')
+    fetch('/api/conteudos/termos_corretor_parceiro')
       .then(response => response.ok ? response.json() : null)
       .then(data => {
         if (!data?.conteudo) return;
-        const section = document.querySelector('#termos-dinamicos');
+        const section = document.querySelector('#termos-corretor-dinamicos');
         section.replaceChildren();
         data.conteudo.split(/\r?\n/).map(line => line.trim()).filter(Boolean).forEach(line => {
-          const isHeading = /^\d+(?:\.\d+)*[.)]?\s+\S/.test(line);
+          const isHeading = /^\d+(?:\.\d+)*[.)]?\s+\S/.test(line) || (!/[.!?]$/.test(line) && line.length < 110);
           const element = document.createElement(isHeading ? 'h2' : 'p');
           element.textContent = line;
           section.appendChild(element);

@@ -6,7 +6,7 @@
   const app = document.querySelector('#admin-app');
   const adminIconByText = [
     [/analisar imóveis compatíveis/i, 'search'], [/visão geral|dashboard/i, 'analytics'], [/editar/i, 'edit'], [/imóveis|imóvel/i, 'home_work'], [/usuários|usuário/i, 'group'],
-    [/auditoria|histórico/i, 'history'], [/termos de uso/i, 'description'], [/conteúdo|política/i, 'description'], [/e-mail|email/i, 'mail'],
+    [/auditoria|histórico/i, 'history'], [/termos do proprietário|termos do corretor parceiro/i, 'description'], [/termos de uso/i, 'description'], [/conteúdo|política/i, 'description'], [/e-mail|email/i, 'mail'],
     [/oportunidade/i, 'auto_awesome'], [/configurações|configuração/i, 'settings'], [/sair|logout/i, 'logout'],
     [/excluir|remover/i, 'delete'], [/incluir|novo|adicionar/i, 'add'],
     [/salvar|publicar/i, 'save'], [/voltar/i, 'arrow_back'], [/detalhes|abrir/i, 'open_in_new'],
@@ -141,7 +141,10 @@
       const features = characteristics?.summary(characteristics.list(item.caracteristicas)) || [];
       const metrics = item.metricas || {};
       const editUrl = `/cadastro?modo=editar&id=${encodeURIComponent(item.id)}&admin=1`;
-      return `<article class="admin-property-card"><a class="admin-property-media" href="${editUrl}" aria-label="Editar ${esc(title)}">${photo ? `<img src="${esc(photo)}" alt="Foto de ${esc(item.categoria || 'imóvel')}">` : '<span class="admin-property-placeholder" aria-hidden="true">⌂</span>'}</a><div class="admin-property-main"><div class="admin-property-heading"><div><h2>${esc(title)}</h2>${price ? `<strong class="admin-property-price">${esc(price)}</strong>` : ''}</div><span class="admin-property-id">#${esc(item.id)}</span></div><p class="admin-property-address">${esc(item.endereco || 'Endereço não informado')}</p>${features.length ? `<div class="admin-property-feature-list" aria-label="Resumo das características">${features.map(feature => `<span class="admin-property-feature"><span class="material-symbol-icon" aria-hidden="true">${esc(characteristics.icon(feature.key))}</span><span>${esc(feature.display)}</span></span>`).join('')}</div>` : ''}<div class="admin-property-meta"><span>Anunciante</span><strong>${esc(item.anunciante || 'Sem anunciante')}</strong></div><div class="owner-property-stats admin-property-stats" aria-label="Estatísticas acumuladas do anúncio"><div class="owner-property-stat" title="Aberturas da página de detalhes do anúncio"><span class="material-symbol-icon" aria-hidden="true">visibility</span><strong>${count(metrics.visualizacoes ?? item.acessos)}</strong><span>Visualizações</span></div><div class="owner-property-stat" title="Compartilhamentos concluídos ou link copiado"><span class="material-symbol-icon" aria-hidden="true">share</span><strong>${count(metrics.compartilhamentos)}</strong><span>Compartilhamentos</span></div><div class="owner-property-stat" title="Solicitações enviadas pelo formulário Tenho interesse"><span class="material-symbol-icon" aria-hidden="true">chat_bubble</span><strong>${count(metrics.interesses)}</strong><span>Interesses</span></div></div><div class="admin-property-actions"><a class="admin-secondary-action" href="${editUrl}">Editar imóvel <span aria-hidden="true">→</span></a><button class="admin-danger-action" type="button" data-delete="${esc(item.id)}">Excluir</button></div></div></article>`;
+      const status = item.status || 'disponivel';
+      const statusLabels = { em_negociacao: 'Em negociação', vendido: 'Vendido', reservado: 'Reservado', alugado: 'Alugado', disponivel: 'Disponível' };
+      const statusOptions = Object.entries(statusLabels).map(([value, label]) => `<option value="${value}" ${status === value ? 'selected' : ''}>${label}</option>`).join('');
+      return `<article class="admin-property-card"><a class="admin-property-media" href="${editUrl}" aria-label="Editar ${esc(title)}">${photo ? `<img src="${esc(photo)}" alt="Foto de ${esc(item.categoria || 'imóvel')}">` : '<span class="admin-property-placeholder" aria-hidden="true">⌂</span>'}<span class="property-status-watermark property-status-${esc(status)}">${esc(statusLabels[status] || statusLabels.disponivel)}</span></a><div class="admin-property-main"><div class="admin-property-heading"><div><h2>${esc(title)}</h2>${price ? `<strong class="admin-property-price">${esc(price)}</strong>` : ''}</div><span class="admin-property-id">#${esc(item.id)}</span></div><p class="admin-property-address">${esc(item.endereco || 'Endereço não informado')}</p>${features.length ? `<div class="admin-property-feature-list" aria-label="Resumo das características">${features.map(feature => `<span class="admin-property-feature"><span class="material-symbol-icon" aria-hidden="true">${esc(characteristics.icon(feature.key))}</span><span>${esc(feature.display)}</span></span>`).join('')}</div>` : ''}<div class="admin-property-meta"><span>Anunciante</span><strong>${esc(item.anunciante || 'Sem anunciante')}</strong></div><div class="admin-property-status-control"><label for="property-status-${esc(item.id)}">Status do anúncio</label><select id="property-status-${esc(item.id)}" data-property-status="${esc(item.id)}" aria-label="Status do imóvel ${esc(item.id)}">${statusOptions}</select><span data-property-status-message="${esc(item.id)}" role="status" aria-live="polite"></span></div><div class="owner-property-stats admin-property-stats" aria-label="Estatísticas acumuladas do anúncio"><div class="owner-property-stat" title="Aberturas da página de detalhes do anúncio"><span class="material-symbol-icon" aria-hidden="true">visibility</span><strong>${count(metrics.visualizacoes ?? item.acessos)}</strong><span>Visualizações</span></div><div class="owner-property-stat" title="Compartilhamentos concluídos ou link copiado"><span class="material-symbol-icon" aria-hidden="true">share</span><strong>${count(metrics.compartilhamentos)}</strong><span>Compartilhamentos</span></div><div class="owner-property-stat" title="Solicitações enviadas pelo formulário Tenho interesse"><span class="material-symbol-icon" aria-hidden="true">chat_bubble</span><strong>${count(metrics.interesses)}</strong><span>Interesses</span></div></div><div class="admin-property-actions"><a class="admin-secondary-action" href="${editUrl}">Editar imóvel <span aria-hidden="true">→</span></a><button class="admin-danger-action" type="button" data-delete="${esc(item.id)}">Excluir</button></div></div></article>`;
     }).join('') || '<div class="admin-property-empty"><strong>Nenhum imóvel cadastrado.</strong><span>Inclua o primeiro anúncio para começar a gerenciar o catálogo.</span></div>'}</div>`;
   }
   function legacyOpportunities() { return `<div class="admin-title-row"><div><p class="admin-eyebrow">Demanda do mercado</p><h1>Oportunidades de compra</h1><p>Cadastre buscas reais de clientes e publique oportunidades para que proprietários encontrem uma demanda compatível.</p></div></div><section class="admin-panel admin-opportunity-form"><h2>Nova oportunidade</h2><div class="admin-form-grid"><label>Título<input id="op-title" maxlength="180" placeholder="Ex.: Família procura casa no Centro"></label><label>Tipo<select id="op-type"><option>Casa</option><option>Apartamento</option><option>Terreno</option><option>Chácara / Sítio</option><option>Comercial</option></select></label><label>Cidade<input id="op-city" value="Tatuí" maxlength="120"></label><label>Valor mínimo<input id="op-min" type="number" min="0" step="0.01"></label><label>Valor máximo<input id="op-max" type="number" min="0" step="0.01"></label><label class="admin-field-wide">Descrição<textarea id="op-description" rows="4" maxlength="5000" placeholder="Descreva o que o cliente procura."></textarea></label></div><fieldset class="admin-opportunity-transactions"><legend>Transação aceita</legend><label><input type="checkbox" name="op-transaction" value="Venda" checked> Compra</label><label><input type="checkbox" name="op-transaction" value="Aluguel"> Aluguel</label><label><input type="checkbox" name="op-transaction" value="Permuta"> Permuta</label></fieldset><div class="admin-opportunity-actions"><button class="admin-primary" id="create-opportunity">Salvar como rascunho</button><span id="opportunity-status" role="status"></span></div></section><section class="admin-panel"><div class="admin-panel-heading"><div><h2>Oportunidades cadastradas</h2><p>Somente as publicadas aparecem na área pública.</p></div></div><div class="admin-opportunity-list">${state.opportunities.map(item => { const tipos = Array.isArray(item.tipos_imovel) && item.tipos_imovel.length ? item.tipos_imovel : [item.tipo_imovel]; return `<article class="admin-opportunity-row"><div><span class="admin-property-kicker">${esc(item.status)} · ${esc(tipos.join(' · '))}</span><h3>${esc(item.titulo)}</h3><p>${esc(item.estado || 'SP')} · ${esc(item.cidade)}${item.bairros?.length ? ` · ${esc(item.bairros.join(', '))}` : ''} · ${esc(item.descricao)}</p></div><div class="admin-opportunity-row-actions"><select data-op-status="${item.id}" aria-label="Status de ${esc(item.titulo)}">${['rascunho','publicada','atendida','expirada','cancelada'].map(status => `<option value="${status}" ${item.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select><button class="admin-danger-action" type="button" data-op-delete="${item.id}">Excluir</button></div></article>`; }).join('') || '<p>Nenhuma oportunidade cadastrada.</p>'}</div></section>`; }
@@ -179,6 +182,87 @@
   function terms() { const content = state.terms?.conteudo || 'Os Termos de Uso estão em elaboração. A versão oficial será publicada após revisão e aprovação da responsável pelo site.'; const version = state.terms?.versao || 1; const updated = state.terms?.updated_at ? new Date(state.terms.updated_at).toLocaleString('pt-BR') : 'Ainda não editado'; return `<h1>Termos de Uso</h1><p>Gerencie o texto que ficará disponível publicamente na página de Termos de Uso.</p><div class="admin-policy-grid"><section class="admin-panel"><div class="admin-panel-heading"><div><h2>Versão pública atual</h2><p>Versão ${esc(version)} · Atualizada em ${esc(updated)}</p></div><span class="admin-status-badge">${state.terms?.versao > 1 ? 'Publicada' : 'Em elaboração'}</span></div><div class="admin-policy-preview" aria-label="Prévia dos Termos de Uso">${esc(content)}</div></section><section class="admin-panel"><h2>Editar Termos de Uso</h2><p>O conteúdo salvo fica disponível imediatamente na página pública. Enquanto o texto jurídico não estiver aprovado, mantenha o aviso de elaboração.</p><label>Texto dos termos<textarea id="terms-text" rows="18">${esc(content)}</textarea></label><button class="admin-primary" id="save-terms">Salvar nova versão</button><span id="terms-status" role="status" aria-live="polite"></span></section></div>`; }
   function email() { const smtp = state.smtp || {}; const isSendGrid = (state.emailProvider || document.querySelector('#email-provider')?.value || smtp.provedor || 'sendgrid') === 'sendgrid'; const secretLabel = isSendGrid ? 'Chave da API do SendGrid' : 'Senha do SMTP'; const secretPlaceholder = smtp.configurado ? 'Deixe em branco para manter a atual' : isSendGrid ? 'SG.xxxxxxxxxxxxxxxxx' : 'Informe a senha'; return `<h1>Configuração de e-mail</h1><p>Escolha o serviço usado para enviar links de recuperação e mensagens do sistema. As credenciais ficam disponíveis somente nesta área administrativa e são armazenadas criptografadas.</p><section class="admin-panel"><div class="admin-panel-heading"><div><h2>Serviço de envio</h2><p>O remetente precisa estar autorizado no serviço escolhido.</p></div><span class="admin-status-badge">${smtp.configurado ? 'Configurado' : 'Pendente'}</span></div><div class="admin-form-grid"><label>Provedor<select id="email-provider"><option value="sendgrid" ${isSendGrid ? 'selected' : ''}>SendGrid Web API</option><option value="smtp" ${!isSendGrid ? 'selected' : ''}>Servidor SMTP</option></select></label><label>Remetente<input id="smtp-from" type="email" value="${esc(smtp.remetente)}" placeholder="noreply@tatuiimoveis.com.br" autocomplete="email"></label>${isSendGrid ? `<label class="admin-field-wide">${secretLabel}<div class="password-field"><input id="smtp-pass" type="password" autocomplete="new-password" placeholder="${secretPlaceholder}"><button type="button" class="password-toggle" aria-label="Mostrar senha" aria-pressed="false" title="Senha oculta — clique para mostrar"><svg class="password-eye password-eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-5 9.5-5 9.5 5 9.5 5-3.3 5-9.5 5-9.5-5-9.5-5Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg><svg class="password-eye password-eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 6.9A10.8 10.8 0 0 1 12 6.8c6.2 0 9.5 5.2 9.5 5.2a17.8 17.8 0 0 1 3.1 3.3"></path><path d="M6.6 8.2C4.2 9.4 2.5 12 2.5 12s3.3 5.2 9.5 5.2c1.3 0 2.5-.3 3.5-.7"></path></svg></button></div></label>` : `<label>Servidor<input id="smtp-host" value="${esc(smtp.host)}" placeholder="smtp.exemplo.com"></label><label>Porta<input id="smtp-port" type="number" min="1" max="65535" value="${esc(smtp.port || 587)}"></label><label>Usuário<input id="smtp-user" value="${esc(smtp.usuario)}" autocomplete="username"></label><label>${secretLabel}<div class="password-field"><input id="smtp-pass" type="password" autocomplete="new-password" placeholder="${secretPlaceholder}"><button type="button" class="password-toggle" aria-label="Mostrar senha" aria-pressed="false" title="Senha oculta — clique para mostrar"><svg class="password-eye password-eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-5 9.5-5 9.5 5 9.5 5-3.3 5-9.5 5-9.5-5-9.5-5Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg><svg class="password-eye password-eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 6.9A10.8 10.8 0 0 1 12 6.8c6.2 0 9.5 5.2 9.5 5.2a17.8 17.8 0 0 1 3.1 3.3"></path><path d="M6.6 8.2C4.2 9.4 2.5 12 2.5 12s3.3 5.2 9.5 5.2c1.3 0 2.5-.3 3.5-.7"></path></svg></button></div></label><label class="admin-checkbox"><input id="smtp-secure" type="checkbox" ${smtp.secure ? 'checked' : ''}> Conexão segura (TLS/SSL)</label>`}</div><p id="smtp-status" role="status"></p><div class="admin-email-actions"><button class="admin-primary" id="save-smtp">Salvar configuração</button><button class="admin-secondary-action" type="button" id="open-smtp-test">Enviar e-mail de teste</button></div></section><div class="admin-modal-backdrop" id="smtp-test-modal" hidden><section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="smtp-test-title"><button class="admin-modal-close" type="button" id="close-smtp-test" aria-label="Fechar">×</button><h2 id="smtp-test-title">Testar envio de e-mail</h2><p>Informe um endereço que você consiga consultar. O sistema fará um envio real usando o provedor selecionado.</p><form id="smtp-test-form"><label>Enviar para<input id="smtp-test-email" type="email" required placeholder="seuemail@exemplo.com" autocomplete="email"></label><p class="admin-test-note">O diagnóstico informará se o problema está na autenticação, conexão, TLS/SSL ou remetente.</p><p id="smtp-test-status" role="status"></p><div class="admin-modal-actions"><button class="admin-secondary-action" type="button" id="cancel-smtp-test">Cancelar</button><button class="admin-primary" type="submit">Enviar teste</button></div></form></section></div>`; }
   function audit() { if (state.tab === 'terms') return terms(); return `<h1>Auditoria</h1><p>Últimas ações administrativas registradas.</p><div class="admin-panel"><table><thead><tr><th>Data</th><th>Administrador</th><th>Ação</th><th>Entidade</th></tr></thead><tbody>${state.audit.map(item => `<tr><td>${new Date(item.created_at).toLocaleString('pt-BR')}</td><td>${esc(item.administrador || 'Sistema')}</td><td>${esc(item.acao)}</td><td>${esc(item.entidade)} ${esc(item.entidade_id || '')}</td></tr>`).join('')}</tbody></table></div>`; }
+  function termosProprietario() {
+    const content = state.ownerTerms?.conteudo || 'Termos do Proprietário ainda não foram carregados.';
+    const version = state.ownerTerms?.versao || 1;
+    const updated = state.ownerTerms?.updated_at ? new Date(state.ownerTerms.updated_at).toLocaleString('pt-BR') : 'Ainda não editado';
+    return `<h1>Termos do Proprietário</h1><p>Edite separadamente as condições de anúncio e intermediação aceitas por quem cadastra imóvel como Proprietário Direto.</p><div class="admin-legal-review-notice"><strong>Revisão necessária</strong><span>A versão inicial foi organizada a partir das orientações recebidas e está marcada como minuta. Peça revisão jurídica antes de usar em produção. Salvar publica a nova versão e exige novo aceite nos próximos cadastros e edições de proprietários.</span></div><div class="admin-policy-grid"><section class="admin-panel"><div class="admin-panel-heading"><div><h2>Versão vigente</h2><p>Versão ${esc(version)} · Atualizada em ${esc(updated)}</p></div><span class="admin-status-badge">${state.ownerTerms?.versao ? 'Disponível' : 'Em elaboração'}</span></div><div class="admin-policy-preview" aria-label="Prévia dos Termos do Proprietário">${esc(content)}</div></section><section class="admin-panel"><h2>Editar Termos do Proprietário</h2><p>O conteúdo salvo fica disponível no link apresentado junto ao aceite no cadastro do imóvel.</p><label>Texto dos termos<textarea id="owner-terms-text" rows="22">${esc(content)}</textarea></label><button class="admin-primary" id="save-owner-terms">Salvar nova versão</button><span id="owner-terms-status" role="status" aria-live="polite"></span></section></div>`;
+  }
+
+  function termosCorretorParceiro() {
+    const content = state.partnerTerms?.conteudo || 'Termos do Corretor Parceiro ainda não foram carregados.';
+    const version = state.partnerTerms?.versao || 1;
+    const updated = state.partnerTerms?.updated_at ? new Date(state.partnerTerms.updated_at).toLocaleString('pt-BR') : 'Ainda não editado';
+    return `<h1>Termos do Corretor Parceiro</h1><p>Gerencie o aceite específico solicitado no cadastro de Corretores e Imobiliárias.</p><div class="admin-legal-review-notice"><strong>Revisão necessária</strong><span>A versão inicial reproduz as condições enviadas pela cliente e está marcada como minuta. Recomenda-se revisão jurídica antes de usar em produção. Ao salvar uma revisão, novos cadastros profissionais verão a versão atual.</span></div><div class="admin-policy-grid"><section class="admin-panel"><div class="admin-panel-heading"><div><h2>Versão vigente</h2><p>Versão ${esc(version)} · Atualizada em ${esc(updated)}</p></div><span class="admin-status-badge">${state.partnerTerms?.versao ? 'Disponível' : 'Em elaboração'}</span></div><div class="admin-policy-preview" aria-label="Prévia dos Termos do Corretor Parceiro">${esc(content)}</div></section><section class="admin-panel"><h2>Editar Termos do Corretor Parceiro</h2><p>O conteúdo salvo fica disponível no link junto ao aceite do cadastro profissional.</p><label>Texto dos termos<textarea id="partner-terms-text" rows="22">${esc(content)}</textarea></label><button class="admin-primary" id="save-partner-terms">Salvar nova versão</button><span id="partner-terms-status" role="status" aria-live="polite"></span></section></div>`;
+  }
+
+  const shellOriginalWithOwnerTerms = shell;
+  shell = content => {
+    shellOriginalWithOwnerTerms(content);
+    const aside = document.querySelector('.admin-shell > aside');
+    if (!aside) return;
+    if (!aside.querySelector('[data-tab="ownerTerms"]')) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.dataset.tab = 'ownerTerms'; button.textContent = 'Termos do proprietário';
+      aside.querySelector('[data-tab="terms"]')?.after(button);
+      button.onclick = () => { state.tab = 'ownerTerms'; render(); };
+    }
+    if (!aside.querySelector('[data-tab="partnerTerms"]')) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.dataset.tab = 'partnerTerms'; button.textContent = 'Termos do corretor parceiro';
+      aside.querySelector('[data-tab="ownerTerms"]')?.after(button);
+      button.onclick = () => { state.tab = 'partnerTerms'; render(); };
+    }
+    enhanceAdminIcons();
+  };
+  const renderOriginalWithOwnerTerms = render;
+  render = () => {
+    if (state.tab === 'ownerTerms') {
+      shell(termosProprietario());
+      document.querySelectorAll('[data-tab]').forEach(button => button.classList.toggle('active', button.dataset.tab === state.tab));
+      return;
+    }
+    if (state.tab === 'partnerTerms') {
+      shell(termosCorretorParceiro());
+      document.querySelectorAll('[data-tab]').forEach(button => button.classList.toggle('active', button.dataset.tab === state.tab));
+      return;
+    }
+    renderOriginalWithOwnerTerms();
+  };
+  const loadOriginalWithOwnerTerms = load;
+  load = async () => {
+    await loadOriginalWithOwnerTerms();
+    try { state.ownerTerms = await api('/api/admin/conteudos/termos_proprietario'); }
+    catch (error) { state.ownerTerms = { conteudo: `Não foi possível carregar o termo: ${error.message}`, versao: 0 }; }
+    try { state.partnerTerms = await api('/api/admin/conteudos/termos_corretor_parceiro'); }
+    catch (error) { state.partnerTerms = { conteudo: `Não foi possível carregar o termo: ${error.message}`, versao: 0 }; }
+    if (state.tab === 'ownerTerms' || state.tab === 'partnerTerms') render();
+  };
+
+  app.addEventListener('click', async event => {
+    const button = event.target.closest('#save-owner-terms');
+    if (!button) return;
+    const status = document.querySelector('#owner-terms-status');
+    button.disabled = true; status.textContent = 'Salvando…';
+    try {
+      state.ownerTerms = await api('/api/admin/conteudos/termos_proprietario', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({conteudo:document.querySelector('#owner-terms-text').value}) });
+      status.textContent = 'Nova versão salva. Proprietários que ainda não aceitaram esta versão precisarão aceitá-la antes de publicar ou editar anúncios.';
+    } catch (error) { status.textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+
+  app.addEventListener('click', async event => {
+    const button = event.target.closest('#save-partner-terms');
+    if (!button) return;
+    const status = document.querySelector('#partner-terms-status');
+    button.disabled = true; status.textContent = 'Salvando…';
+    try {
+      state.partnerTerms = await api('/api/admin/conteudos/termos_corretor_parceiro', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({conteudo:document.querySelector('#partner-terms-text').value}) });
+      status.textContent = 'Nova versão salva. Novos cadastros de Corretores e Imobiliárias deverão aceitá-la.';
+    } catch (error) { status.textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+
   app.addEventListener('click', async event => {
     const button = event.target.closest('#save-terms');
     if (!button) return;
@@ -195,6 +279,24 @@
     }
   });
   app.addEventListener('change', async event => {
+    const statusSelect = event.target?.closest('[data-property-status]');
+    if (statusSelect) {
+      const propertyId = statusSelect.dataset.propertyStatus;
+      const message = document.querySelector(`[data-property-status-message="${CSS.escape(propertyId)}"]`);
+      statusSelect.disabled = true;
+      if (message) message.textContent = 'Salvando…';
+      try {
+        await api(`/api/admin/imoveis/${encodeURIComponent(propertyId)}/status`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ status:statusSelect.value }) });
+        state.properties = await api('/api/admin/imoveis');
+        render();
+      } catch (error) {
+        const current = state.properties.find(item => String(item.id) === String(propertyId));
+        statusSelect.value = current?.status || 'disponivel';
+        statusSelect.disabled = false;
+        if (message) message.textContent = error.message || 'Não foi possível atualizar o status.';
+      }
+      return;
+    }
     if (event.target?.id !== 'dashboard-month') return;
     const period = event.target.value;
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) return;
