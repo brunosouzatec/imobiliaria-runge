@@ -130,6 +130,9 @@ body { background: var(--cream); color: var(--ink); font-family: Arial, sans-ser
 .admin-history-item small { display:block; margin-top:6px; }
 .admin-history-item pre { background:#fff; border:1px solid #e3ebe6; border-radius:7px; color:#334b49; font:12px/1.5 Consolas,monospace; margin:12px 0 0; max-height:240px; overflow:auto; padding:12px; white-space:pre-wrap; word-break:break-word; }
 @media (max-width:600px) { .admin-edit-banner { align-items:stretch; flex-direction:column; }.admin-history-modal { padding:12px; }.admin-history-card { padding:22px 18px; } }
+/* Ícones CSS evitam ligaturas ausentes na fonte subsetada de Material Symbols. */
+.password-strength li::before { border:1.5px solid currentColor; border-radius:50%; box-sizing:border-box; content:''; display:inline-block; flex:0 0 14px; height:14px; margin-right:6px; vertical-align:-2px; width:14px; }
+.password-strength li.valid::before { border:solid currentColor; border-width:0 2px 2px 0; border-radius:0; height:9px; margin:0 10px 0 4px; transform:rotate(45deg); vertical-align:1px; width:5px; }
 /* Tipografia padronizada dos validadores de senha, legível em desktop e mobile. */
 .password-strength-head,
 .password-strength-head strong { font-size: .88rem; }

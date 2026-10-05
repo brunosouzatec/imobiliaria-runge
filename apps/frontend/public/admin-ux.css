@@ -82,6 +82,37 @@
   }
 }
 
+/* Keep every administrator navigation entry on the same icon/text grid. */
+.admin-shell > aside > button {
+  align-items: center;
+  box-sizing: border-box;
+  display: flex;
+  gap: 10px;
+  min-height: 46px;
+  width: 100%;
+}
+
+.admin-shell > aside > button.admin-icon-enhanced {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.admin-shell > aside > button .admin-context-icon {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 20px;
+  height: 20px;
+  justify-content: center;
+  margin: 0;
+  vertical-align: initial;
+  width: 20px;
+}
+
+.admin-shell > aside > button:focus-visible {
+  outline: 3px solid rgba(8, 124, 118, .24);
+  outline-offset: 2px;
+}
+
 @media (max-width: 600px) {
   .admin-form-grid,
   .admin-opportunity-grid,

@@ -12,6 +12,8 @@ const purchaseLocationCatalog = require('../migrations/013_purchase_location_cat
 const removeNeighborhoodSearchCache = require('../migrations/014_remove_neighborhood_search_cache');
 const seedTermsOfUse = require('../migrations/015_seed_terms_of_use');
 const termsAcceptance = require('../migrations/016_terms_of_use_acceptance');
+const proprietorTerms = require('../migrations/017_proprietor_intermediation_terms');
+const partnerTerms = require('../migrations/018_partner_broker_terms');
 
 test('terms of use migration seeds its own editable content without overwriting existing content', async () => {
   const statements = [];
@@ -30,6 +32,32 @@ test('terms acceptance migration adds version and timestamp fields idempotently'
   };
   await termsAcceptance.up(connection);
   assert.deepEqual(statements, ['ALTER TABLE `usuarios` ADD COLUMN `termos_uso_aceita_em` DATETIME NULL']);
+});
+
+test('proprietor intermediation terms seed separately and retain per-property acceptance snapshots', async () => {
+  const statements = [];
+  const connection = { query: async (sql, values) => { statements.push({ sql, values }); } };
+  await proprietorTerms.up(connection);
+  assert.match(statements[0].sql, /INSERT IGNORE INTO site_conteudos/);
+  assert.deepEqual(statements[0].values, ['termos_proprietario', 'Termos de Intermediação do Proprietário', proprietorTerms.INITIAL_PROPRIETOR_TERMS]);
+  assert.match(proprietorTerms.INITIAL_PROPRIETOR_TERMS, /6% \(seis por cento\)/);
+  assert.match(proprietorTerms.INITIAL_PROPRIETOR_TERMS, /revisão jurídica/i);
+  assert.match(statements[1].sql, /CREATE TABLE IF NOT EXISTS imovel_termo_aceites/);
+  assert.match(statements[1].sql, /conteudo_termos LONGTEXT/);
+  assert.match(statements[1].sql, /FOREIGN KEY \(imovel_id\).*ON DELETE CASCADE/);
+});
+
+test('partner broker terms seed separately and retain the accepted version and full text per account', async () => {
+  const statements = [];
+  const connection = { query: async (sql, values) => { statements.push({ sql, values }); } };
+  await partnerTerms.up(connection);
+  assert.match(statements[0].sql, /INSERT IGNORE INTO site_conteudos/);
+  assert.deepEqual(statements[0].values, ['termos_corretor_parceiro', 'Termos do Corretor Parceiro', partnerTerms.INITIAL_PARTNER_TERMS]);
+  assert.match(partnerTerms.INITIAL_PARTNER_TERMS, /4,15%/);
+  assert.match(partnerTerms.INITIAL_PARTNER_TERMS, /1,85%/);
+  assert.match(partnerTerms.INITIAL_PARTNER_TERMS, /revisão jurídica/i);
+  assert.match(statements[1].sql, /CREATE TABLE IF NOT EXISTS usuario_termo_aceites/);
+  assert.match(statements[1].sql, /conteudo_termos LONGTEXT/);
 });
 
 test('title removal migration drops the legacy column only when it exists', async () => {

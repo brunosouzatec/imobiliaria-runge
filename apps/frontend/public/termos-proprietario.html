@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Termos de anúncio e intermediação imobiliária para proprietários no portal Tatuí Imóveis.">
+  <title>Termos do Proprietário | Tatuí Imóveis</title>
+  <link rel="icon" href="assets/tatui-imoveis-favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="react.css">
+  <link rel="stylesheet" href="react-pages.css">
+</head>
+<body>
+  <div data-site-header></div>
+  <main class="react-page privacy-page">
+    <p class="eyebrow">Anúncio e intermediação</p>
+    <h1>Termos do Proprietário</h1>
+    <p class="react-lead">Condições específicas para cadastrar e divulgar um imóvel e, quando a intermediação resultar em negócio, os honorários correspondentes.</p>
+    <p class="owner-terms-draft-notice">O texto vigente é editado pela Administração. A versão inicial foi preparada a partir das orientações recebidas e deve passar por revisão jurídica antes de ser utilizada em produção.</p>
+    <section class="privacy-section" id="termos-proprietario-dinamicos"><p>Carregando os Termos do Proprietário…</p></section>
+  </main>
+  <div data-site-footer></div>
+  <script src="site-chrome.js"></script>
+  <script>SiteChrome.mount(document, 'terms');</script>
+  <script>
+    fetch('/api/conteudos/termos_proprietario')
+      .then(response => response.ok ? response.json() : null)
+      .then(data => {
+        if (!data?.conteudo) return;
+        const section = document.querySelector('#termos-proprietario-dinamicos');
+        section.replaceChildren();
+        data.conteudo.split(/\r?\n/).map(line => line.trim()).filter(Boolean).forEach(line => {
+          const isHeading = /^\d+(?:\.\d+)*[.)]?\s+\S/.test(line) || (!/[.!?]$/.test(line) && line.length < 110);
+          const element = document.createElement(isHeading ? 'h2' : 'p');
+          element.textContent = line;
+          section.appendChild(element);
+        });
+      })
+      .catch(() => {});
+  </script>
+</body>
+</html>

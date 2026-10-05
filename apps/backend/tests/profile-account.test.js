@@ -40,6 +40,32 @@ test('perfil aproveita largura Full HD com menu lateral e mantém navegação co
   assert.match(styles, /\.profile-panel \.react-profile-form > \.react-button \{ margin-top: 18px; \}/);
 });
 
+test('excluir conta exige senha e confirmação explícita e remove a conta e anúncios atomicamente', () => {
+  const profile = app.slice(app.indexOf('const Profile ='), app.indexOf('const ConfirmarAlteracao ='));
+  assert.match(profile, /Excluir minha conta/);
+  assert.match(profile, /role="alertdialog"/);
+  assert.match(profile, /autocomplete="current-password"/);
+  assert.match(profile, /confirmacao: confirmacao\.value/);
+  assert.match(profile, /confirmacao\.value !== 'EXCLUIR'/);
+  assert.match(profile, /Profile\.template\.replace/);
+  assert.match(server, /url\.pathname === '\/api\/perfil' && req\.method === 'DELETE'/);
+  assert.match(server, /data\.confirmacao !== 'EXCLUIR'/);
+  assert.match(server, /verifyPassword\(data\.senha_atual, user\.senha_hash\)/);
+  assert.match(server, /DELETE FROM imoveis WHERE usuario_id=\?/);
+  assert.match(server, /DELETE FROM usuarios WHERE id=\?/);
+  assert.match(server, /await connection\.beginTransaction\(\)[\s\S]*?await connection\.commit\(\)/);
+  assert.match(server, /for \(const \[token, session\] of sessions\)[\s\S]*?sessions\.delete\(token\)/);
+  assert.match(server, /Set-Cookie': sessionCookie\(req, '', 0\)/);
+  assert.match(styles, /\.profile-danger-zone/);
+  assert.match(styles, /\.profile-delete-dialog/);
+});
+
+test('campos da aba Meus dados mantêm altura uniforme mesmo quando há texto auxiliar', () => {
+  assert.match(styles, /\.profile-panel \.react-profile-grid \{ align-items: start; \}/);
+  assert.match(styles, /\.profile-panel \.react-profile-grid > label \{ align-content: start; min-width: 0; \}/);
+  assert.match(styles, /\.profile-panel \.react-profile-grid input \{ box-sizing: border-box; height: 46px; min-height: 46px; width: 100%; \}/);
+});
+
 test('menu e login usam a tela Meus imóveis, que permite editar e excluir cada anúncio', () => {
   assert.match(app, /href="meus-imoveis\.html">Meus imóveis/);
   assert.match(app, /else location\.href = 'meus-imoveis\.html'/);

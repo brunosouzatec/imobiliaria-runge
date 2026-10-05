@@ -53,3 +53,22 @@ test('home integra categorias ao mapa e aplica cores aos marcadores', () => {
   assert.match(styles, /home-map-section \.home-announce-button \{ display:flex; justify-content:center/);
   assert.match(index, /<script src="home-categories\.js"><\/script>/);
 });
+
+test('popup do mapa evita repetir categoria/transação e destaca etiquetas, valor e ação', () => {
+  const vue = fs.readFileSync(path.join(publicRoot, 'vue-app.js'), 'utf8');
+  const styles = fs.readFileSync(path.join(publicRoot, 'react.css'), 'utf8');
+  const start = vue.indexOf('const popup = item =>');
+  const end = vue.indexOf('const desenharMarcadores', start);
+  const popup = vue.slice(start, end);
+  assert.ok(start >= 0 && end > start, 'map popup renderer exists');
+  assert.match(popup, /item\.categoria \|\| 'Imóvel'/);
+  assert.match(popup, /PropertyOffers\.parse\(item\)/);
+  assert.match(popup, /react-popup-tag/);
+  assert.match(popup, /Aceita permuta/);
+  assert.match(popup, /react-popup-price/);
+  assert.match(popup, /Ver detalhes/);
+  assert.doesNotMatch(popup, /item\.titulo|money\(item\)|displayTitle/);
+  assert.match(styles, /\.react-popup-tags\s*\{/);
+  assert.match(styles, /\.react-popup-price\s*\{/);
+  assert.match(styles, /\.react-popup \.react-popup-action\s*\{/);
+});

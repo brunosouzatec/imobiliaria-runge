@@ -28,9 +28,9 @@ body{background:#f6f5f1;color:#173b3b;font-family:Arial,sans-serif;font-size:15p
 @media(max-width:700px){.admin-opportunity-facts>span{min-height:56px}}
 .admin-opportunity-facts .admin-opportunity-inline-icon.material-symbol-icon{background:transparent;border:0;border-radius:0;box-shadow:none;flex:0 0 22px;margin:0;padding:0}
 .admin-opportunity-facts .admin-opportunity-fact-content{background:transparent;border:0;border-radius:0;box-shadow:none;color:inherit;flex:initial;font-size:inherit;padding:0}
-.admin-property-card{grid-template-columns:minmax(280px,32%) minmax(0,1fr);grid-template-rows:minmax(0,1fr);height:320px;min-height:320px}
-.admin-property-media{height:100%;min-height:0}
-.admin-property-media img{min-height:0}
+.admin-property-card{grid-template-columns:minmax(280px,32%) minmax(0,1fr);grid-template-rows:auto;height:auto;min-height:340px}
+.admin-property-media{align-self:stretch;height:auto;min-height:340px}
+.admin-property-media img{height:100%;inset:0;min-height:0;position:absolute;width:100%}
 .admin-property-main{gap:4px;padding:20px 24px}
 .admin-property-heading{align-items:flex-start}
 .admin-property-heading h2{font-size:23px;line-height:1.25}
@@ -47,6 +47,12 @@ body{background:#f6f5f1;color:#173b3b;font-family:Arial,sans-serif;font-size:15p
 .admin-property-stats .owner-property-stat .material-symbol-icon{color:#176b64;font-size:21px;height:22px;width:22px}
 .admin-property-stats .owner-property-stat strong{color:#173d3b;font-size:13px;font-variant-numeric:tabular-nums;line-height:1.1;margin:0}
 .admin-property-stats .owner-property-stat>span:last-child{color:#536663;font-size:11px;line-height:1.25}
-.admin-property-actions{margin-top:auto;padding-top:10px}
-@media(max-width:900px){.admin-property-card{grid-template-columns:minmax(220px,34%) minmax(0,1fr);height:auto;min-height:360px}.admin-property-media{height:100%;min-height:0}.admin-property-main{padding:18px}}
+.admin-property-actions{margin-top:12px;padding-top:10px}
+@media(max-width:900px){.admin-property-card{grid-template-columns:minmax(220px,34%) minmax(0,1fr);height:auto;min-height:320px}.admin-property-media{height:100%;min-height:0}.admin-property-main{padding:16px}}
 @media(max-width:680px){.admin-property-card{grid-template-columns:1fr;grid-template-rows:auto;height:auto;min-height:0}.admin-property-media{height:220px;min-height:220px}.admin-property-main{padding:18px}.admin-property-stats .owner-property-stat{flex-basis:130px}.admin-property-actions{padding-top:12px}}
+.admin-property-media{position:relative}.admin-property-status-control{align-items:center;border-top:1px solid #e6ece8;display:grid;gap:4px 10px;grid-template-columns:max-content minmax(150px,240px) minmax(0,1fr);margin-top:7px;padding-top:7px}.admin-property-status-control label{color:#607674;font-size:12px;font-weight:650}.admin-property-status-control select{appearance:auto;background:#fff;border:1px solid #ccd9d4;border-radius:8px;box-sizing:border-box;color:#173b3b;cursor:pointer;font:inherit;font-size:13px;font-weight:600;line-height:1.3;min-height:40px;padding:8px 12px;width:100%}.admin-property-status-control select option{background:#fff;color:#173b3b;font-family:Arial,sans-serif;font-size:13px}.admin-property-status-control select:focus-visible{border-color:#087c76;box-shadow:0 0 0 3px rgba(8,124,118,.13);outline:0}.admin-property-status-control [role=status]{color:#607674;font-size:11px}@media(max-width:680px){.admin-property-status-control{align-items:start;grid-template-columns:1fr}.admin-property-status-control select{max-width:none}}
+.property-status-watermark{align-items:center;aspect-ratio:1;background:rgba(21,62,61,.84);border:2px solid var(--property-stamp-accent,#52a092);border-radius:50%;box-shadow:0 5px 16px rgba(17,38,37,.25),inset 0 0 0 5px rgba(255,255,255,.12);color:#fff;display:flex;flex-direction:column;font:800 .75rem/1.12 system-ui,sans-serif;height:132px;justify-content:center;left:50%;letter-spacing:.075em;max-width:calc(100% - 24px);outline:1px solid rgba(255,255,255,.78);outline-offset:-9px;padding:20px;pointer-events:none;position:absolute;text-align:center;text-transform:uppercase;top:50%;transform:translate(-50%,-50%) rotate(-9deg);white-space:normal;width:132px;z-index:4}
+.property-status-watermark::before,.property-status-watermark::after{color:#fffaf1;display:block;font-family:Arial,sans-serif;font-weight:700;line-height:1;position:absolute;white-space:nowrap}
+.property-status-watermark::before{content:"TATUÍ IMÓVEIS";font-size:7px;letter-spacing:.18em;top:23px}
+.property-status-watermark::after{content:"STATUS DO ANÚNCIO";bottom:23px;font-size:6px;letter-spacing:.14em}
+.property-status-em_negociacao{--property-stamp-accent:#e9661b}.property-status-vendido{--property-stamp-accent:#c96f5b}.property-status-reservado{--property-stamp-accent:#d69747}.property-status-alugado{--property-stamp-accent:#4c8b87}.property-status-disponivel{--property-stamp-accent:#52a092}

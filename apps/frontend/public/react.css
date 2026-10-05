@@ -60,14 +60,20 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .react-map-label { position:absolute; z-index:10; top:20px; right:20px; padding:10px 14px; border-radius:999px; background:#fffdf9e8; color:var(--ink); box-shadow:0 8px 24px #24302b1c; font-size:.78rem; }
 .react-error { color:#a14e38; font-size:.8rem; margin-top:10px; }
 .react-empty { color:var(--muted); font-size:.8rem; margin-top:20px; }
-.react-popup { min-width:190px; }
+.react-popup { min-width:190px; max-width:260px; }
 .react-popup-image-link { display:block; overflow:hidden; }
 .react-popup-image { display:block; width:100%; height:120px; object-fit:cover; margin:-2px 0 12px; border-radius:2px; }
 .react-popup-image-link:hover .react-popup-image, .react-popup-image-link:focus-visible .react-popup-image { filter:brightness(.88); transform:scale(1.02); transition:transform .2s,filter .2s; }
-.react-popup small { color:var(--accent); text-transform:uppercase; letter-spacing:.08em; }
-.react-popup h3 { margin:7px 0; font:500 1.1rem Georgia,serif; }
-.react-popup p { margin:0 0 12px; color:var(--muted); }
-.react-popup a { color:var(--accent); font-weight:600; text-decoration:none; }
+.react-popup h3 { color:var(--ink); font:500 1.12rem/1.2 Georgia,serif; margin:2px 0 9px; }
+.react-popup-tags { align-items:center; display:flex; flex-wrap:wrap; gap:6px; margin:0 0 10px; }
+.react-popup-tag { background:#e8f3ee; border:1px solid #d3e7de; border-radius:999px; color:#24645e; font-size:.68rem; font-weight:700; line-height:1.2; padding:4px 8px; }
+.react-popup-price { color:#087c76; display:block; font-size:1rem; font-weight:750; line-height:1.25; margin:0 0 12px; }
+.react-popup-price-list { display:grid; gap:4px; margin:0 0 12px; }
+.react-popup-price-list span { align-items:baseline; display:flex; gap:8px; }
+.react-popup-price-list small { color:var(--muted); font-size:.68rem; }
+.react-popup-price-list strong { color:#087c76; font-size:.9rem; }
+.react-popup .react-popup-action { align-items:center; border-top:1px solid #e7ece8; color:var(--accent); display:flex; font-size:.83rem; font-weight:700; justify-content:space-between; padding-top:9px; text-decoration:none; }
+.react-popup .react-popup-action:focus-visible { outline:2px solid #087c76; outline-offset:3px; }
 @media (max-width:800px) { .react-header { padding:16px 20px; } .react-brand img { width:190px; } .react-nav a:not(.react-action) { display:none; } .react-main { display:block; } .react-panel { min-height:430px; padding:34px 24px; } .react-map { height:58vh; min-height:420px; } .react-stats { margin-top:25px; padding-top:0; } }
 
 .home-redesign { color:#173c3d; background:#fffdf9; min-height:100vh; }

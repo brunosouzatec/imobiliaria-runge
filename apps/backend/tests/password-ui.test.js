@@ -42,3 +42,10 @@ test('validadores de força usam a mesma tipografia nas telas de cadastro e recu
   assert.match(cadastroCss, /\.password-strength li \{ font-size: \.88rem; line-height: 1\.4; \}/);
   assert.match(pagesCss, /\.password-strength li \{ font-size: \.88rem; line-height: 1\.4; \}/);
 });
+
+test('ícones dos critérios de senha não dependem de ligaturas da fonte Material Symbols', () => {
+  for (const styles of [cadastroCss, pagesCss]) {
+    assert.match(styles, /\.password-strength li::before\s*\{[^}]*content:\s*''/);
+    assert.match(styles, /\.password-strength li\.valid::before\s*\{[^}]*border-width:\s*0 2px 2px 0/);
+  }
+});
