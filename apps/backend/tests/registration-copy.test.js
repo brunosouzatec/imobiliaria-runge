@@ -12,5 +12,10 @@ test('registration introduction describes account creation until the property st
   assert.ok(app.includes('Preencha seus dados para criar sua conta e acessar sua área de usuário.'));
   assert.ok(app.includes('Informe as características, a localização e as fotos do imóvel que deseja anunciar.'));
   assert.ok(app.includes('class="registration-consents"'));
+  assert.ok(app.includes('class="registration-accept-all"'));
+  assert.ok(app.includes('Aceitar todos <small>Política de Privacidade e Termos de Uso</small>'));
+  assert.ok(app.includes('state.perfil.value.aceite_privacidade = Boolean(aceito)'));
+  assert.ok(app.includes('state.perfil.value.aceite_termos = Boolean(aceito)'));
   assert.ok(styles.includes('.registration-consents .owner-terms-consent strong { font-weight: 400; }'));
+  assert.ok(styles.includes('.registration-consents .registration-accept-all'));
 });

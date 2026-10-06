@@ -36,6 +36,10 @@ test('cadastro de anunciante mantém o campo de confirmação após remover os c
   assert.match(frontend, /confirmationField/);
   assert.match(frontend, /v-model="perfil\.senha_confirmacao"/);
   assert.match(frontend, /senhaConfirmacaoStatus/);
+  assert.match(frontend, /if \(!Cadastro\.template\.includes\('registration-password-confirmation'\)\)/);
+  assert.ok(frontend.includes('const confirmationInsertionPoint = \'<div class="registration-consents">\';'));
+  assert.match(frontend, /Cadastro\.template = Cadastro\.template\.replace\(confirmationInsertionPoint, confirmationField \+ confirmationInsertionPoint\)/);
+  assert.match(frontend, /return \{ etapa, perfil, mostrarConfirmacaoSenha,/);
 });
 
 test('validadores de força usam a mesma tipografia nas telas de cadastro e recuperação', () => {
