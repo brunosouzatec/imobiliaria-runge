@@ -14,6 +14,43 @@ const seedTermsOfUse = require('../migrations/015_seed_terms_of_use');
 const termsAcceptance = require('../migrations/016_terms_of_use_acceptance');
 const proprietorTerms = require('../migrations/017_proprietor_intermediation_terms');
 const partnerTerms = require('../migrations/018_partner_broker_terms');
+const adminAuditAdminForeignKey = require('../migrations/020_admin_audit_admin_foreign_key');
+
+test('admin audit migration moves actor references to admin accounts and clears only orphaned actor ids', async () => {
+  const statements = [];
+  const connection = {
+    query: async sql => {
+      statements.push(sql);
+      if (/SELECT CONSTRAINT_NAME AS constraint_name/.test(sql)) {
+        return [[{ constraint_name: 'admin_auditoria_ibfk_1', referenced_table_name: 'usuarios' }]];
+      }
+      return [[]];
+    }
+  };
+
+  await adminAuditAdminForeignKey.up(connection);
+
+  assert.match(statements[1], /DROP FOREIGN KEY `admin_auditoria_ibfk_1`/);
+  assert.match(statements[2], /UPDATE admin_auditoria AS audit[\s\S]*SET audit\.usuario_id = NULL/);
+  assert.match(statements[3], /FOREIGN KEY \(usuario_id\) REFERENCES admin_usuarios\(id\) ON DELETE SET NULL/);
+});
+
+test('admin audit migration is idempotent when the correct foreign key already exists', async () => {
+  const statements = [];
+  const connection = {
+    query: async sql => {
+      statements.push(sql);
+      if (/SELECT CONSTRAINT_NAME AS constraint_name/.test(sql)) {
+        return [[{ constraint_name: 'fk_admin_auditoria_admin', referenced_table_name: 'admin_usuarios' }]];
+      }
+      return [[]];
+    }
+  };
+
+  await adminAuditAdminForeignKey.up(connection);
+
+  assert.equal(statements.length, 1);
+});
 
 test('terms of use migration seeds its own editable content without overwriting existing content', async () => {
   const statements = [];

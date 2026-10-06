@@ -21,3 +21,14 @@ test('owner and admin photo upload routes await the handler so errors reach the 
   assert.match(server, /if \(photoRoute && req\.method === 'POST'\) return await addPropertyPhotos\(/);
   assert.match(server, /return await addPropertyPhotos\(req, res, adminPhotoRoute\[1\], admin\.id\)/);
 });
+
+test('admin audit snapshot includes parsed property characteristics without an undefined shorthand', () => {
+  const start = server.indexOf('function propertyAuditSnapshot(');
+  const end = server.indexOf('\nfunction adminCookie(', start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const snapshot = server.slice(start, end);
+
+  assert.match(snapshot, /caracteristicas:\s*characteristics/);
+  assert.doesNotMatch(snapshot, /,\s*caracteristicas\s*,/);
+});
