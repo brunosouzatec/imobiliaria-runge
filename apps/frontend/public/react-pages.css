@@ -157,6 +157,16 @@
 }
 .react-page:has(> .react-form) > .react-form { margin: 30px auto; width: min(100%, 520px); }
 .react-page:has(> .react-form) > h1 { max-width: 760px; }
+.login-forgot-password { justify-self: end; margin: -7px 0 0; }
+.login-forgot-password a { color: var(--teal); font-size: .86rem; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
+.login-forgot-password a:hover { color: var(--accent); }
+.login-register-promo { background: #fff8f2; border: 1px solid #f2d5c2; border-radius: 14px; margin: 34px auto 12px; max-width: 520px; padding: 22px; text-align: center; }
+.login-register-promo > p { color: var(--ink); font-size: .95rem; font-weight: 700; margin: 0 0 12px; }
+.login-register-cta { align-items: center; background: var(--accent); border: 1px solid var(--accent); border-radius: 10px; box-shadow: 0 8px 18px #e5651c30; color: #fff; display: flex; font-size: 1rem; font-weight: 750; gap: 14px; justify-content: center; min-height: 58px; padding: 12px 18px; text-decoration: none; transition: background .18s ease, box-shadow .18s ease, transform .18s ease; }
+.login-register-cta:hover { background: #cf5011; border-color: #cf5011; box-shadow: 0 11px 22px #e5651c40; transform: translateY(-1px); }
+.login-register-cta:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.login-register-cta-arrow { align-items: center; background: #ffffff30; border-radius: 50%; display: inline-flex; font-size: 1.25rem; height: 30px; justify-content: center; line-height: 1; width: 30px; }
+.login-register-promo > small { color: var(--muted); display: block; font-size: .8rem; line-height: 1.5; margin-top: 11px; }
 .react-page:has(> .react-success) > .eyebrow { margin-left: auto; margin-right: auto; max-width: 700px; text-align: center; }
 .react-success { margin-left: auto; margin-right: auto; width: 100%; }
 .privacy-page { max-width: 900px; }
