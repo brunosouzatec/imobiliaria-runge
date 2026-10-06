@@ -19,3 +19,23 @@ test('registration introduction describes account creation until the property st
   assert.ok(styles.includes('.registration-consents .owner-terms-consent strong { font-weight: 400; }'));
   assert.ok(styles.includes('.registration-consents .registration-accept-all'));
 });
+
+test('cadastro trata respostas vazias ou não JSON sem expor erro de parse', () => {
+  assert.match(app, /const responseText = await response\.text\(\)/);
+  assert.match(app, /responseText\.trim\(\) \? JSON\.parse\(responseText\) : \{\}/);
+  assert.match(app, /HTTP \$\{response\.status\}/);
+  assert.match(app, /Confira se consegue entrar com o e-mail informado antes de tentar novamente/);
+});
+
+test('entrada para novo anunciante tem chamada de ação visualmente destacada e mantém o fluxo do cadastro', () => {
+  assert.match(app, /class="login-register-promo"/);
+  assert.match(app, /class="login-register-cta" href="cadastro\.html\?novo=conta&amp;fluxo=anunciar"/);
+  assert.match(app, /Criar conta para anunciar/);
+  assert.match(styles, /\.login-register-cta\s*\{[^}]*background: var\(--accent\)[^}]*min-height: 58px/);
+  assert.match(styles, /\.login-register-cta:focus-visible/);
+});
+
+test('recuperação de senha continua acessível na tela de login junto ao novo CTA', () => {
+  assert.match(app, /class="login-forgot-password"><a href="recuperar-senha\.html">Esqueci minha senha<\/a><\/p>/);
+  assert.match(styles, /\.login-forgot-password\s*\{/);
+});
