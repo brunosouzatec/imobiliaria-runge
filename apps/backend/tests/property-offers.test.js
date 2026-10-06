@@ -8,10 +8,12 @@ test('normalizes multi-select transactions, removing duplicates and invalid valu
   assert.deepEqual(offers.normalizeTypes([], 'Permuta'), ['Permuta']);
 });
 
-test('builds a stable display title from property category and selected transactions', () => {
-  assert.equal(offers.displayTitle({ categoria: 'Casa', tipos_transacao: ['Permuta', 'Aluguel', 'Venda'] }), 'Casa - Venda/Aluguel/Permuta');
-  assert.equal(offers.displayTitle({ categoria: 'Apartamento', tipo: 'Venda' }), 'Apartamento - Venda');
-  assert.equal(offers.displayTitle({ categoria: 'Casa', titulo: 'Título antigo' }), 'Título antigo');
+test('builds a stable display title from property category and neighborhood', () => {
+  assert.equal(offers.displayTitle({ categoria: 'Casa', bairro: 'Centro', tipos_transacao: ['Permuta', 'Aluguel', 'Venda'] }), 'Casa - Centro');
+  assert.equal(offers.displayTitle({ categoria: 'Chácara / Sítio', bairro: 'Jardim Gramado', tipo: 'Venda' }), 'Chácara / Sítio - Jardim Gramado');
+  assert.equal(offers.displayTitle({ categoria: 'Apartamento', cidade: 'Tatuí' }), 'Apartamento');
+  assert.equal(offers.displayTitle({ categoria: 'Casa', bairro: '  Vila Esperança  ', titulo: 'Título antigo' }), 'Casa - Vila Esperança');
+  assert.equal(offers.displayTitle({ categoria: 'Casa', titulo: 'Título antigo' }), 'Casa');
   assert.equal(offers.displayTitle({ titulo: 'Título antigo' }), 'Título antigo');
 });
 

@@ -21,6 +21,7 @@ test('property detail groups gallery and description beside a single value/conta
   assert.equal((detail[1].match(/property-detail-location-address/g) || []).length, 1);
   assert.equal((detail[1].match(/property-detail-features-card/g) || []).length, 1);
   assert.doesNotMatch(detail[1], /item\.titulo/);
+  assert.match(detail[1], /PropertyOffers\.displayTitle\(item\)/);
   assert.match(detailStyles, /\.property-detail-gallery \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[^}]*max-width: 730px/);
   assert.match(detailStyles, /\.property-detail-cover \{[^}]*aspect-ratio: 1;[^}]*height: auto/);
   assert.match(detailStyles, /\.property-detail-thumbnails \{[^}]*aspect-ratio: 1;[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
