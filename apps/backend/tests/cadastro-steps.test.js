@@ -29,3 +29,10 @@ test('cadastro valida informações e localização antes de permitir o próximo
   assert.match(source, /property-form" @submit="salvar" novalidate/);
   assert.match(source, /step-validation-message/);
 });
+
+test('cadastro exibe prévia dinâmica do nome formado pelo tipo e bairro', () => {
+  assert.match(source, /const tituloImovel = computed\(\(\) =>/);
+  assert.match(source, /Nome do anúncio/);
+  assert.match(source, /tituloImovel \|\| \\'Selecione o tipo e informe o bairro\\'/);
+  assert.match(source, /titulo: PropertyOffers\.displayTitle\(imovel\.value\)/);
+});

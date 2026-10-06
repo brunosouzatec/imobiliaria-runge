@@ -61,13 +61,13 @@ test('popup do mapa evita repetir categoria/transação e destaca etiquetas, val
   const end = vue.indexOf('const desenharMarcadores', start);
   const popup = vue.slice(start, end);
   assert.ok(start >= 0 && end > start, 'map popup renderer exists');
-  assert.match(popup, /item\.categoria \|\| 'Imóvel'/);
+  assert.match(popup, /PropertyOffers\.displayTitle\(item\)/);
   assert.match(popup, /PropertyOffers\.parse\(item\)/);
   assert.match(popup, /react-popup-tag/);
   assert.match(popup, /Aceita permuta/);
   assert.match(popup, /react-popup-price/);
   assert.match(popup, /Ver detalhes/);
-  assert.doesNotMatch(popup, /item\.titulo|money\(item\)|displayTitle/);
+  assert.doesNotMatch(popup, /item\.titulo|money\(item\)/);
   assert.match(styles, /\.react-popup-tags\s*\{/);
   assert.match(styles, /\.react-popup-price\s*\{/);
   assert.match(styles, /\.react-popup \.react-popup-action\s*\{/);

@@ -34,10 +34,10 @@
 
   const displayTitle = property => {
     const category = String(property?.categoria || '').trim();
-    const selected = normalizeTypes(property?.tipos_transacao, property?.tipo);
-    const types = allowed.filter(type => selected.includes(type));
-    if (category && types.length) return `${category} - ${types.join('/')}`;
-    return String(property?.titulo || category || 'Imóvel');
+    const neighborhood = String(property?.bairro || '').trim();
+    const parts = [category, neighborhood].filter(Boolean);
+    if (parts.length) return parts.join(' - ');
+    return String(property?.titulo || 'Imóvel').trim() || 'Imóvel';
   };
 
   const isChecked = value => value === true || value === 1 || value === '1' || value === 'true';

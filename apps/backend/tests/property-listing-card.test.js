@@ -9,6 +9,7 @@ const styles = fs.readFileSync(path.join(root, 'apps/frontend/public/react.css')
 const pageStyles = fs.readFileSync(path.join(root, 'apps/frontend/public/react-pages.css'), 'utf8');
 const contactStyles = fs.readFileSync(path.join(root, 'apps/frontend/public/property-contact.css'), 'utf8');
 const card = app.match(/const PropertyCard = ([\s\S]*?)\nPropertyCard\.methods/);
+const admin = fs.readFileSync(path.join(root, 'apps/frontend/public/admin.js'), 'utf8');
 
 test('card mostra título conciso, endereço, resumo com ícones e descrição truncada', () => {
   assert.ok(card, 'PropertyCard component exists');
@@ -42,6 +43,11 @@ test('meus imóveis usa a mesma lista horizontal da listagem pública', () => {
   assert.match(pageStyles, /\.account-property-results \.react-property-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.match(app, /@delete="prepararExclusao"/);
   assert.match(app, /class="listing-delete-button"/);
+});
+
+test('card administrativo usa o mesmo título composto pelo tipo do imóvel e bairro', () => {
+  assert.match(admin, /offers\?\.displayTitle\(item\)/);
+  assert.match(fs.readFileSync(path.join(root, 'apps/backend/src/server.js'), 'utf8'), /titulo: PropertyOffers\.displayTitle\(\{ \.\.\.row, tipos_transacao: tipos \}\)/);
 });
 
 test('listagem e detalhes oferecem compartilhar com estado acessível', () => {
