@@ -36,3 +36,8 @@ test('cadastro exibe prévia dinâmica do nome formado pelo tipo e bairro', () =
   assert.match(source, /tituloImovel \|\| \\'Selecione o tipo e informe o bairro\\'/);
   assert.match(source, /titulo: PropertyOffers\.displayTitle\(imovel\.value\)/);
 });
+
+test('checkbox de condomínio incluso alinha verticalmente com os campos de valor', () => {
+  assert.match(styles, /\.price-fields-grid \{ align-items:end;/);
+  assert.match(styles, /\.condo-included-option \{ justify-self:start; \}/);
+});

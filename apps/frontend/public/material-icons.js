@@ -42,7 +42,7 @@
 
   function svgName(svg) {
     const classes = typeof svg.className === 'object' ? svg.className.baseVal : String(svg.className || '');
-    if (/listing-whatsapp-icon/.test(classes) || svg.closest('.leaflet-container, .mapboxgl-map')) return '';
+    if (/listing-whatsapp-icon/.test(classes) || svg.closest('.advertiser-help-contact, .leaflet-container, .mapboxgl-map')) return '';
     if (/home-opportunity-icon/.test(classes)) return iconName(svg.dataset.materialSymbol || 'auto_awesome');
     if (/password-eye-open/.test(classes)) return 'visibility';
     if (/password-eye-closed/.test(classes)) return 'visibility_off';
