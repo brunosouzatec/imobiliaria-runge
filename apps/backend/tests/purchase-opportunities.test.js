@@ -103,11 +103,22 @@ test('listagem e detalhe públicos existem e usam contato contextual', () => {
   assert.ok(fs.existsSync(path.join(root, 'apps/frontend/public/oportunidades.html')));
   assert.ok(fs.existsSync(path.join(root, 'apps/frontend/public/oportunidade.html')));
   const opportunities = fs.readFileSync(path.join(root, 'apps/frontend/public/oportunidades.js'), 'utf8');
+  const detail = fs.readFileSync(path.join(root, 'apps/frontend/public/oportunidade.js'), 'utf8');
+  const adminPage = fs.readFileSync(path.join(root, 'apps/frontend/public/admin.html'), 'utf8');
   assert.match(opportunities, /api\/oportunidades/);
   assert.match(opportunities, /op-card-header/);
   assert.match(opportunities, /op-card-stat/);
+  assert.match(opportunities, /OpportunityShare\?\.share\(item\)/);
+  assert.match(opportunities, /data-op-share/);
   assert.match(fs.readFileSync(path.join(root, 'apps/frontend/public/admin.js'), 'utf8'), /admin-opportunity-facts/);
-  assert.match(fs.readFileSync(path.join(root, 'apps/frontend/public/oportunidade.js'), 'utf8'), /Tenho um imóvel compatível/);
+  assert.match(fs.readFileSync(path.join(root, 'apps/frontend/public/admin.js'), 'utf8'), /admin-opportunity-share-action/);
+  assert.match(adminPage, /\/shared\/opportunity-share\.js/);
+  assert.match(detail, /Tenho um imóvel compatível/);
+  assert.match(detail, /Compartilhar oportunidade/);
+  assert.match(detail, /OpportunityShare\?\.share\(item\)/);
+  for (const page of ['oportunidades.html', 'oportunidade.html']) {
+    assert.match(fs.readFileSync(path.join(root, 'apps/frontend/public', page), 'utf8'), /\/shared\/opportunity-share\.js/);
+  }
   assert.match(fs.readFileSync(path.join(root, 'apps/backend/src/server.js'), 'utf8'), /\['\/oportunidades\.html', '\/oportunidades'\]/);
 });
 

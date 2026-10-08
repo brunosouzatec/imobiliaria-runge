@@ -12,6 +12,7 @@ const PropertyOpenGraph = require('../../../packages/shared/property-open-graph'
 const OpportunityMatching = require('../../../packages/shared/opportunity-matching');
 const Maintenance = require('../../../packages/shared/maintenance');
 const { normalizePropertyStatus } = require('./property-status');
+const HttpPerformance = require('./http-performance');
 const { runMigrations } = require('./migrate');
 const { sendPasswordResetEmail, sendAccountChangeEmail, sendTestEmail, diagnoseSmtpError, emailConfigured, emailProvider } = require('./mailer');
 const PRIVACY_POLICY_VERSION = '2026-09-18';
@@ -357,15 +358,63 @@ async function saveOpportunity(req, res, id = null, adminId) {
   await audit(adminId, updating ? 'editar' : 'criar', 'oportunidade', id, { titulo: data.titulo, status: data.status });
   return sendJson(res, updating ? 200 : 201, await opportunityPayload(id));
 }
-async function comFotos(rows) {
+async function comFotos(rows, { primeiraFotoApenas = false } = {}) {
   if (!rows.length) return [];
   const ids = rows.map((row) => row.id);
   const [fotos] = await pool.query(`SELECT id, imovel_id, caminho, nome_original FROM imovel_fotos WHERE imovel_id IN (${ids.map(() => '?').join(',')}) ORDER BY ordem, id`, ids);
   const porImovel = new Map(ids.map((id) => [id, []]));
-  fotos.forEach((foto) => porImovel.get(foto.imovel_id)?.push({ id: foto.id, url: foto.caminho, nome: foto.nome_original }));
+  fotos.forEach((foto) => {
+    const lista = porImovel.get(foto.imovel_id);
+    if (!lista || (primeiraFotoApenas && lista.length)) return;
+    lista.push({ id: foto.id, url: foto.caminho, nome: foto.nome_original });
+  });
   return rows.map((row) => ({ ...imovelJson(row), fotos: porImovel.get(row.id) || [] }));
 }
-function sendJson(res, status, data, headers = {}) { res.writeHead(status, { 'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store', ...headers }); res.end(JSON.stringify(data)); }
+function sendJson(res, status, data, headers = {}) {
+  const contentType = 'application/json; charset=utf-8';
+  const body = Buffer.from(JSON.stringify(data));
+  const encoding = HttpPerformance.TEXT_TYPES.has(contentType) ? HttpPerformance.chooseEncoding(res.req?.headers?.['accept-encoding']) : '';
+  HttpPerformance.compressBuffer(body, encoding, (error, output, appliedEncoding) => {
+    const responseHeaders = { 'Content-Type': contentType, 'Cache-Control': 'no-store', ...headers };
+    if (encoding) responseHeaders.Vary = responseHeaders.Vary ? `${responseHeaders.Vary}, Accept-Encoding` : 'Accept-Encoding';
+    if (!error && appliedEncoding) responseHeaders['Content-Encoding'] = appliedEncoding;
+    const responseBody = error ? body : output;
+    responseHeaders['Content-Length'] = responseBody.length;
+    res.writeHead(status, responseHeaders);
+    res.end(['HEAD'].includes(res.req?.method) ? undefined : responseBody);
+  });
+}
+function sendStatic(req, res, file) {
+  const stat = fs.statSync(file);
+  const etag = HttpPerformance.etagFor(stat);
+  const lastModified = stat.mtime.toUTCString();
+  const headers = {
+    'Content-Type': mimeTypes[path.extname(file)] || 'application/octet-stream',
+    'Cache-Control': HttpPerformance.cacheControlFor(file),
+    ETag: etag,
+    'Last-Modified': lastModified
+  };
+  if (HttpPerformance.isNotModified(req, etag, stat.mtimeMs)) {
+    res.writeHead(304, headers);
+    return res.end();
+  }
+  const canCompress = HttpPerformance.TEXT_TYPES.has(headers['Content-Type']);
+  const encoding = canCompress ? HttpPerformance.chooseEncoding(req.headers['accept-encoding']) : '';
+  if (encoding) headers.Vary = 'Accept-Encoding';
+  fs.readFile(file, (readError, data) => {
+    if (readError) {
+      if (!res.headersSent) res.writeHead(500, { 'Cache-Control': 'no-store' });
+      return res.end();
+    }
+    HttpPerformance.compressBuffer(data, encoding, (compressError, output, appliedEncoding) => {
+      const responseBody = compressError ? data : output;
+      if (appliedEncoding) headers['Content-Encoding'] = appliedEncoding;
+      headers['Content-Length'] = responseBody.length;
+      res.writeHead(200, headers);
+      res.end(req.method === 'HEAD' ? undefined : responseBody);
+    });
+  });
+}
 function bodyJson(req, maxSize = 1024 * 1024) {
   return new Promise((resolve, reject) => {
     const declared = Number(req.headers['content-length'] || 0);
@@ -774,7 +823,7 @@ const server = http.createServer(async (req, res) => {
       const termo = url.searchParams.get('q') || '';
       return sendJson(res, 200, await carregarBairrosCatalogo(uf, cidade, termo));
     }
-    if (url.pathname.startsWith('/shared/')) { const file = path.resolve(sharedRoot, `.${url.pathname.slice('/shared'.length)}`); if (!file.startsWith(`${sharedRoot}${path.sep}`) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200, {'Content-Type':mimeTypes[path.extname(file)] || 'application/octet-stream'}); return fs.createReadStream(file).pipe(res); }
+    if (url.pathname.startsWith('/shared/')) { const file = path.resolve(sharedRoot, `.${url.pathname.slice('/shared'.length)}`); if (!file.startsWith(`${sharedRoot}${path.sep}`) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return sendJson(res,404,{error:'Arquivo não encontrado.'}); return sendStatic(req, res, file); }
     if (['GET', 'HEAD'].includes(req.method) && cleanPageRoutes.has(url.pathname)) { const cleanPath = cleanPageRoutes.get(url.pathname); res.writeHead(301, { Location: `${cleanPath}${url.search}`, 'Cache-Control': 'no-store' }); return res.end(); }
     if (url.pathname === '/api/oportunidades' && req.method === 'GET') {
       if (!rateLimit(req, res, 'opportunity-list', 120, 60 * 1000)) return;
@@ -786,7 +835,7 @@ const server = http.createServer(async (req, res) => {
       if (q) { filters.push('(titulo LIKE ? OR cidade LIKE ? OR descricao LIKE ? OR CAST(bairros AS CHAR) LIKE ? OR CAST(caracteristicas AS CHAR) LIKE ?)'); values.push(...Array(5).fill(`%${q}%`)); }
       if (tipo.length <= 80 && tipo) { filters.push('(tipo_imovel=? OR JSON_CONTAINS(COALESCE(tipos_imovel, JSON_ARRAY()), JSON_QUOTE(?)))'); values.push(tipo, tipo); }
       const [rows] = await pool.query(`SELECT * FROM oportunidades_compra WHERE ${filters.join(' AND ')} ORDER BY publicada_em DESC, id DESC LIMIT ${limit}`, values);
-      return sendJson(res, 200, rows.map(opportunityJson));
+      return sendJson(res, 200, rows.map(opportunityJson), { 'Cache-Control': 'public, max-age=30, s-maxage=30, stale-while-revalidate=60' });
     }
     if (url.pathname === '/api/oportunidade-tipos' && req.method === 'GET') {
       if (!rateLimit(req, res, 'opportunity-types', 120, 60 * 1000)) return;
@@ -796,9 +845,45 @@ const server = http.createServer(async (req, res) => {
     if (opportunityPublic && req.method === 'GET') {
       if (!rateLimit(req, res, 'opportunity-detail', 120, 60 * 1000)) return;
       const [[row]] = await pool.query('SELECT * FROM oportunidades_compra WHERE id=? AND status=? AND (expira_em IS NULL OR expira_em>=CURRENT_DATE)', [opportunityPublic[1], 'publicada']);
-      return row ? sendJson(res, 200, opportunityJson(row)) : sendJson(res, 404, { error: 'Oportunidade não encontrada.' });
+      return row ? sendJson(res, 200, opportunityJson(row), { 'Cache-Control': 'public, max-age=30, s-maxage=30, stale-while-revalidate=60' }) : sendJson(res, 404, { error: 'Oportunidade não encontrada.' });
     }
-    if (url.pathname === '/api/imoveis' && req.method === 'GET') { if (!rateLimit(req, res, 'public-list', 120, 60 * 1000)) return; const [rows] = await pool.query('SELECT * FROM imoveis ORDER BY id DESC'); return sendJson(res, 200, await comFotos(rows)); }
+    if (url.pathname === '/api/imoveis' && req.method === 'GET') {
+      if (!rateLimit(req, res, 'public-list', 120, 60 * 1000)) return;
+      if (url.searchParams.has('page') || url.searchParams.has('limit')) {
+        const page = Math.min(Math.max(Number.parseInt(url.searchParams.get('page') || '1', 10) || 1, 1), 10000);
+        const pageSize = Math.min(Math.max(Number.parseInt(url.searchParams.get('limit') || '12', 10) || 12, 1), 24);
+        const filters = [];
+        const values = [];
+        const query = String(url.searchParams.get('q') || '').trim().slice(0, 120);
+        if (query) {
+          filters.push('(i.categoria LIKE ? OR i.bairro LIKE ? OR i.endereco LIKE ? OR i.descricao LIKE ?)');
+          const pattern = `%${query}%`;
+          values.push(pattern, pattern, pattern, pattern);
+        }
+        const category = String(url.searchParams.get('categoria') || '').trim().slice(0, 100);
+        if (category) { filters.push('i.categoria=?'); values.push(category); }
+        const type = String(url.searchParams.get('tipo') || '').trim();
+        if (['Venda', 'Aluguel', 'Permuta'].includes(type)) { filters.push('i.tipo=?'); values.push(type); }
+        const range = String(url.searchParams.get('faixa') || '');
+        if (range === 'ate-250000') filters.push('i.preco<=250000');
+        else if (range === '250000-500000') filters.push('i.preco BETWEEN 250000 AND 500000');
+        else if (range === 'acima-500000') filters.push('i.preco>500000');
+        const ids = String(url.searchParams.get('ids') || '').split(',').map(value => Number(value)).filter(value => Number.isSafeInteger(value) && value > 0).slice(0, 100);
+        if (url.searchParams.has('ids')) {
+          if (!ids.length) filters.push('1=0');
+          else { filters.push(`i.id IN (${ids.map(() => '?').join(',')})`); values.push(...ids); }
+        }
+        const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+        const orderBy = ({ recentes: 'i.id DESC', antigos: 'i.id ASC', menor: 'i.preco ASC, i.id DESC', maior: 'i.preco DESC, i.id DESC' })[url.searchParams.get('ordem')] || 'i.id DESC';
+        const [[count]] = await pool.query(`SELECT COUNT(*) AS total FROM imoveis i ${where}`, values);
+        const columns = 'i.id,i.tipo,i.preco,i.categoria,i.endereco,i.descricao,i.latitude,i.longitude,i.tipo_usuario,i.status,i.created_at,i.transacoes,i.preco_venda,i.preco_aluguel,i.agua_inclusa,i.luz_inclusa,i.internet_inclusa,i.condominio_incluso,i.condominio_valor,i.caracteristicas,i.rua,i.numero,i.bairro,i.cidade,i.estado';
+        const [rows] = await pool.query(`SELECT ${columns} FROM imoveis i ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`, [...values, pageSize, (page - 1) * pageSize]);
+        const items = await comFotos(rows);
+        return sendJson(res, 200, { items, total: Number(count.total), page, pageSize, hasMore: page * pageSize < Number(count.total) }, { 'Cache-Control': 'public, max-age=30, s-maxage=30, stale-while-revalidate=60' });
+      }
+      const [rows] = await pool.query('SELECT * FROM imoveis ORDER BY id DESC');
+      return sendJson(res, 200, await comFotos(rows), { 'Cache-Control': 'public, max-age=30, s-maxage=30, stale-while-revalidate=60' });
+    }
     if (url.pathname === '/api/imoveis/destaques' && req.method === 'GET') {
       if (!rateLimit(req, res, 'public-highlights', 60, 60 * 1000)) return;
       const parsedLimit = Number.parseInt(url.searchParams.get('limit') || '4', 10);
@@ -810,7 +895,7 @@ const server = http.createServer(async (req, res) => {
         GROUP BY i.id
         ORDER BY visualizacoes DESC, i.created_at DESC, i.id DESC
         LIMIT ${limit}`);
-      return sendJson(res, 200, await comFotos(rows));
+      return sendJson(res, 200, await comFotos(rows), { 'Cache-Control': 'public, max-age=30, s-maxage=30, stale-while-revalidate=60' });
     }
     const propertyShare = url.pathname.match(/^\/api\/imoveis\/(\d+)\/compartilhamentos$/);
     if (propertyShare && req.method === 'POST') {
@@ -1052,7 +1137,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/imoveis' && req.method === 'POST') return criarImovelJson(req, res);
     const cleanRoute = url.pathname === '/' ? '/index.html' : url.pathname;
     const relative = cleanRoute.endsWith('.html') || path.extname(cleanRoute) ? cleanRoute : `${cleanRoute}.html`;
-    const file=path.resolve(webRoot,'.'+relative); if(!file.startsWith(`${webRoot}${path.sep}`)||!fs.existsSync(file)||fs.statSync(file).isDirectory()) return sendJson(res,404,{error:'Arquivo não encontrado.'}); res.writeHead(200,{'Content-Type':mimeTypes[path.extname(file)]||'application/octet-stream'}); fs.createReadStream(file).pipe(res);
+    const file=path.resolve(webRoot,'.'+relative); if(!file.startsWith(`${webRoot}${path.sep}`)||!fs.existsSync(file)||fs.statSync(file).isDirectory()) return sendJson(res,404,{error:'Arquivo não encontrado.'}); return sendStatic(req, res, file);
   } catch (error) { if (error.code === 'ER_DUP_ENTRY') return sendJson(res, 409, { error: 'Este e-mail já está cadastrado.' }); if (error.statusCode && error.statusCode < 500) return sendJson(res, error.statusCode, { error: error.message }); if (error.statusCode === 503) return sendJson(res, 503, { error: error.message }); console.error(error); if(!res.headersSent) sendJson(res,500,{error:'Erro interno do servidor.'}); }
 });
 server.headersTimeout = 15_000;

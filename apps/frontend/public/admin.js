@@ -89,7 +89,7 @@
     document.querySelector('#logout').onclick = async () => { await fetch('/api/logout',{method:'POST'}); location.replace('/'); };
     if (state.tab === 'dashboard') drawActivityChart();
   }
-  async function load() { try { state.dashboard = await api('/api/admin/dashboard'); state.properties = await api('/api/admin/imoveis'); state.opportunities = await api('/api/admin/oportunidades'); const configuredTypes = await api('/api/admin/oportunidades/tipos'); state.opportunityTypes = configuredTypes.map(item => item.nome); if (!state.opportunityTypes.length) state.opportunityTypes = ['Casa', 'Apartamento', 'Terreno', 'Chácara / Sítio', 'Comercial']; state.users = await api('/api/admin/usuarios'); state.audit = await api('/api/admin/auditoria'); state.policy = await api('/api/admin/conteudos/politica_privacidade'); state.terms = await api('/api/admin/conteudos/termos_uso'); state.smtp = await api('/api/admin/configuracoes/email'); render(); } catch (error) { if (error.message === 'LOGIN_REQUIRED') return login(); app.innerHTML = '<main class="admin-error"><h1>Acesso administrativo</h1><p>' + esc(error.message) + '</p></main>'; } }
+  async function load() { try { const [dashboard, properties, opportunities, configuredTypes, users, audit, policy, terms, smtp] = await Promise.all([api('/api/admin/dashboard'), api('/api/admin/imoveis'), api('/api/admin/oportunidades'), api('/api/admin/oportunidades/tipos'), api('/api/admin/usuarios'), api('/api/admin/auditoria'), api('/api/admin/conteudos/politica_privacidade'), api('/api/admin/conteudos/termos_uso'), api('/api/admin/configuracoes/email')]); state.dashboard = dashboard; state.properties = properties; state.opportunities = opportunities; state.opportunityTypes = configuredTypes.map(item => item.nome); if (!state.opportunityTypes.length) state.opportunityTypes = ['Casa', 'Apartamento', 'Terreno', 'Chácara / Sítio', 'Comercial']; state.users = users; state.audit = audit; state.policy = policy; state.terms = terms; state.smtp = smtp; render(); } catch (error) { if (error.message === 'LOGIN_REQUIRED') return login(); app.innerHTML = '<main class="admin-error"><h1>Acesso administrativo</h1><p>' + esc(error.message) + '</p></main>'; } }
   function drawActivityChart() {
     const canvas = document.querySelector('#admin-activity-chart');
     if (!canvas || !window.Chart || !state.dashboard) return;
@@ -519,7 +519,25 @@
       const matches = row.querySelector('.admin-opportunity-matches');
       const description = main?.querySelector('.admin-opportunity-description');
       const title = main?.querySelector('h3')?.textContent.trim();
+      const opportunity = state.opportunities.find(item => String(item.id) === row.querySelector('[data-op-status]')?.dataset.opStatus);
       if (description && title && description.textContent.trim().replace(/[^\p{L}\p{N}]+/gu, '').toLocaleLowerCase() === title.replace(/[^\p{L}\p{N}]+/gu, '').toLocaleLowerCase()) description.remove();
+      const today = new Date().toLocaleDateString('sv-SE');
+      const unexpired = !opportunity?.expira_em || String(opportunity.expira_em).slice(0, 10) >= today;
+      if (opportunity?.status === 'publicada' && unexpired && actions && !actions.querySelector('[data-op-share]')) {
+        const share = document.createElement('button');
+        share.className = 'admin-secondary-action admin-opportunity-edit-action admin-opportunity-share-action';
+        share.type = 'button';
+        share.dataset.opShare = String(opportunity.id);
+        share.setAttribute('aria-label', `Compartilhar oportunidade: ${opportunity.titulo}`);
+        share.append(materialIcon('share', 'admin-context-icon'), document.createTextNode('Compartilhar'));
+        actions.insertBefore(share, actions.querySelector('[data-op-delete]'));
+        const status = document.createElement('span');
+        status.className = 'admin-opportunity-share-status';
+        status.dataset.opShareStatus = String(opportunity.id);
+        status.setAttribute('role', 'status');
+        status.setAttribute('aria-live', 'polite');
+        actions.append(status);
+      }
       if (!row.querySelector('.admin-opportunity-card-footer')) {
         const footer = document.createElement('div');
         footer.className = 'admin-opportunity-card-footer';
@@ -544,6 +562,15 @@
         if (state.editingOpportunity) render();
       });
     });
+    document.querySelectorAll('[data-op-share]').forEach(button => button.addEventListener('click', async () => {
+      const opportunity = state.opportunities.find(item => String(item.id) === button.dataset.opShare);
+      const status = button.closest('.admin-opportunity-row')?.querySelector(`[data-op-share-status="${button.dataset.opShare}"]`);
+      if (!opportunity || !status) return;
+      button.disabled = true;
+      const result = await window.OpportunityShare?.share(opportunity) || 'failed';
+      status.textContent = window.OpportunityShare?.messageFor(result) || 'Não foi possível compartilhar agora.';
+      button.disabled = false;
+    }));
     document.querySelectorAll('[data-op-match]').forEach(button => button.addEventListener('click', async () => {
       const panel = document.getElementById(`admin-opportunity-matches-${button.dataset.opMatch}`);
       if (!panel) return;

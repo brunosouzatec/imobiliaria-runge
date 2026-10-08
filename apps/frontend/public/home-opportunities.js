@@ -8,7 +8,8 @@
     bed: ['M24 160V56', 'M24 160h208v40', 'M24 120h208v40', 'M60 120V88h48a24 24 0 0 1 24 24v8', 'M132 120V88h60a40 40 0 0 1 40 40v32'],
     'currency-circle-dollar': ['M224 128a96 96 0 1 1-192 0 96 96 0 0 1 192 0Z', 'M160 88c-8-12-21-18-36-18-20 0-36 11-36 27s14 23 40 29 40 13 40 29-16 27-40 27c-17 0-31-7-40-19', 'M128 54v148'],
     'arrows-left-right': ['M40 96h176', 'm160 40 56 56-56 56', 'M216 160H40', 'm96 104-56 56 56 56'],
-    'arrow-right': ['M32 128h192', 'm144 48 80 80-80 80']
+    'arrow-right': ['M32 128h192', 'm144 48 80 80-80 80'],
+    share: ['M200 88a32 32 0 1 1-64 0 32 32 0 0 1 64 0Z', 'M88 128a32 32 0 1 1-64 0 32 32 0 0 1 64 0Z', 'M200 168a32 32 0 1 1-64 0 32 32 0 0 1 64 0Z', 'm86 112 55-32', 'm86 144 55 32']
   };
 
   function icon(name) {
@@ -25,7 +26,7 @@
       }
       return exchange;
     }
-    if (window.MaterialIcons) return window.MaterialIcons.makeIcon(({ 'map-pin': 'location_on', ruler: 'straighten', bed: 'bed', 'currency-circle-dollar': 'attach_money', 'arrow-right': 'arrow_forward' })[name] || 'auto_awesome', 'home-opportunity-icon');
+    if (window.MaterialIcons) return window.MaterialIcons.makeIcon(({ 'map-pin': 'location_on', ruler: 'straighten', bed: 'bed', 'currency-circle-dollar': 'attach_money', 'arrow-right': 'arrow_forward', share: 'share' })[name] || 'auto_awesome', 'home-opportunity-icon');
     const element = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     element.setAttribute('viewBox', '0 0 256 256');
     element.setAttribute('class', 'home-opportunity-icon');
@@ -101,7 +102,26 @@
     link.textContent = 'Tenho imóvel compatível';
     link.setAttribute('aria-label', `Tenho imóvel compatível com a oportunidade: ${clean(item.titulo)}`);
 
-    card.append(title, location, facts, link);
+    const actions = document.createElement('div');
+    actions.className = 'home-opportunity-actions';
+    const share = document.createElement('button');
+    share.className = 'home-opportunity-share';
+    share.type = 'button';
+    share.setAttribute('aria-label', `Compartilhar oportunidade: ${clean(item.titulo)}`);
+    share.append(icon('share'), document.createTextNode('Compartilhar'));
+    const shareStatus = document.createElement('span');
+    shareStatus.className = 'home-opportunity-share-status';
+    shareStatus.setAttribute('role', 'status');
+    shareStatus.setAttribute('aria-live', 'polite');
+    share.addEventListener('click', async () => {
+      share.disabled = true;
+      const result = await window.OpportunityShare?.share(item) || 'failed';
+      shareStatus.textContent = window.OpportunityShare?.messageFor(result) || 'Não foi possível compartilhar agora.';
+      share.disabled = false;
+    });
+    actions.append(link, share);
+
+    card.append(title, location, facts, actions, shareStatus);
     return card;
   }
 

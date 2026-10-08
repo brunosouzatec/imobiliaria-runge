@@ -15,6 +15,8 @@ test('home shows up to three current public purchase opportunities in a dedicate
   assert.match(server, /WHERE \$\{filters\.join\(' AND '\)\} ORDER BY publicada_em DESC, id DESC LIMIT \$\{limit\}/);
   assert.match(home, /fetch\('\/api\/oportunidades\?limit=3'\)/);
   assert.match(home, /items\.slice\(0, 3\)/);
+  assert.match(home, /OpportunityShare\?\.share\(item\)/);
+  assert.match(index, /\/shared\/opportunity-share\.js/);
   assert.match(home, /home-opportunities-section/);
   assert.match(home, /\.site-footer, \.home-footer/);
   assert.match(fs.readFileSync(path.join(root, 'apps/frontend/public/home-highlights.js'), 'utf8'), /\.site-footer, \.home-footer/);
@@ -34,6 +36,7 @@ test('home opportunity cards present a concise location, key requirement and inv
   assert.match(home, /fact\(`\$\{number\.format\(rooms\)\} \$\{rooms === 1 \? 'quarto' : 'quartos'\}`, 'bed'\)/);
   assert.match(home, /monthly \? '\/mês' : ''/);
   assert.match(home, /Tenho imóvel compatível/);
+  assert.match(home, /Compartilhar oportunidade/);
   assert.match(home, /title\.textContent = clean\(item\.titulo\)/);
   assert.match(home, /detail\.textContent = value/);
   assert.doesNotMatch(home, /Oportunidade de compra/);

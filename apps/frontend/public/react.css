@@ -371,6 +371,12 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .home-opportunity-fact-copy strong { color:#294a48; font-size:14px; font-weight:650; line-height:1.35; overflow-wrap:anywhere; }
 .home-opportunity-cta { align-items:center; background:#08716d; border:1px solid #08716d; border-radius:8px; color:#fff; display:flex; font-size:13px; font-weight:700; justify-content:center; margin-top:auto; min-height:46px; padding:0 12px; text-align:center; text-decoration:none; transition:background .2s ease,border-color .2s ease; }
 .home-opportunity-cta:hover { background:#075c59; border-color:#075c59; }
+.home-opportunity-actions { align-items:stretch; display:flex; gap:9px; margin-top:auto; }
+.home-opportunity-actions .home-opportunity-cta { flex:1; margin-top:0; }
+.home-opportunity-share { align-items:center; background:#fff; border:1px solid #cbdcd5; border-radius:8px; color:#176b64; cursor:pointer; display:inline-flex; flex:0 0 auto; font:700 12px/1 Arial,sans-serif; gap:6px; justify-content:center; min-height:46px; padding:0 11px; }
+.home-opportunity-share:hover { background:#edf6f1; border-color:#08716d; }
+.home-opportunity-share .material-symbol-icon { font-size:18px; height:20px; width:20px; }
+.home-opportunity-share-status { color:#17635b; font-size:11px; min-height:14px; }
 .home-opportunities-footer { align-items:center; display:flex; flex-direction:column; gap:10px; justify-content:center; margin:22px 0 0; max-width:1480px; }
 .home-opportunities-footer-actions { align-items:center; display:flex; flex-wrap:wrap; gap:20px; justify-content:flex-end; width:100%; }
 .home-opportunities-publish { background:#e5651c; border:1px solid #e5651c; border-radius:8px; color:#fff; font-size:14px; font-weight:700; padding:12px 24px; text-decoration:none; transition:background .2s ease; }

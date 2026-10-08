@@ -23,7 +23,7 @@ test('indicadores dos anúncios só são agregados na resposta autenticada dos i
   assert.match(server, /url\.pathname === '\/api\/minha-conta\/imoveis' && req\.method === 'GET'.*userPropertiesWithMetrics\(id\).*private, no-store/);
   const regularAccountPayload = server.slice(server.indexOf('async function userPayload'), server.indexOf('async function userPropertiesWithMetrics'));
   assert.doesNotMatch(regularAccountPayload, /total_visualizacoes|metricas/);
-  assert.match(server, /url\.pathname === '\/api\/imoveis' && req\.method === 'GET'.*SELECT \* FROM imoveis ORDER BY id DESC/);
+  assert.match(server, /url\.pathname === '\/api\/imoveis' && req\.method === 'GET'[\s\S]*?SELECT \* FROM imoveis ORDER BY id DESC/);
   assert.match(app, /fetch\('\/api\/minha-conta\/imoveis'\)/);
 });
 
