@@ -476,3 +476,11 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 .property-delete-icon .material-symbol-icon { font-size: 27px; }
 .home-nearby-button .material-symbol-icon { font-size: 20px; }
 .property-detail-section h2::before { background-image: none; content: 'description'; font-family: 'Material Symbols Rounded'; font-size: 22px; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+.advertiser-help-contact { align-items:center; background:#08716d; border:1px solid #075d59; border-radius:999px; bottom:calc(20px + env(safe-area-inset-bottom, 0px)); box-shadow:0 8px 24px #102d3233; color:#fff; display:flex; gap:11px; min-height:58px; padding:9px 19px 9px 14px; position:fixed; right:24px; text-decoration:none; transition:background .18s,box-shadow .18s,transform .18s; z-index:950; }
+.advertiser-help-contact:hover,.advertiser-help-contact:focus-visible { background:#075e5a; box-shadow:0 11px 28px #102d3240; color:#fff; transform:translateY(-2px); }
+.advertiser-help-contact:focus-visible { outline:3px solid #f4a06f; outline-offset:3px; }
+.advertiser-help-contact > svg,.advertiser-help-contact > .material-symbol-icon { flex:0 0 28px; font-size:28px; height:28px; width:28px; }
+.advertiser-help-contact span { display:grid; gap:2px; }
+.advertiser-help-contact strong { font-size:13px; line-height:1.2; }
+.advertiser-help-contact small { color:#d9eee8; font-size:11px; line-height:1.2; }
+@media(max-width:600px) { .advertiser-help-contact { bottom:calc(14px + env(safe-area-inset-bottom, 0px)); gap:9px; min-height:52px; padding:8px 14px 8px 12px; right:14px; }.advertiser-help-contact > svg,.advertiser-help-contact > .material-symbol-icon { flex-basis:24px; font-size:24px; height:24px; width:24px; }.advertiser-help-contact strong { font-size:12px; }.advertiser-help-contact small { font-size:10px; } }

@@ -35,12 +35,15 @@ test('backend, migrations, shared browser modules and infrastructure entrypoints
   assert.ok(fs.existsSync(path.join(sharedRoot, 'property-contact.js')));
   assert.ok(fs.existsSync(path.join(sharedRoot, 'map-layers.js')));
   assert.ok(fs.existsSync(path.join(sharedRoot, 'property-security.js')));
+  assert.ok(fs.existsSync(path.join(sharedRoot, 'youtube-video.js')));
   assert.match(fs.readFileSync(path.join(projectRoot, 'apps/backend/src/server.js'), 'utf8'), /url\.pathname\.startsWith\('\/shared\/'\)/);
   assert.match(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'), /apps\/backend\/src\/server\.js/);
   assert.match(fs.readFileSync(path.join(projectRoot, 'infra/Dockerfile'), 'utf8'), /apps\/backend\/src\/server\.js/);
   assert.match(fs.readFileSync(path.join(publicRoot, 'imoveis.html'), 'utf8'), /shared\/property-contact\.js/);
   assert.match(fs.readFileSync(path.join(publicRoot, 'imoveis.html'), 'utf8'), /shared\/property-search\.js"><\/script>[\s\S]*vue-app\.js/);
   assert.match(fs.readFileSync(path.join(publicRoot, 'imovel.html'), 'utf8'), /shared\/property-contact\.js/);
+  assert.match(fs.readFileSync(path.join(publicRoot, 'cadastro.html'), 'utf8'), /shared\/youtube-video\.js/);
+  assert.match(fs.readFileSync(path.join(publicRoot, 'imovel.html'), 'utf8'), /shared\/youtube-video\.js/);
   for (const page of ['imoveis.html', 'meus-imoveis.html', 'perfil.html']) {
     const html = fs.readFileSync(path.join(publicRoot, page), 'utf8');
     assert.match(html, /<script (?:defer )?src="\/shared\/property-characteristics\.js"><\/script>\s*<script (?:defer )?src="\/shared\/property-offers\.js"><\/script>/, `${page} must load card dependencies before vue-app.js`);
