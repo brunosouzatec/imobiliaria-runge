@@ -8,6 +8,16 @@ test('gera link público canônico da oportunidade e valida identificador', () =
   assert.equal(OpportunityShare.urlFor(null, 'https://tatuiimoveis.com.br'), '');
 });
 
+test('link de contato no WhatsApp inclui o endereço público específico da oportunidade', () => {
+  const link = new URL(OpportunityShare.contactLink({ id: 27, titulo: 'Casa no Centro' }, 'https://tatuiimoveis.com.br'));
+  const message = new URLSearchParams(link.search).get('text');
+  assert.equal(link.origin, 'https://wa.me');
+  assert.equal(link.pathname, '/5515998134885');
+  assert.match(message, /Tenho um imóvel compatível com a oportunidade "Casa no Centro" \(#27\)/);
+  assert.match(message, /https:\/\/tatuiimoveis\.com\.br\/oportunidade\?id=27/);
+  assert.equal(OpportunityShare.contactLink({ id: '27x', titulo: 'Inválida' }, 'https://tatuiimoveis.com.br'), '');
+});
+
 test('compartilha oportunidade com título, contexto e link no compartilhamento nativo', async () => {
   let payload;
   const environment = {

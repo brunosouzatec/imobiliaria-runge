@@ -98,7 +98,9 @@
 
     const link = document.createElement('a');
     link.className = 'home-opportunity-cta';
-    link.href = `oportunidade.html?id=${encodeURIComponent(item.id)}`;
+    link.href = window.OpportunityShare?.contactLink(item) || `oportunidade.html?id=${encodeURIComponent(item.id)}`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
     link.textContent = 'Tenho imóvel compatível';
     link.setAttribute('aria-label', `Tenho imóvel compatível com a oportunidade: ${clean(item.titulo)}`);
 

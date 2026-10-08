@@ -12,6 +12,15 @@
     return url.href;
   };
 
+  const contactLink = (opportunity, origin) => {
+    const url = urlFor(opportunity, origin);
+    if (!url) return '';
+    const title = String(opportunity?.titulo || 'oportunidade de compra').trim();
+    const id = String(opportunity?.id).trim();
+    const message = `Olá! Tenho um imóvel compatível com a oportunidade "${title}" (#${id}). Segue o link da oportunidade: ${url}`;
+    return `https://wa.me/5515998134885?text=${encodeURIComponent(message)}`;
+  };
+
   const share = async (opportunity, environment = globalThis) => {
     const url = urlFor(opportunity, environment.location?.origin);
     if (!url) return 'failed';
@@ -68,5 +77,5 @@
     failed: 'Não foi possível compartilhar agora.'
   })[result] || 'Não foi possível compartilhar agora.';
 
-  return { urlFor, share, messageFor };
+  return { urlFor, contactLink, share, messageFor };
 });

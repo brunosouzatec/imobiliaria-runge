@@ -114,6 +114,8 @@ test('listagem e detalhe públicos existem e usam contato contextual', () => {
   assert.match(fs.readFileSync(path.join(root, 'apps/frontend/public/admin.js'), 'utf8'), /admin-opportunity-share-action/);
   assert.match(adminPage, /\/shared\/opportunity-share\.js/);
   assert.match(detail, /Tenho um imóvel compatível/);
+  assert.match(detail, /OpportunityShare\?\.contactLink\(item\)/);
+  assert.match(opportunities, /OpportunityShare\?\.contactLink\(item\)/);
   assert.match(detail, /Compartilhar oportunidade/);
   assert.match(detail, /OpportunityShare\?\.share\(item\)/);
   for (const page of ['oportunidades.html', 'oportunidade.html']) {

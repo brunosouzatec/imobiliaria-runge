@@ -3,7 +3,7 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const money = value => value == null ? 'A combinar' : Number(value).toLocaleString('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits:0 });
   function enhanceIcons() { app.querySelectorAll('.op-card-details > span[aria-hidden="true"]').forEach(element => { element.textContent = 'arrow_forward'; element.className = 'material-symbol-icon'; }); app.querySelectorAll('.op-whatsapp > span[aria-hidden="true"]').forEach(element => { element.textContent = 'chat'; element.className = 'material-symbol-icon'; }); app.querySelectorAll('.op-share-button > span[aria-hidden="true"]').forEach(element => { element.textContent = 'share'; element.className = 'material-symbol-icon'; }); }
-  const whatsapp = item => 'https://wa.me/5515998134885?text=' + encodeURIComponent(`Olá! Tenho interesse na oportunidade "${item.titulo}" no Tatuí Imóveis.`);
+  const whatsapp = item => window.OpportunityShare?.contactLink(item) || '';
   const icon = name => {
     const names = { location: 'location_on', property: 'home', neighborhood: 'apartment', money: 'attach_money', area: 'square_foot' };
     return `<span class="material-symbol-icon op-card-icon" aria-hidden="true">${names[name] || 'auto_awesome'}</span>`;
