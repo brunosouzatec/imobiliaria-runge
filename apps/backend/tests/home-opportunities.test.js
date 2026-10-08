@@ -36,6 +36,8 @@ test('home opportunity cards present a concise location, key requirement and inv
   assert.match(home, /fact\(`\$\{number\.format\(rooms\)\} \$\{rooms === 1 \? 'quarto' : 'quartos'\}`, 'bed'\)/);
   assert.match(home, /monthly \? '\/mês' : ''/);
   assert.match(home, /Tenho imóvel compatível/);
+  assert.match(home, /OpportunityShare\?\.contactLink\(item\)/);
+  assert.match(home, /link\.target = '_blank'/);
   assert.match(home, /Compartilhar oportunidade/);
   assert.match(home, /title\.textContent = clean\(item\.titulo\)/);
   assert.match(home, /detail\.textContent = value/);

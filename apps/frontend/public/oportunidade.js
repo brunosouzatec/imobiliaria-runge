@@ -13,7 +13,7 @@
   }
 
   function render(item) {
-    const contact = 'https://wa.me/5515998134885?text=' + encodeURIComponent(`Olá! Tenho um imóvel compatível com a oportunidade "${item.titulo}" (#${item.id}).`);
+    const contact = window.OpportunityShare?.contactLink(item) || '#';
     const tipos = Array.isArray(item.tipos_imovel) && item.tipos_imovel.length ? item.tipos_imovel : [item.tipo_imovel];
     const areaMinima = item.area_total_minima == null ? 'A combinar' : `${esc(Number(item.area_total_minima).toLocaleString('pt-BR', { maximumFractionDigits: 1 }))} m²`;
 
