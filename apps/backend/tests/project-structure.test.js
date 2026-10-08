@@ -43,8 +43,8 @@ test('backend, migrations, shared browser modules and infrastructure entrypoints
   assert.match(fs.readFileSync(path.join(publicRoot, 'imovel.html'), 'utf8'), /shared\/property-contact\.js/);
   for (const page of ['imoveis.html', 'meus-imoveis.html', 'perfil.html']) {
     const html = fs.readFileSync(path.join(publicRoot, page), 'utf8');
-    assert.match(html, /<script src="\/shared\/property-characteristics\.js"><\/script>\s*<script src="\/shared\/property-offers\.js"><\/script>/, `${page} must load card dependencies before vue-app.js`);
-    assert.match(html, /<script src="\/shared\/property-contact\.js"><\/script>\s*<script src="\/shared\/property-share\.js"><\/script>/, `${page} must load contact/share dependencies before vue-app.js`);
+    assert.match(html, /<script (?:defer )?src="\/shared\/property-characteristics\.js"><\/script>\s*<script (?:defer )?src="\/shared\/property-offers\.js"><\/script>/, `${page} must load card dependencies before vue-app.js`);
+    assert.match(html, /<script (?:defer )?src="\/shared\/property-contact\.js"><\/script>\s*<script (?:defer )?src="\/shared\/property-share\.js"><\/script>/, `${page} must load contact/share dependencies before vue-app.js`);
     assert.ok(html.indexOf('property-characteristics.js') < html.indexOf('vue-app.js'), `${page} loads characteristics before Vue components`);
   }
   assert.match(fs.readFileSync(path.join(projectRoot, 'docker-compose.yml'), 'utf8'), /dockerfile: infra\/Dockerfile/);

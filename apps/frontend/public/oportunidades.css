@@ -28,7 +28,7 @@
 @media(min-width:901px){
   .op-main:has(.op-detail-card){max-width:1600px}
   .op-detail-card{box-sizing:border-box;column-gap:36px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-width:none;padding:clamp(36px,4vw,64px);row-gap:24px;width:100%}
-  .op-detail-card>.op-eyebrow,.op-detail-card>h1,.op-detail-card>.op-detail-description,.op-detail-card>.op-detail-grid,.op-detail-card>.op-detail-button{grid-column:1/-1}
+  .op-detail-card>.op-eyebrow,.op-detail-card>h1,.op-detail-card>.op-detail-description,.op-detail-card>.op-detail-grid,.op-detail-card>.op-detail-actions{grid-column:1/-1}
   .op-detail-card h1{font-size:clamp(2.8rem,3.8vw,4rem);line-height:1.08;margin:0;max-width:1300px}
   .op-detail-description{font-size:1.05rem;line-height:1.75;margin:0;max-width:1100px}
   .op-detail-grid{border-bottom:1px solid #e4ebe6;border-top:1px solid #e4ebe6;gap:16px;grid-template-columns:repeat(4,minmax(0,1fr));margin:0;padding:24px 0}
@@ -46,3 +46,14 @@
 @media(max-width:900px){
   .op-detail-card{max-width:none;width:100%}
 }
+.op-card-footer .op-share-button{align-items:center;background:#fff;border:1px solid #cbdcd5;border-radius:7px;color:#176b64;cursor:pointer;display:inline-flex;font:700 .78rem/1 Arial,sans-serif;gap:6px;justify-content:center;padding:10px 12px;text-decoration:none}
+.op-card-footer .op-share-button:hover{background:#edf6f1;border-color:#087c76}
+.op-card-footer .op-share-button .material-symbol-icon{font-size:18px;height:20px;width:20px}
+.op-card-footer .op-share-status{color:#17635b;font-size:.72rem;min-height:14px}
+.op-detail-actions{align-items:center;display:flex;flex-wrap:wrap;gap:12px}
+.op-detail-actions .op-detail-button,.op-detail-actions .op-share-button{align-items:center;display:inline-flex;gap:8px;justify-content:center;text-decoration:none}
+.op-detail-actions .op-share-button{background:#fff;border:1px solid #cbdcd5;color:#176b64;cursor:pointer}
+.op-detail-actions .op-share-button:hover{background:#edf6f1;border-color:#087c76}
+.op-detail-actions .op-share-button .material-symbol-icon{font-size:20px;height:22px;width:22px}
+.op-detail-actions .op-share-status{color:#17635b;flex-basis:100%;font-size:.82rem;min-height:18px}
+@media(max-width:620px){.home-opportunity-actions{flex-direction:column}.home-opportunity-share{width:100%}.op-card-footer{align-items:stretch;flex-direction:column}.op-card-footer .op-card-details,.op-card-footer .op-share-button,.op-card-footer .op-whatsapp{box-sizing:border-box;justify-content:center;width:100%}.op-detail-actions .op-detail-button,.op-detail-actions .op-share-button{box-sizing:border-box;width:100%}}

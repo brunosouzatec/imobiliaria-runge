@@ -51,7 +51,7 @@ test('home integra categorias ao mapa e aplica cores aos marcadores', () => {
   assert.match(styles, /home-map-section \.home-all-properties-card \{ grid-column:1; grid-row:4/);
   assert.match(styles, /home-map-section \.home-announce-card \{ grid-column:1; grid-row:5; margin-top:16px; \}/);
   assert.match(styles, /home-map-section \.home-announce-button \{ display:flex; justify-content:center/);
-  assert.match(index, /<script src="home-categories\.js"><\/script>/);
+  assert.match(index, /<script (?:defer )?src="home-categories\.js"><\/script>/);
 });
 
 test('popup do mapa evita repetir categoria/transação e destaca etiquetas, valor e ação', () => {
