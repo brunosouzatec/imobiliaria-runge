@@ -77,6 +77,12 @@
     const card = document.createElement('article');
     card.className = 'home-opportunity-card';
 
+    const detailsUrl = `oportunidade.html?id=${encodeURIComponent(item.id)}`;
+    const cardLink = document.createElement('a');
+    cardLink.className = 'home-opportunity-hit-area';
+    cardLink.href = detailsUrl;
+    cardLink.setAttribute('aria-label', `Ver detalhes da oportunidade: ${clean(item.titulo)}`);
+
     const title = document.createElement('h3');
     title.textContent = clean(item.titulo) || 'Imóvel procurado';
     const location = document.createElement('p');
@@ -104,13 +110,19 @@
     link.textContent = 'Tenho imóvel compatível';
     link.setAttribute('aria-label', `Tenho imóvel compatível com a oportunidade: ${clean(item.titulo)}`);
 
+    const details = document.createElement('a');
+    details.className = 'home-opportunity-details';
+    details.href = detailsUrl;
+    details.textContent = 'Ver detalhes';
+
     const actions = document.createElement('div');
     actions.className = 'home-opportunity-actions';
     const share = document.createElement('button');
     share.className = 'home-opportunity-share';
     share.type = 'button';
     share.setAttribute('aria-label', `Compartilhar oportunidade: ${clean(item.titulo)}`);
-    share.append(icon('share'), document.createTextNode('Compartilhar'));
+    share.title = 'Compartilhar oportunidade';
+    share.append(icon('share'));
     const shareStatus = document.createElement('span');
     shareStatus.className = 'home-opportunity-share-status';
     shareStatus.setAttribute('role', 'status');
@@ -121,9 +133,9 @@
       shareStatus.textContent = window.OpportunityShare?.messageFor(result) || 'Não foi possível compartilhar agora.';
       share.disabled = false;
     });
-    actions.append(link, share);
+    actions.append(link, details, share);
 
-    card.append(title, location, facts, actions, shareStatus);
+    card.append(cardLink, title, location, facts, actions, shareStatus);
     return card;
   }
 

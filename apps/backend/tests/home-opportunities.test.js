@@ -39,6 +39,18 @@ test('home opportunity cards present a concise location, key requirement and inv
   assert.match(home, /OpportunityShare\?\.contactLink\(item\)/);
   assert.match(home, /link\.target = '_blank'/);
   assert.match(home, /Compartilhar oportunidade/);
+  assert.match(home, /cardLink\.className = 'home-opportunity-hit-area'/);
+  assert.match(home, /cardLink\.href = detailsUrl/);
+  assert.match(home, /details\.className = 'home-opportunity-details'/);
+  assert.match(home, /details\.textContent = 'Ver detalhes'/);
+  assert.match(home, /share\.append\(icon\('share'\)\)/);
+  assert.doesNotMatch(home, /share\.textContent\s*=\s*['"]Compartilhar/);
+  assert.match(styles, /\.home-opportunity-hit-area \{ inset:0; position:absolute; z-index:1; \}/);
+  assert.match(styles, /\.home-opportunity-actions,\.home-opportunity-share-status \{ position:relative; z-index:2; \}/);
+  assert.match(styles, /\.home-opportunity-actions \{ display:grid; grid-template-columns:minmax\(0,1fr\) 46px; \}/);
+  assert.match(styles, /\.home-opportunity-actions \.home-opportunity-cta \{ grid-column:1\/-1; grid-row:1; \}/);
+  assert.match(styles, /\.home-opportunity-details \{[^}]*min-height:46px/);
+  assert.match(styles, /\.home-opportunity-share \{ flex:0 0 46px; font-size:0/);
   assert.match(home, /title\.textContent = clean\(item\.titulo\)/);
   assert.match(home, /detail\.textContent = value/);
   assert.doesNotMatch(home, /Oportunidade de compra/);

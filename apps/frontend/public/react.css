@@ -408,6 +408,23 @@ h1 { font:500 clamp(2.2rem,4vw,4.5rem)/.98 Georgia,serif; margin:0 0 22px; lette
 @media(max-width:520px) { .home-map-nearby { bottom:10px; gap:6px; left:10px; max-width:calc(100% - 20px); }.home-nearby-button { flex:1 1 auto; }.home-nearby-status { font-size:11px; }.home-map > span { bottom:72px; right:10px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
 
+/* Cards de oportunidade clicáveis com ações independentes e alinhadas. */
+.home-opportunity-card { isolation:isolate; position:relative; }
+.home-opportunity-hit-area { inset:0; position:absolute; z-index:1; }
+.home-opportunity-card > :not(.home-opportunity-hit-area):not(.home-opportunity-actions):not(.home-opportunity-share-status) { pointer-events:none; position:relative; z-index:0; }
+.home-opportunity-actions,.home-opportunity-share-status { position:relative; z-index:2; }
+.home-opportunity-actions { display:grid; grid-template-columns:minmax(0,1fr) 46px; }
+.home-opportunity-actions .home-opportunity-cta { grid-column:1/-1; grid-row:1; }
+.home-opportunity-actions .home-opportunity-details { grid-column:1; grid-row:2; }
+.home-opportunity-actions .home-opportunity-share { grid-column:2; grid-row:2; }
+.home-opportunity-share-status { pointer-events:none; }
+.home-opportunity-details { align-items:center; background:#fff; border:1px solid #cbdcd5; border-radius:8px; color:#176b64; display:inline-flex; flex:0 0 auto; font-size:13px; font-weight:700; justify-content:center; min-height:46px; padding:0 13px; text-align:center; text-decoration:none; transition:background .2s ease,border-color .2s ease; }
+.home-opportunity-details:hover { background:#edf6f1; border-color:#08716d; }
+.home-opportunity-share { flex:0 0 46px; font-size:0; gap:0; height:46px; padding:0; width:46px; }
+.home-opportunity-share .material-symbol-icon,.home-opportunity-share .home-opportunity-icon { flex:0 0 20px; height:20px; width:20px; }
+.home-opportunity-card a:focus-visible,.home-opportunity-card button:focus-visible { outline:3px solid #1769d2; outline-offset:2px; position:relative; z-index:3; }
+@media(max-width:560px) { .home-opportunity-share { width:46px; }.home-opportunity-share-status { margin-top:4px; } }
+
 /* Mantém os destinos principais acessíveis em telas estreitas. */
 @media (max-width:700px) {
   .react-nav { gap:16px; justify-content:flex-start; }
