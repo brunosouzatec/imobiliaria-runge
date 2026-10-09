@@ -57,3 +57,20 @@
 .op-detail-actions .op-share-button .material-symbol-icon{font-size:20px;height:22px;width:22px}
 .op-detail-actions .op-share-status{color:#17635b;flex-basis:100%;font-size:.82rem;min-height:18px}
 @media(max-width:620px){.home-opportunity-actions{flex-direction:column}.home-opportunity-share{width:100%}.op-card-footer{align-items:stretch;flex-direction:column}.op-card-footer .op-card-details,.op-card-footer .op-share-button,.op-card-footer .op-whatsapp{box-sizing:border-box;justify-content:center;width:100%}.op-detail-actions .op-detail-button,.op-detail-actions .op-share-button{box-sizing:border-box;width:100%}}
+
+/* O card inteiro funciona como atalho, preservando os controles da faixa de ações. */
+.op-card{isolation:isolate}
+.op-card-hit-area{inset:0;position:absolute;z-index:1}
+.op-card-header,.op-card-body,.op-card-meta{pointer-events:none;position:relative;z-index:0}
+.op-card::before{pointer-events:none;z-index:0}
+.op-card-footer{display:grid;gap:9px;grid-template-columns:minmax(0,1fr) 42px;margin-left:24px;margin-right:24px;position:relative;z-index:2}
+.op-card-footer .op-card-details,.op-card-footer .op-whatsapp{align-items:center;box-sizing:border-box;display:inline-flex;justify-content:center;min-height:42px;width:100%}
+.op-card-footer .op-card-details{background:#08716d;border:1px solid #08716d;border-radius:8px;color:#fff;padding:0 12px;transition:background .2s ease,border-color .2s ease}
+.op-card-footer .op-card-details:hover{background:#075c59;border-color:#075c59;color:#fff}
+.op-card-footer .op-share-button{box-sizing:border-box;height:42px;padding:0;width:42px}
+.op-card-footer .op-share-status{grid-column:1/-1;pointer-events:none}
+.op-card-footer .op-whatsapp{grid-column:1/-1}
+.op-card-hit-area:focus-visible{outline:3px solid #1769d2;outline-offset:-5px}
+@media(min-width:901px){.op-card-footer{align-content:center;grid-template-columns:minmax(0,1fr) 42px;margin:0}.op-card-footer .op-card-details{grid-column:1/-1}.op-card-footer .op-share-button{grid-column:1/-1;justify-self:center}.op-card-footer .op-whatsapp{grid-column:1/-1}}
+@media(max-width:620px){.op-card-footer{align-items:center;display:grid;grid-template-columns:minmax(0,1fr) 42px}.op-card-footer .op-card-details{grid-column:1}.op-card-footer .op-share-button{grid-column:2;grid-row:1}.op-card-footer .op-whatsapp,.op-card-footer .op-share-status{grid-column:1/-1}.op-card-footer .op-share-button{width:42px}}
+@media(max-width:760px){.op-grid{grid-template-columns:minmax(0,1fr)}}
